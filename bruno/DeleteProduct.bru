@@ -1,0 +1,21 @@
+meta {
+  name: DeleteProduct
+  type: http
+  seq: 6
+}
+
+delete {
+  url: http://localhost:8080/api/products/2
+  body: none
+  auth: inherit
+}
+
+body:json {
+  {
+    "id": 9,
+    "name": "Product2 new",
+    "description": "Product2 new description",
+    "price": 201,
+    "stock": 20  
+  }
+}
