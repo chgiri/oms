@@ -5,9 +5,11 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import java.math.BigDecimal;
-import java.util.Date;
+import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -26,7 +28,11 @@ public class Product {
     private int stock;
 
     @Column(name = "created_at")
-    private Date createdAt;
+    @CreationTimestamp
+    private LocalDateTime createdAt;
+
     @Column(name = "updated_at")
-    private Date updatedAt;
+    @UpdateTimestamp
+    private LocalDateTime updatedAt;
+
 }

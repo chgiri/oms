@@ -1,18 +1,19 @@
 package com.giri.oms.product.service;
 
-import com.giri.oms.product.dto.ProductDto;
+import com.giri.oms.product.dto.ProductRequest;
+import com.giri.oms.product.dto.ProductResponse;
 
 import java.util.List;
 
 public interface ProductService {
 
-    ProductDto createProduct(ProductDto productDto);
+    ProductResponse createProduct(ProductRequest request);
 
-    ProductDto getProductById(Long productId);
+    ProductResponse getProductById(Long productId);
 
-    List<ProductDto> getAllProducts();
+    List<ProductResponse> getAllProducts();
 
-    ProductDto updateProduct(Long productId, ProductDto productDto);
+    ProductResponse updateProduct(Long productId, ProductRequest request);
 
     void deleteProduct (Long productId);
 

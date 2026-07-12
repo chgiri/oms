@@ -1,68 +1,60 @@
 package com.giri.oms.product.service.impl;
 
-import com.giri.oms.product.dto.ProductDto;
+import com.giri.oms.product.dto.ProductRequest;
+import com.giri.oms.product.dto.ProductResponse;
 import com.giri.oms.product.entity.Product;
 import com.giri.oms.product.exception.ProductNotFoundException;
 import com.giri.oms.product.mapper.ProductMapper;
 import com.giri.oms.product.repository.ProductRepository;
 import com.giri.oms.product.service.ProductService;
-import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.util.Date;
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
-@AllArgsConstructor
+@RequiredArgsConstructor
 public class ProductServiceImpl implements ProductService {
 
-    private ProductRepository productRepository;
+    private final ProductRepository productRepository;
 
     @Override
-    public ProductDto createProduct(ProductDto productDto) {
-        productDto.setId(null);
-        productDto.setCreatedAt(new Date());
-        productDto.setUpdatedAt(new Date());
-        Product product = ProductMapper.mapToProduct(productDto);
+    public ProductResponse createProduct(ProductRequest request) {
+        Product product = ProductMapper.mapToProduct(request);
         Product savedProduct = productRepository.save(product);
-        return ProductMapper.mapToProductDto(savedProduct);
+        return ProductMapper.mapToProductResponse(savedProduct);
     }
 
     @Override
-    public ProductDto getProductById(Long productId) {
-        Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new ProductNotFoundException(productId));
-        return ProductMapper.mapToProductDto(product);
+    public ProductResponse getProductById(Long productId) {
+        return ProductMapper.mapToProductResponse(getExistingProduct(productId));
     }
 
     @Override
-    public List<ProductDto> getAllProducts() {
+    public List<ProductResponse> getAllProducts() {
         List<Product> products = productRepository.findAll();
-        return products.stream().map((product) -> ProductMapper.mapToProductDto(product))
+        return products.stream().map((product) -> ProductMapper.mapToProductResponse(product))
                 .collect(Collectors.toList());
     }
 
     @Override
-    public ProductDto updateProduct(Long productId, ProductDto productDto) {
-        Product product = productRepository.findById(productId).orElseThrow(
-                () -> new ProductNotFoundException(productId)
-        );
-
-        ProductMapper.mapToProduct(productDto, product);
-        product.setUpdatedAt(new Date());
+    public ProductResponse updateProduct(Long productId, ProductRequest request) {
+        Product product = getExistingProduct(productId);
+        ProductMapper.mapToProduct(request, product);
         Product updatedProduct = productRepository.save(product);
 
-        return ProductMapper.mapToProductDto(updatedProduct);
+        return ProductMapper.mapToProductResponse(updatedProduct);
     }
 
     @Override
     public void deleteProduct(Long productId) {
-        Product product = productRepository.findById(productId).orElseThrow(
-                () -> new ProductNotFoundException(productId)
-        );
-
+        getExistingProduct(productId);
         productRepository.deleteById(productId);
 
+    }
+
+    private Product getExistingProduct(Long productId) {
+        return productRepository.findById(productId).orElseThrow(() -> new ProductNotFoundException(productId));
     }
 }

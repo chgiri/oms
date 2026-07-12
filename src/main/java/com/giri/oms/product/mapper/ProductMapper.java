@@ -1,12 +1,13 @@
 package com.giri.oms.product.mapper;
 
-import com.giri.oms.product.dto.ProductDto;
+import com.giri.oms.product.dto.ProductRequest;
+import com.giri.oms.product.dto.ProductResponse;
 import com.giri.oms.product.entity.Product;
 
 public class ProductMapper {
 
-    public static ProductDto mapToProductDto(Product product) {
-        return new ProductDto(
+    public static ProductResponse mapToProductResponse(Product product) {
+        return new ProductResponse(
                 product.getId(),
                 product.getName(),
                 product.getDescription(),
@@ -17,23 +18,23 @@ public class ProductMapper {
         );
     }
 
-    public static Product mapToProduct(ProductDto productDto) {
+    public static Product mapToProduct(ProductRequest productRequest) {
         return new Product(
-                productDto.getId(),
-                productDto.getName(),
-                productDto.getDescription(),
-                productDto.getPrice(),
-                productDto.getStock(),
-                productDto.getCreatedAt(),
-                productDto.getUpdatedAt()
+                null,
+                productRequest.getName(),
+                productRequest.getDescription(),
+                productRequest.getPrice(),
+                productRequest.getStock(),
+                null,
+                null
         );
     }
 
-    public static void mapToProduct(ProductDto productDto, Product product) {
-        product.setName(productDto.getName());
-        product.setDescription(productDto.getDescription());
-        product.setPrice(productDto.getPrice());
-        product.setStock(productDto.getStock());
+    public static void mapToProduct(ProductRequest productRequest, Product product) {
+        product.setName(productRequest.getName());
+        product.setDescription(productRequest.getDescription());
+        product.setPrice(productRequest.getPrice());
+        product.setStock(productRequest.getStock());
     }
 
 
