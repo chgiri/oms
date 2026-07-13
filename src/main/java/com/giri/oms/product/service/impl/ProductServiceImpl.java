@@ -16,20 +16,22 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true) // class-level default: every method is read-only unless overridden below
 public class ProductServiceImpl implements ProductService {
 
     private final ProductRepository productRepository;
     private static final Set<String> ALLOWED_SORT_FIELDS =
             Set.of("id", "name", "price", "stock", "createdAt", "updatedAt");
-    private static final int MAX_PAGE_SIZE = 100;
 
     @Override
+    @Transactional // write operation — overrides the class-level readOnly default
     public ProductResponse createProduct(ProductRequest request) {
         Product product = ProductMapper.mapToProduct(request);
         Product savedProduct = productRepository.save(product);

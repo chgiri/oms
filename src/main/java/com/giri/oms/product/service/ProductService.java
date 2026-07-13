@@ -3,7 +3,6 @@ package com.giri.oms.product.service;
 import com.giri.oms.product.dto.PagedResponse;
 import com.giri.oms.product.dto.ProductRequest;
 import com.giri.oms.product.dto.ProductResponse;
-import com.giri.oms.product.entity.Product;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
