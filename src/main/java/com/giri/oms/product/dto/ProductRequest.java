@@ -1,5 +1,6 @@
 package com.giri.oms.product.dto;
 
+import com.giri.oms.product.constants.ProductConstants;
 import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -14,16 +15,16 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @NoArgsConstructor
 public class ProductRequest {
-    @NotBlank(message = "Name is required")
+    @NotBlank(message = ProductConstants.NAME_REQUIRED_MESSAGE)
     private String name;
     private String description;
 
-    @NotNull(message = "Price is required")
-    @Positive(message = "Price should be a positive number")
-    @Digits(integer = 5, fraction = 2, message = "Price must have up to 3 integer digits and 2 decimals")
+    @NotNull(message = ProductConstants.PRICE_REQUIRED_MESSAGE)
+    @Positive(message = ProductConstants.PRICE_POSITIVE_MESSAGE)
+    @Digits(integer = 3, fraction = 2, message = ProductConstants.PRICE_DIGITS_MESSAGE)
     private BigDecimal price;
 
-    @NotNull
-    @PositiveOrZero(message = "Stock should be zero or positive number")
+    @NotNull(message = ProductConstants.STOCK_REQUIRED_MESSAGE)
+    @PositiveOrZero(message = ProductConstants.STOCK_POSITIVE_OR_ZERO_MESSAGE)
     private Integer stock;
 }

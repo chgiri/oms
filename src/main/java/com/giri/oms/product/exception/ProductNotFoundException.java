@@ -1,5 +1,6 @@
 package com.giri.oms.product.exception;
 
+import com.giri.oms.product.constants.ProductConstants;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ResponseStatus;
 
@@ -7,7 +8,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 public class ProductNotFoundException extends RuntimeException {
 
     public ProductNotFoundException(Long id) {
-        super("Product not found with id: " + id);
+        super(String.format(ProductConstants.PRODUCT_NOT_FOUND_MESSAGE, id));
     }
 
 }

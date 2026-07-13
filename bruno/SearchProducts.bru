@@ -5,7 +5,7 @@ meta {
 }
 
 get {
-  url: http://localhost:8080/api/products/search?name=pro&minPrice=100&page=0&maxPrice=500&size=10&sort=price,desc
+  url: http://localhost:8080/api/products/search?name=pro&minPrice=100&page=0&maxPrice=500&size=10000&sort=price,desc
   body: none
   auth: inherit
 }
@@ -15,6 +15,6 @@ params:query {
   minPrice: 100
   page: 0
   maxPrice: 500
-  size: 10
+  size: 10000
   sort: price,desc
 }

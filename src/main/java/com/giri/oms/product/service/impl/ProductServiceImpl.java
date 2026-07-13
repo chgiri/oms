@@ -1,5 +1,6 @@
 package com.giri.oms.product.service.impl;
 
+import com.giri.oms.product.constants.ProductConstants;
 import com.giri.oms.product.dto.PagedResponse;
 import com.giri.oms.product.dto.ProductRequest;
 import com.giri.oms.product.dto.ProductResponse;
@@ -11,6 +12,7 @@ import com.giri.oms.product.repository.ProductRepository;
 import com.giri.oms.product.service.ProductService;
 import com.giri.oms.product.specification.ProductSpecification;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -21,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.util.Set;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true) // class-level default: every method is read-only unless overridden below
@@ -33,18 +36,24 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @Transactional // write operation — overrides the class-level readOnly default
     public ProductResponse createProduct(ProductRequest request) {
+        log.debug("Creating product with name: {}", request.getName());
+
         Product product = ProductMapper.mapToProduct(request);
         Product savedProduct = productRepository.save(product);
+
+        log.info(ProductConstants.PRODUCT_CREATED_LOG, savedProduct.getId());
         return ProductMapper.mapToProductResponse(savedProduct);
     }
 
     @Override
     public ProductResponse getProductById(Long productId) {
+        log.debug("Fetching product with id: {}", productId);
         return ProductMapper.mapToProductResponse(getExistingProduct(productId));
     }
 
     @Override
     public PagedResponse<ProductResponse> getAllProducts(int pageNo, int pageSize, String sortBy, String sortDir) {
+        log.debug("Fetching all products");
 
         validateSortField(sortBy);
 
@@ -69,18 +78,24 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public ProductResponse updateProduct(Long productId, ProductRequest request) {
+        log.debug("Updating product with id: {}", productId);
+
         Product product = getExistingProduct(productId);
         ProductMapper.mapToProduct(request, product);
         Product updatedProduct = productRepository.save(product);
 
+        log.info(ProductConstants.PRODUCT_UPDATED_LOG, updatedProduct.getId());
         return ProductMapper.mapToProductResponse(updatedProduct);
     }
 
     @Override
     public void deleteProduct(Long productId) {
+        log.debug("Deleting product with id: {}", productId);
+
         getExistingProduct(productId);
         productRepository.deleteById(productId);
 
+        log.info(ProductConstants.PRODUCT_DELETED_LOG, productId);
     }
 
     @Override
@@ -99,6 +114,11 @@ public class ProductServiceImpl implements ProductService {
     }
 
     private Product getExistingProduct(Long productId) {
-        return productRepository.findById(productId).orElseThrow(() -> new ProductNotFoundException(productId));
+        return productRepository.findById(productId)
+                .orElseThrow(() -> {
+                    log.warn("Product not found with id: {}", productId);
+                    return new ProductNotFoundException(productId);
+                });
     }
+
 }
