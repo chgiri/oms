@@ -4,6 +4,10 @@ import com.giri.oms.product.dto.PagedResponse;
 import com.giri.oms.product.dto.ProductRequest;
 import com.giri.oms.product.dto.ProductResponse;
 import com.giri.oms.product.service.ProductService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,12 +24,18 @@ import java.math.BigDecimal;
 @RestController
 @RequestMapping("/api/products")
 @RequiredArgsConstructor
+@Tag(name = "Products", description = "Product catalog management")
 public class ProductController {
 
     private final ProductService productService;
 
     // Build Add Product REST API
     @PostMapping
+    @Operation(summary = "Create a new product")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Product created"),
+            @ApiResponse(responseCode = "400", description = "Validation error")
+    })
     public ResponseEntity<ProductResponse> createProduct(@Valid @RequestBody ProductRequest productRequest) {
         log.info("POST /api/products — creating product: {}", productRequest.getName());
         ProductResponse savedProduct = productService.createProduct(productRequest);
@@ -34,6 +44,8 @@ public class ProductController {
 
     // Build Get Product REST API
     @GetMapping("{id}")
+    @Operation(summary = "Get a product by ID")
+    //@ApiResponse(responseCode = "404", description = "Product not found")
     public ResponseEntity<ProductResponse> getProductById(@PathVariable("id") Long productId) {
         log.debug("GET /api/products/{} — fetching product", productId);
         ProductResponse productResponse = productService.getProductById(productId);
@@ -42,6 +54,7 @@ public class ProductController {
 
     // Build Get All Products REST API
     @GetMapping
+    @Operation(summary = "Get all products (paginated)")
     public ResponseEntity<PagedResponse<ProductResponse>> getAllProducts(
             @RequestParam(value = "pageNo", defaultValue = "0") int pageNo,
             @RequestParam(value = "pageSize", defaultValue = "10") int pageSize,
@@ -55,6 +68,7 @@ public class ProductController {
 
     // Build Update Product REST API
     @PutMapping("{id}")
+    @Operation(summary = "Update a product")
     public ResponseEntity<ProductResponse> updateProduct(@PathVariable("id") Long id,
                                                          @Valid @RequestBody ProductRequest productRequest) {
 
@@ -65,6 +79,9 @@ public class ProductController {
 
     // Build Delete Product REST API
     @DeleteMapping("{id}")
+    @Operation(summary = "Delete a product")
+    @ApiResponse(responseCode = "204", description = "Product deleted")
+    @ApiResponse(responseCode = "404", description = "Product not found")
     public ResponseEntity<Void> deleteProduct(@PathVariable("id") Long productId) {
         log.info("DELETE /api/products/{} — deleting product", productId);
 
@@ -74,6 +91,7 @@ public class ProductController {
 
     // Build Search Products REST API - @Query (JPQL) approach
     @GetMapping("/search")
+    @Operation(summary = "Search products (JPQL query approach)")
     public ResponseEntity<Page<ProductResponse>> searchProducts(
             @RequestParam(required = false) String name,
             @RequestParam(required = false) BigDecimal minPrice,
@@ -91,6 +109,7 @@ public class ProductController {
 
     // Build Search Products REST API — JpaSpecificationExecutor approach
     @GetMapping("/search/advanced")
+    @Operation(summary = "Search products (JPA Specification approach)")
     public ResponseEntity<Page<ProductResponse>> searchProductsAdvanced(
             @RequestParam(required = false) String name,
             @RequestParam(required = false) BigDecimal minPrice,
