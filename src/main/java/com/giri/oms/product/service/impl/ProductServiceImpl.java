@@ -30,6 +30,8 @@ import java.util.Set;
 public class ProductServiceImpl implements ProductService {
 
     private final ProductRepository productRepository;
+    private final ProductMapper productMapper;
+
     private static final Set<String> ALLOWED_SORT_FIELDS =
             Set.of("id", "name", "price", "stock", "createdAt", "updatedAt");
 
@@ -38,17 +40,17 @@ public class ProductServiceImpl implements ProductService {
     public ProductResponse createProduct(ProductRequest request) {
         log.debug("Creating product with name: {}", request.getName());
 
-        Product product = ProductMapper.mapToProduct(request);
+        Product product = productMapper.mapToProduct(request);
         Product savedProduct = productRepository.save(product);
 
         log.info(ProductConstants.PRODUCT_CREATED_LOG, savedProduct.getId());
-        return ProductMapper.mapToProductResponse(savedProduct);
+        return productMapper.mapToProductResponse(savedProduct);
     }
 
     @Override
     public ProductResponse getProductById(Long productId) {
         log.debug("Fetching product with id: {}", productId);
-        return ProductMapper.mapToProductResponse(getExistingProduct(productId));
+        return productMapper.mapToProductResponse(getExistingProduct(productId));
     }
 
     @Override
@@ -65,7 +67,7 @@ public class ProductServiceImpl implements ProductService {
 
         Page<Product> productPage = productRepository.findAll(pageable);
 
-        Page<ProductResponse> responsePage = productPage.map(ProductMapper::mapToProductResponse);
+        Page<ProductResponse> responsePage = productPage.map(productMapper::mapToProductResponse);
 
         return PagedResponse.of(responsePage);
     }
@@ -82,11 +84,11 @@ public class ProductServiceImpl implements ProductService {
         log.debug("Updating product with id: {}", productId);
 
         Product product = getExistingProduct(productId);
-        ProductMapper.mapToProduct(request, product);
+        productMapper.mapToProduct(request, product);
         Product updatedProduct = productRepository.save(product);
 
         log.info(ProductConstants.PRODUCT_UPDATED_LOG, updatedProduct.getId());
-        return ProductMapper.mapToProductResponse(updatedProduct);
+        return productMapper.mapToProductResponse(updatedProduct);
     }
 
     @Override
@@ -104,7 +106,7 @@ public class ProductServiceImpl implements ProductService {
     public Page<ProductResponse> searchProducts(String name, BigDecimal minPrice, BigDecimal maxPrice,
                                                 boolean inStockOnly, Pageable pageable) {
         Page<Product> products = productRepository.searchProducts(name, minPrice, maxPrice, inStockOnly, pageable);
-        return products.map(ProductMapper::mapToProductResponse);
+        return products.map(productMapper::mapToProductResponse);
     }
 
     @Override
@@ -112,7 +114,7 @@ public class ProductServiceImpl implements ProductService {
                                                                boolean inStockOnly, Pageable pageable) {
         var spec = ProductSpecification.buildSearchSpec(name, minPrice, maxPrice, inStockOnly);
         Page<Product> products = productRepository.findAll(spec, pageable);
-        return products.map(ProductMapper::mapToProductResponse);
+        return products.map(productMapper::mapToProductResponse);
     }
 
     private Product getExistingProduct(Long productId) {

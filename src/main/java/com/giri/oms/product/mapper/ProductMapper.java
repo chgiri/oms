@@ -3,37 +3,22 @@ package com.giri.oms.product.mapper;
 import com.giri.oms.product.dto.ProductRequest;
 import com.giri.oms.product.dto.ProductResponse;
 import com.giri.oms.product.entity.Product;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+import org.mapstruct.MappingTarget;
 
-public class ProductMapper {
+@Mapper(componentModel = "spring")
+public interface ProductMapper {
 
-    public static ProductResponse mapToProductResponse(Product product) {
-        return new ProductResponse(
-                product.getId(),
-                product.getName(),
-                product.getDescription(),
-                product.getPrice(),
-                product.getStock(),
-                product.getCreatedAt(),
-                product.getUpdatedAt()
-        );
-    }
+    ProductResponse mapToProductResponse(Product product);
 
-    public static Product mapToProduct(ProductRequest productRequest) {
-        return new Product(
-                null,
-                productRequest.getName(),
-                productRequest.getDescription(),
-                productRequest.getPrice(),
-                productRequest.getStock()
-        );
-    }
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
+    Product mapToProduct(ProductRequest productRequest);
 
-    public static void mapToProduct(ProductRequest productRequest, Product product) {
-        product.setName(productRequest.getName());
-        product.setDescription(productRequest.getDescription());
-        product.setPrice(productRequest.getPrice());
-        product.setStock(productRequest.getStock());
-    }
-
-
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
+    void mapToProduct(ProductRequest productRequest, @MappingTarget Product product);
 }
