@@ -77,6 +77,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    @Transactional // write operation — overrides the class-level readOnly default
     public ProductResponse updateProduct(Long productId, ProductRequest request) {
         log.debug("Updating product with id: {}", productId);
 
@@ -89,6 +90,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    @Transactional // write operation — overrides the class-level readOnly default
     public void deleteProduct(Long productId) {
         log.debug("Deleting product with id: {}", productId);
 
