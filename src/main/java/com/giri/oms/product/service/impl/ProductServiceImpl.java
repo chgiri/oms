@@ -9,6 +9,7 @@ import com.giri.oms.product.exception.ProductNotFoundException;
 import com.giri.oms.product.mapper.ProductMapper;
 import com.giri.oms.product.repository.ProductRepository;
 import com.giri.oms.product.service.ProductService;
+import com.giri.oms.product.specification.ProductSpecification;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -16,9 +17,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
+import java.math.BigDecimal;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -79,6 +79,21 @@ public class ProductServiceImpl implements ProductService {
         getExistingProduct(productId);
         productRepository.deleteById(productId);
 
+    }
+
+    @Override
+    public Page<ProductResponse> searchProducts(String name, BigDecimal minPrice, BigDecimal maxPrice,
+                                                boolean inStockOnly, Pageable pageable) {
+        Page<Product> products = productRepository.searchProducts(name, minPrice, maxPrice, inStockOnly, pageable);
+        return products.map(ProductMapper::mapToProductResponse);
+    }
+
+    @Override
+    public Page<ProductResponse> searchProductsBySpecification(String name, BigDecimal minPrice, BigDecimal maxPrice,
+                                                               boolean inStockOnly, Pageable pageable) {
+        var spec = ProductSpecification.buildSearchSpec(name, minPrice, maxPrice, inStockOnly);
+        Page<Product> products = productRepository.findAll(spec, pageable);
+        return products.map(ProductMapper::mapToProductResponse);
     }
 
     private Product getExistingProduct(Long productId) {

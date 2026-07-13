@@ -1,7 +1,54 @@
 package com.giri.oms.product.repository;
 
 import com.giri.oms.product.entity.Product;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
-public interface ProductRepository extends JpaRepository<Product, Long> {
+import java.math.BigDecimal;
+import java.util.List;
+
+public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpecificationExecutor<Product> {
+
+    // Derived query methods — Spring parses the method name into SQL.
+    // Good for simple, single-condition lookups.
+
+    List<Product> findByNameContainingIgnoreCase(String name);
+
+    List<Product> findByStockLessThan(int threshold);
+
+    Page<Product> findByPriceBetween(BigDecimal minPrice, BigDecimal maxPrice, Pageable pageable);
+
+    boolean existsByNameIgnoreCase(String name);
+
+    // JPQL @Query — for anything derived-method-names can't express cleanly,
+    // e.g. combining multiple optional filters in one query.
+
+    @Query("""
+            SELECT p FROM Product p
+            WHERE (:name IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', :name, '%')))
+                AND (:minPrice IS NULL OR p.price >= :minPrice)
+                AND (:maxPrice IS NULL OR p.price <= :maxPrice)
+                AND (:inStockOnly = FALSE OR p.stock > 0)
+            """)
+    Page<Product> searchProducts(
+            @Param("name") String name,
+            @Param("minPrice") BigDecimal minPrice,
+            @Param("maxPrice") BigDecimal maxPrice,
+            @Param("inStockOnly") boolean inStockOnly,
+            Pageable pageable
+    );
+
+    // Native query — for DB-specific features JPQL can't express
+    // (full-text search, DB functions, etc.). Use sparingly — ties you to one DB vendor.
+    @Query(value = """
+            SELECT * FROM products p
+            WHERE to_tsvector('english', p.name || ' ' || coalesce(p.description, ''))
+                @@ plainto_tsquery('english', :keyword)
+            """, nativeQuery = true)
+    List<Product> fullTextSearch(@Param("keyword") String keyword);
+
 }

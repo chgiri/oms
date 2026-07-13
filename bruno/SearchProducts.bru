@@ -1,0 +1,20 @@
+meta {
+  name: SearchProducts
+  type: http
+  seq: 7
+}
+
+get {
+  url: http://localhost:8080/api/products/search?name=pro&minPrice=100&page=0&maxPrice=500&size=10&sort=price,desc
+  body: none
+  auth: inherit
+}
+
+params:query {
+  name: pro
+  minPrice: 100
+  page: 0
+  maxPrice: 500
+  size: 10
+  sort: price,desc
+}

@@ -11,7 +11,9 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 @RestControllerAdvice
@@ -31,12 +33,13 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, Object>> handleValidationExceptions(MethodArgumentNotValidException ex) {
-        Map<String, String> errors = new LinkedHashMap<>();
+        Map<String, List<String>> errors = new LinkedHashMap<>();
 
         ex.getBindingResult().getAllErrors().forEach(error -> {
             String fieldName = ((FieldError) error).getField();
             String errorMessage = error.getDefaultMessage();
-            errors.put(fieldName, errorMessage);
+            errors.computeIfAbsent(fieldName, k -> new ArrayList<>())
+                    .add(errorMessage);
         });
 
         Map<String, Object> respose = new LinkedHashMap<>();

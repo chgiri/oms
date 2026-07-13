@@ -1,9 +1,6 @@
 package com.giri.oms.product.dto;
 
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
-import jakarta.validation.constraints.PositiveOrZero;
+import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -21,10 +18,12 @@ public class ProductRequest {
     private String name;
     private String description;
 
-    @Positive(message = "Price should be a positive number")
     @NotNull(message = "Price is required")
+    @Positive(message = "Price should be a positive number")
+    @Digits(integer = 5, fraction = 2, message = "Price must have up to 3 integer digits and 2 decimals")
     private BigDecimal price;
 
+    @NotNull
     @PositiveOrZero(message = "Stock should be zero or positive number")
-    private int stock;
+    private Integer stock;
 }

@@ -6,11 +6,14 @@ import com.giri.oms.product.dto.ProductResponse;
 import com.giri.oms.product.service.ProductService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
+import java.math.BigDecimal;
 
 @RestController
 @RequestMapping("/api/products")
@@ -57,6 +60,33 @@ public class ProductController {
     public ResponseEntity<Void> deleteProduct(@PathVariable("id") Long productId) {
         productService.deleteProduct(productId);
         return ResponseEntity.noContent().build();
+    }
+
+    // Build Search Products REST API - @Query (JPQL) approach
+    @GetMapping("/search")
+    public ResponseEntity<Page<ProductResponse>> searchProducts(
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) BigDecimal minPrice,
+            @RequestParam(required = false) BigDecimal maxPrice,
+            @RequestParam(defaultValue = "false") boolean inStockOnly,
+            @PageableDefault(size = 10, sort ="name") Pageable pageable
+            ) {
+        Page<ProductResponse> results = productService.searchProducts(name, minPrice, maxPrice, inStockOnly, pageable);
+        return ResponseEntity.ok(results);
+    }
+
+    // Build Search Products REST API — JpaSpecificationExecutor approach
+    @GetMapping("/search/advanced")
+    public ResponseEntity<Page<ProductResponse>> searchProductsAdvanced(
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) BigDecimal minPrice,
+            @RequestParam(required = false) BigDecimal maxPrice,
+            @RequestParam(defaultValue = "false") boolean inStockOnly,
+            @PageableDefault(size = 10, sort = "name") Pageable pageable
+    ) {
+        Page<ProductResponse> results = productService.searchProductsBySpecification(
+                name, minPrice, maxPrice, inStockOnly, pageable);
+        return ResponseEntity.ok(results);
     }
 
 }
