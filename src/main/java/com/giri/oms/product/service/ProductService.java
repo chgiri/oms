@@ -1,9 +1,8 @@
 package com.giri.oms.product.service;
 
+import com.giri.oms.product.dto.PagedResponse;
 import com.giri.oms.product.dto.ProductRequest;
 import com.giri.oms.product.dto.ProductResponse;
-
-import java.util.List;
 
 public interface ProductService {
 
@@ -11,7 +10,7 @@ public interface ProductService {
 
     ProductResponse getProductById(Long productId);
 
-    List<ProductResponse> getAllProducts();
+    PagedResponse<ProductResponse> getAllProducts(int pageNo, int pageSize, String sortBy, String sortDir);
 
     ProductResponse updateProduct(Long productId, ProductRequest request);
 

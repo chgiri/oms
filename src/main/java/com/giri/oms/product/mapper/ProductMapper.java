@@ -24,9 +24,7 @@ public class ProductMapper {
                 productRequest.getName(),
                 productRequest.getDescription(),
                 productRequest.getPrice(),
-                productRequest.getStock(),
-                null,
-                null
+                productRequest.getStock()
         );
     }
 

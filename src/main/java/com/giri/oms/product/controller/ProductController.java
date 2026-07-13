@@ -1,5 +1,6 @@
 package com.giri.oms.product.controller;
 
+import com.giri.oms.product.dto.PagedResponse;
 import com.giri.oms.product.dto.ProductRequest;
 import com.giri.oms.product.dto.ProductResponse;
 import com.giri.oms.product.service.ProductService;
@@ -34,9 +35,14 @@ public class ProductController {
 
     // Build Get All Products REST API
     @GetMapping
-    public ResponseEntity<List<ProductResponse>> getAllProducts() {
-        List<ProductResponse> products = productService.getAllProducts();
-        return ResponseEntity.ok(products);
+    public ResponseEntity<PagedResponse<ProductResponse>> getAllProducts(
+            @RequestParam(value = "pageNo", defaultValue = "0") int pageNo,
+            @RequestParam(value = "pageSize", defaultValue = "10") int pageSize,
+            @RequestParam(value = "sortBy", defaultValue = "id") String sortBy,
+            @RequestParam(value = "sortDir", defaultValue = "asc") String sortDir) {
+
+        PagedResponse<ProductResponse> response = productService.getAllProducts(pageNo, pageSize, sortBy, sortDir);
+        return ResponseEntity.ok(response);
     }
 
     // Build Update Product REST API

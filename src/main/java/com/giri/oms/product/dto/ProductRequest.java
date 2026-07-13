@@ -17,14 +17,14 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @NoArgsConstructor
 public class ProductRequest {
-    @NotBlank
+    @NotBlank(message = "Name is required")
     private String name;
     private String description;
 
-    @NotNull
-    @Positive
+    @Positive(message = "Price should be a positive number")
+    @NotNull(message = "Price is required")
     private BigDecimal price;
 
-    @PositiveOrZero
+    @PositiveOrZero(message = "Stock should be zero or positive number")
     private int stock;
 }
