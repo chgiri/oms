@@ -21,7 +21,7 @@ public final class ProductConstants {
     public static final String NAME_REQUIRED_MESSAGE = "Product name must not be blank";
     public static final String PRICE_REQUIRED_MESSAGE = "Product price must not be null";
     public static final String PRICE_POSITIVE_MESSAGE = "Product price must be greater than zero";
-    public static final String PRICE_DIGITS_MESSAGE = "Price must have up to 3 integer digits and 2 decimals";
+    public static final String PRICE_DIGITS_MESSAGE = "Price must have up to 5 integer digits and 2 decimals";
     public static final String STOCK_REQUIRED_MESSAGE = "Product stock must not be null";
     public static final String STOCK_POSITIVE_OR_ZERO_MESSAGE = "Product stock must not be negative";
 

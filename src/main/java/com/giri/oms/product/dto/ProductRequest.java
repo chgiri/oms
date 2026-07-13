@@ -21,7 +21,7 @@ public class ProductRequest {
 
     @NotNull(message = ProductConstants.PRICE_REQUIRED_MESSAGE)
     @Positive(message = ProductConstants.PRICE_POSITIVE_MESSAGE)
-    @Digits(integer = 3, fraction = 2, message = ProductConstants.PRICE_DIGITS_MESSAGE)
+    @Digits(integer = 5, fraction = 2, message = ProductConstants.PRICE_DIGITS_MESSAGE)
     private BigDecimal price;
 
     @NotNull(message = ProductConstants.STOCK_REQUIRED_MESSAGE)
