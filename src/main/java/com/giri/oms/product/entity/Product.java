@@ -1,5 +1,6 @@
 package com.giri.oms.product.entity;
 
+import com.giri.oms.common.entity.BaseEntity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;

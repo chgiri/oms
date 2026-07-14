@@ -1,6 +1,6 @@
 package com.giri.oms.product.service;
 
-import com.giri.oms.product.dto.PagedResponse;
+import com.giri.oms.common.dto.PagedResponse;
 import com.giri.oms.product.dto.ProductRequest;
 import com.giri.oms.product.dto.ProductResponse;
 import org.springframework.data.domain.Page;

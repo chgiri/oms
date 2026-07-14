@@ -1,4 +1,4 @@
-package com.giri.oms.product.entity;
+package com.giri.oms.common.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.MappedSuperclass;

@@ -1,4 +1,4 @@
-package com.giri.oms.product.dto;
+package com.giri.oms.common.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;

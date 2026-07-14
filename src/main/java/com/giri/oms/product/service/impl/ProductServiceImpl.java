@@ -1,11 +1,11 @@
 package com.giri.oms.product.service.impl;
 
+import com.giri.oms.common.dto.PagedResponse;
 import com.giri.oms.product.constants.ProductConstants;
-import com.giri.oms.product.dto.PagedResponse;
 import com.giri.oms.product.dto.ProductRequest;
 import com.giri.oms.product.dto.ProductResponse;
 import com.giri.oms.product.entity.Product;
-import com.giri.oms.product.exception.InvalidSortFieldException;
+import com.giri.oms.common.exception.InvalidSortFieldException;
 import com.giri.oms.product.exception.ProductNotFoundException;
 import com.giri.oms.product.mapper.ProductMapper;
 import com.giri.oms.product.repository.ProductRepository;

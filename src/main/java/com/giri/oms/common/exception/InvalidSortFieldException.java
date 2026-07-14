@@ -1,4 +1,4 @@
-package com.giri.oms.product.exception;
+package com.giri.oms.common.exception;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ResponseStatus;

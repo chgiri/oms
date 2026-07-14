@@ -1,7 +1,7 @@
 package com.giri.oms.product.controller;
 
+import com.giri.oms.common.dto.PagedResponse;
 import tools.jackson.databind.json.JsonMapper;
-import com.giri.oms.product.dto.PagedResponse;
 import com.giri.oms.product.dto.ProductRequest;
 import com.giri.oms.product.dto.ProductResponse;
 import com.giri.oms.product.exception.ProductNotFoundException;
