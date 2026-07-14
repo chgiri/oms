@@ -33,7 +33,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.*;
 
 /**
- * Pure (Mockito) unit tests — no Spring context, no DB. Repository and mapper are mocked
+ * Pure unit tests — no Spring context, no DB. Repository and mapper are mocked
  * so these run in milliseconds and only exercise ProductServiceImpl's own logic.
  */
 @ExtendWith(MockitoExtension.class)
