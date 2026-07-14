@@ -59,7 +59,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(InvalidSortFieldException.class)
     public ResponseEntity<ErrorResponse> handleInvalidSortField(InvalidSortFieldException ex, HttpServletRequest request) {
-        log.error("Unhandled exception — path: {}", request.getRequestURI(), ex);
+        log.warn("Invalid sort field — path: {}, message: {}", request.getRequestURI(), ex.getMessage());
 
         ErrorResponse response = new ErrorResponse(
           LocalDateTime.now(),

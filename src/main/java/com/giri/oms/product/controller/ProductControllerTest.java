@@ -1,0 +1,221 @@
+package com.giri.oms.product.controller;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.giri.oms.product.dto.PagedResponse;
+import com.giri.oms.product.dto.ProductRequest;
+import com.giri.oms.product.dto.ProductResponse;
+import com.giri.oms.product.exception.ProductNotFoundException;
+import com.giri.oms.product.service.ProductService;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
+
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+/**
+ * @WebMvcTest loads only the web layer (this controller + @ControllerAdvice
+ * classes, auto-detected — no explicit @Import needed) — the service is
+ * mocked, so this verifies HTTP status codes, JSON shape, Bean Validation
+ * triggering, and exception-handler wiring, without touching the DB or
+ * business logic.
+ */
+@WebMvcTest(ProductController.class)
+class ProductControllerTest {
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @MockitoBean
+    private ProductService productService;
+
+    private ProductResponse productResponse;
+    private ProductRequest validRequest;
+
+    @BeforeEach
+    void setUp() {
+        productResponse = new ProductResponse(
+                1L, "Wireless Mouse", "Ergonomic wireless mouse",
+                new BigDecimal("25.99"), 50, LocalDateTime.now(), LocalDateTime.now());
+
+        validRequest = new ProductRequest();
+        validRequest.setName("Wireless Mouse");
+        validRequest.setDescription("Ergonomic wireless mouse");
+        validRequest.setPrice(new BigDecimal("25.99"));
+        validRequest.setStock(50);
+    }
+
+    @Nested
+    class CreateProduct {
+
+        @Test
+        void returns201AndBody_whenRequestIsValid() throws Exception {
+            when(productService.createProduct(any())).thenReturn(productResponse);
+
+            mockMvc.perform(post("/api/products")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(validRequest)))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.id").value(1))
+                    .andExpect(jsonPath("$.name").value("Wireless Mouse"));
+        }
+
+        @Test
+        void returns400_whenNameIsBlank() throws Exception {
+            validRequest.setName("");
+
+            mockMvc.perform(post("/api/products")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(validRequest)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errors.name").exists());
+        }
+
+        @Test
+        void returns400_whenStockIsMissing() throws Exception {
+            validRequest.setStock(null);
+
+            mockMvc.perform(post("/api/products")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(validRequest)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errors.stock").exists());
+        }
+
+        @Test
+        void returns400_whenPriceIsNegative() throws Exception {
+            validRequest.setPrice(new BigDecimal("-5.00"));
+
+            mockMvc.perform(post("/api/products")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(validRequest)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errors.price").exists());
+        }
+    }
+
+    @Nested
+    class GetProductById {
+
+        @Test
+        void returns200AndBody_whenProductExists() throws Exception {
+            when(productService.getProductById(1L)).thenReturn(productResponse);
+
+            mockMvc.perform(get("/api/products/{id}", 1L))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.name").value("Wireless Mouse"));
+        }
+
+        @Test
+        void returns404_whenProductDoesNotExist() throws Exception {
+            when(productService.getProductById(99L)).thenThrow(new ProductNotFoundException(99L));
+
+            mockMvc.perform(get("/api/products/{id}", 99L))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.status").value(404))
+                    .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("99")));
+        }
+    }
+
+    @Nested
+    class GetAllProducts {
+
+        @Test
+        void returns200AndPagedResponse() throws Exception {
+            PagedResponse<ProductResponse> paged = new PagedResponse<>(
+                    List.of(productResponse), 0, 10, 1, 1, true);
+            when(productService.getAllProducts(0, 10, "id", "asc")).thenReturn(paged);
+
+            mockMvc.perform(get("/api/products"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.content[0].name").value("Wireless Mouse"))
+                    .andExpect(jsonPath("$.totalElements").value(1));
+        }
+    }
+
+    @Nested
+    class UpdateProduct {
+
+        @Test
+        void returns200_whenRequestIsValid() throws Exception {
+            when(productService.updateProduct(eq(1L), any())).thenReturn(productResponse);
+
+            mockMvc.perform(put("/api/products/{id}", 1L)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(validRequest)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.name").value("Wireless Mouse"));
+        }
+
+        @Test
+        void returns404_whenProductDoesNotExist() throws Exception {
+            when(productService.updateProduct(eq(99L), any())).thenThrow(new ProductNotFoundException(99L));
+
+            mockMvc.perform(put("/api/products/{id}", 99L)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(validRequest)))
+                    .andExpect(status().isNotFound());
+        }
+
+        @Test
+        void returns400_whenRequestFailsValidation() throws Exception {
+            validRequest.setName(null);
+
+            mockMvc.perform(put("/api/products/{id}", 1L)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(validRequest)))
+                    .andExpect(status().isBadRequest());
+        }
+    }
+
+    @Nested
+    class DeleteProduct {
+
+        @Test
+        void returns204_whenProductIsDeleted() throws Exception {
+            mockMvc.perform(delete("/api/products/{id}", 1L))
+                    .andExpect(status().isNoContent());
+        }
+
+        @Test
+        void returns404_whenProductDoesNotExist() throws Exception {
+            org.mockito.Mockito.doThrow(new ProductNotFoundException(99L))
+                    .when(productService).deleteProduct(99L);
+
+            mockMvc.perform(delete("/api/products/{id}", 99L))
+                    .andExpect(status().isNotFound());
+        }
+    }
+
+    @Nested
+    class SearchProducts {
+
+        @Test
+        void returns200AndFiltersByQueryParams() throws Exception {
+            Page<ProductResponse> page = new PageImpl<>(List.of(productResponse), PageRequest.of(0, 10), 1);
+            when(productService.searchProducts(eq("mouse"), any(), any(), eq(false), any()))
+                    .thenReturn(page);
+
+            mockMvc.perform(get("/api/products/search").param("name", "mouse"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.content[0].name").value("Wireless Mouse"));
+        }
+    }
+}
