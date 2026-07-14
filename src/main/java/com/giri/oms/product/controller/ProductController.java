@@ -5,6 +5,10 @@ import com.giri.oms.product.dto.ProductRequest;
 import com.giri.oms.product.dto.ProductResponse;
 import com.giri.oms.product.service.ProductService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -15,6 +19,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -31,10 +36,23 @@ public class ProductController {
 
     // Build Add Product REST API
     @PostMapping
-    @Operation(summary = "Create a new product")
+    @Operation(summary = "Create a new product",
+            description = "Creates a new product in the catalog and returns the saved record, including its generated ID and timestamps.")
     @ApiResponses({
-            @ApiResponse(responseCode = "201", description = "Product created"),
-            @ApiResponse(responseCode = "400", description = "Validation error")
+            @ApiResponse(responseCode = "201", description = "Product created",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            examples = @ExampleObject(name = "Created product", value = """
+                                    {
+                                      "id": 1,
+                                      "name": "Wireless Mouse",
+                                      "description": "Ergonomic wireless mouse with USB receiver",
+                                      "price": 29.99,
+                                      "stock": 50,
+                                      "createdAt": "2026-07-01T10:15:30",
+                                      "updatedAt": "2026-07-01T10:15:30"
+                                    }
+                                    """))),
+            @ApiResponse(responseCode = "400", description = "Validation error — e.g. blank name, negative price, missing stock")
     })
     public ResponseEntity<ProductResponse> createProduct(@Valid @RequestBody ProductRequest productRequest) {
         log.info("POST /api/products — creating product: {}", productRequest.getName());
@@ -45,8 +63,13 @@ public class ProductController {
     // Build Get Product REST API
     @GetMapping("{id}")
     @Operation(summary = "Get a product by ID")
-    //@ApiResponse(responseCode = "404", description = "Product not found")
-    public ResponseEntity<ProductResponse> getProductById(@PathVariable("id") Long productId) {
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Product found"),
+            @ApiResponse(responseCode = "404", description = "No product exists with the given ID")
+    })
+    public ResponseEntity<ProductResponse> getProductById(
+            @Parameter(description = "ID of the product to fetch", example = "1")
+            @PathVariable("id") Long productId) {
         log.debug("GET /api/products/{} — fetching product", productId);
         ProductResponse productResponse = productService.getProductById(productId);
         return ResponseEntity.ok(productResponse);
@@ -54,11 +77,21 @@ public class ProductController {
 
     // Build Get All Products REST API
     @GetMapping
-    @Operation(summary = "Get all products (paginated)")
+    @Operation(summary = "Get all products (paginated)",
+            description = "Returns products page by page. `sortBy` is restricted to an allow-list "
+                    + "(id, name, price, stock, createdAt, updatedAt) — any other value returns a 400.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Page of products returned"),
+            @ApiResponse(responseCode = "400", description = "Invalid sortBy field")
+    })
     public ResponseEntity<PagedResponse<ProductResponse>> getAllProducts(
+            @Parameter(description = "Page number, 0-indexed", example = "0")
             @RequestParam(value = "pageNo", defaultValue = "0") int pageNo,
+            @Parameter(description = "Number of items per page (capped server-side)", example = "10")
             @RequestParam(value = "pageSize", defaultValue = "10") int pageSize,
+            @Parameter(description = "Field to sort by — id, name, price, stock, createdAt, or updatedAt", example = "id")
             @RequestParam(value = "sortBy", defaultValue = "id") String sortBy,
+            @Parameter(description = "Sort direction", schema = @Schema(allowableValues = {"asc", "desc"}))
             @RequestParam(value = "sortDir", defaultValue = "asc") String sortDir) {
 
         log.debug("GET /api/products — fetching all products");
@@ -68,9 +101,17 @@ public class ProductController {
 
     // Build Update Product REST API
     @PutMapping("{id}")
-    @Operation(summary = "Update a product")
-    public ResponseEntity<ProductResponse> updateProduct(@PathVariable("id") Long id,
-                                                         @Valid @RequestBody ProductRequest productRequest) {
+    @Operation(summary = "Update a product",
+            description = "Fully replaces the product's name, description, price, and stock. All fields are re-validated as on create.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Product updated"),
+            @ApiResponse(responseCode = "400", description = "Validation error"),
+            @ApiResponse(responseCode = "404", description = "No product exists with the given ID")
+    })
+    public ResponseEntity<ProductResponse> updateProduct(
+            @Parameter(description = "ID of the product to update", example = "1")
+            @PathVariable("id") Long id,
+            @Valid @RequestBody ProductRequest productRequest) {
 
         log.info("PUT /api/products/{} — updating product", id);
         ProductResponse updatedProduct = productService.updateProduct(id, productRequest);
@@ -80,9 +121,13 @@ public class ProductController {
     // Build Delete Product REST API
     @DeleteMapping("{id}")
     @Operation(summary = "Delete a product")
-    @ApiResponse(responseCode = "204", description = "Product deleted")
-    @ApiResponse(responseCode = "404", description = "Product not found")
-    public ResponseEntity<Void> deleteProduct(@PathVariable("id") Long productId) {
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Product deleted"),
+            @ApiResponse(responseCode = "404", description = "No product exists with the given ID")
+    })
+    public ResponseEntity<Void> deleteProduct(
+            @Parameter(description = "ID of the product to delete", example = "1")
+            @PathVariable("id") Long productId) {
         log.info("DELETE /api/products/{} — deleting product", productId);
 
         productService.deleteProduct(productId);
@@ -91,14 +136,21 @@ public class ProductController {
 
     // Build Search Products REST API - @Query (JPQL) approach
     @GetMapping("/search")
-    @Operation(summary = "Search products (JPQL query approach)")
+    @Operation(summary = "Search products (JPQL query approach)",
+            description = "Filters by any combination of name (partial match), price range, and stock availability. "
+                    + "All filters are optional — omitting all of them returns every product, paginated. "
+                    + "Functionally equivalent to /search/advanced; this variant is implemented with a hand-written JPQL @Query.")
     public ResponseEntity<Page<ProductResponse>> searchProducts(
+            @Parameter(description = "Partial, case-insensitive match on product name", example = "mouse")
             @RequestParam(required = false) String name,
+            @Parameter(description = "Minimum price (inclusive)", example = "10.00")
             @RequestParam(required = false) BigDecimal minPrice,
+            @Parameter(description = "Maximum price (inclusive)", example = "100.00")
             @RequestParam(required = false) BigDecimal maxPrice,
+            @Parameter(description = "If true, excludes products with zero stock")
             @RequestParam(defaultValue = "false") boolean inStockOnly,
             @PageableDefault(size = 10, sort ="name") Pageable pageable
-            ) {
+    ) {
 
         log.debug("GET /api/products/search — name={}, minPrice={}, maxPrice={}, inStockOnly={}, page={}, size={}",
                 name, minPrice, maxPrice, inStockOnly, pageable.getPageNumber(), pageable.getPageSize());
@@ -109,11 +161,17 @@ public class ProductController {
 
     // Build Search Products REST API — JpaSpecificationExecutor approach
     @GetMapping("/search/advanced")
-    @Operation(summary = "Search products (JPA Specification approach)")
+    @Operation(summary = "Search products (JPA Specification approach)",
+            description = "Same filters and behavior as /search, implemented with JpaSpecificationExecutor instead of JPQL. "
+                    + "Kept alongside /search for comparison — see project docs for which is preferred going forward.")
     public ResponseEntity<Page<ProductResponse>> searchProductsAdvanced(
+            @Parameter(description = "Partial, case-insensitive match on product name", example = "mouse")
             @RequestParam(required = false) String name,
+            @Parameter(description = "Minimum price (inclusive)", example = "10.00")
             @RequestParam(required = false) BigDecimal minPrice,
+            @Parameter(description = "Maximum price (inclusive)", example = "100.00")
             @RequestParam(required = false) BigDecimal maxPrice,
+            @Parameter(description = "If true, excludes products with zero stock")
             @RequestParam(defaultValue = "false") boolean inStockOnly,
             @PageableDefault(size = 10, sort = "name") Pageable pageable
     ) {

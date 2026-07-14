@@ -1,6 +1,7 @@
 package com.giri.oms.product.dto;
 
 import com.giri.oms.product.constants.ProductConstants;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -14,16 +15,24 @@ import java.time.LocalDateTime;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
+@Schema(description = "Request payload for creating or updating a product")
 public class ProductRequest {
+
+    @Schema(description = "Product name", example = "Wireless Mouse", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotBlank(message = ProductConstants.NAME_REQUIRED_MESSAGE)
     private String name;
+
+    @Schema(description = "Optional product description", example = "Ergonomic wireless mouse with USB receiver")
     private String description;
 
+    @Schema(description = "Unit price in USD, up to 5 integer digits and 2 decimal places",
+            example = "29.99", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotNull(message = ProductConstants.PRICE_REQUIRED_MESSAGE)
     @Positive(message = ProductConstants.PRICE_POSITIVE_MESSAGE)
     @Digits(integer = 5, fraction = 2, message = ProductConstants.PRICE_DIGITS_MESSAGE)
     private BigDecimal price;
 
+    @Schema(description = "Units currently in stock (0 or more)", example = "50", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotNull(message = ProductConstants.STOCK_REQUIRED_MESSAGE)
     @PositiveOrZero(message = ProductConstants.STOCK_POSITIVE_OR_ZERO_MESSAGE)
     private Integer stock;
