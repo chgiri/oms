@@ -1,0 +1,26 @@
+meta {
+  name: UpdateCustomer
+  type: http
+  seq: 2
+}
+
+put {
+  url: http://localhost:8080/api/customers/1
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "firstName": "Alice",
+    "lastName": "Johnson-Smith",
+    "email": "alice.js@example.com",
+    "phone": "+1 555-0199",
+    "street": "456 Oak Ave",
+    "city": "Springfield",
+    "state": "IL",
+    "postalCode": "62704",
+    "country": "USA",
+    "status": "ACTIVE"
+  }
+}

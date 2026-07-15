@@ -1,0 +1,26 @@
+meta {
+  name: CreateCustomer
+  type: http
+  seq: 2
+}
+
+post {
+  url: http://localhost:8080/api/customers
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "firstName": "Alice",
+    "lastName": "Johnson",
+    "email": "alice@example.com",
+    "phone": "+1 555-0100",
+    "street": "123 Main St",
+    "city": "Springfield",
+    "state": "IL",
+    "postalCode": "62701",
+    "country": "USA",
+    "status": "ACTIVE"
+  }
+}

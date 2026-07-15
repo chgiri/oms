@@ -1,0 +1,16 @@
+meta {
+  name: GetAllCustomers
+  type: http
+  seq: 2
+}
+
+get {
+  url: http://localhost:8080/api/customers?pageNo=0&sortBy=firstName
+  body: none
+  auth: inherit
+}
+
+params:query {
+  pageNo: 0
+  sortBy: firstName
+}
