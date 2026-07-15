@@ -42,10 +42,11 @@ public interface CustomerRepository extends JpaRepository<Customer, Long>, JpaSp
     // Native query — Postgres-specific full-text search across name and email.
     // Use sparingly — ties you to one DB vendor.
     @Query(value = """
-            SELECT * FROM customers c
-            WHERE to_tsvector('english', c.first_name || ' ' || c.last_name || ' ' || c.email)
-                @@ plainto_tsquery('english', :keyword)
-            """, nativeQuery = true)
+        SELECT * FROM customers c
+        WHERE to_tsvector('english',
+                c.first_name || ' ' || c.last_name || ' ' ||
+                regexp_replace(c.email, '[^a-zA-Z0-9]+', ' ', 'g'))
+            @@ plainto_tsquery('english', :keyword)
+        """, nativeQuery = true)
     List<Customer> fullTextSearch(@Param("keyword") String keyword);
-
 }

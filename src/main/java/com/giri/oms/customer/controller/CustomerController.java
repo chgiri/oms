@@ -111,11 +111,13 @@ public class CustomerController {
     @PutMapping("{id}")
     @Operation(summary = "Update a customer",
             description = "Fully replaces the customer's name, email, phone, address, and status. "
-                    + "All fields are re-validated as on create.")
+                    + "All fields are re-validated as on create. "
+                    + "Changing the email to one already used by another customer returns a 409.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Customer updated"),
             @ApiResponse(responseCode = "400", description = "Validation error"),
-            @ApiResponse(responseCode = "404", description = "No customer exists with the given ID")
+            @ApiResponse(responseCode = "404", description = "No customer exists with the given ID"),
+            @ApiResponse(responseCode = "409", description = "Another customer already uses this email")
     })
     public ResponseEntity<CustomerResponse> updateCustomer(
             @Parameter(description = "ID of the customer to update", example = "1")

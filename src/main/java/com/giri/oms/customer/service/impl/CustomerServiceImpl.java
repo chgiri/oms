@@ -35,7 +35,7 @@ public class CustomerServiceImpl implements CustomerService {
     private final CustomerMapper customerMapper;
 
     private static final Set<String> ALLOWED_SORT_FIELDS =
-            Set.of("id", "firstName", "lastName", "email", "createdAt", "updatedAt");
+            Set.of("id", "firstName", "lastName", "email", "status", "createdAt", "updatedAt");
 
     @Override
     @Transactional // write operation — overrides the class-level readOnly default
