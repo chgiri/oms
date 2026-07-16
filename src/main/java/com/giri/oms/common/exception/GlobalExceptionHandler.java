@@ -6,6 +6,8 @@ import com.giri.oms.inventory.exception.InventoryAlreadyExistsException;
 import com.giri.oms.inventory.exception.InventoryNotFoundException;
 import com.giri.oms.order.exception.IllegalOrderStateException;
 import com.giri.oms.order.exception.OrderNotFoundException;
+import com.giri.oms.payment.exception.IllegalPaymentStateException;
+import com.giri.oms.payment.exception.PaymentNotFoundException;
 import com.giri.oms.product.exception.ProductNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
@@ -113,6 +115,34 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalOrderStateException.class)
     public ResponseEntity<ErrorResponse> handleIllegalOrderState(IllegalOrderStateException ex, HttpServletRequest request) {
         log.warn("Illegal order state transition — path: {}, message: {}", request.getRequestURI(), ex.getMessage());
+
+        ErrorResponse response = new ErrorResponse(
+                LocalDateTime.now(),
+                HttpStatus.CONFLICT.value(),
+                HttpStatus.CONFLICT.getReasonPhrase(),
+                ex.getMessage(),
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
+
+    @ExceptionHandler(PaymentNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handlePaymentNotFound(PaymentNotFoundException ex, HttpServletRequest request) {
+        log.warn("Payment not found — path: {}, message: {}", request.getRequestURI(), ex.getMessage());
+
+        ErrorResponse response = new ErrorResponse(
+                LocalDateTime.now(),
+                HttpStatus.NOT_FOUND.value(),
+                HttpStatus.NOT_FOUND.getReasonPhrase(),
+                ex.getMessage(),
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
+    @ExceptionHandler(IllegalPaymentStateException.class)
+    public ResponseEntity<ErrorResponse> handleIllegalPaymentState(IllegalPaymentStateException ex, HttpServletRequest request) {
+        log.warn("Illegal payment state transition — path: {}, message: {}", request.getRequestURI(), ex.getMessage());
 
         ErrorResponse response = new ErrorResponse(
                 LocalDateTime.now(),

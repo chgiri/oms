@@ -1,0 +1,18 @@
+meta {
+  name: UpdatePaymentStatus
+  type: http
+  seq: 4
+}
+
+patch {
+  url: http://localhost:8080/api/payments/1/status
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "status": "COMPLETED",
+    "transactionReference": "txn_9f8c3d2a"
+  }
+}

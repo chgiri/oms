@@ -1,0 +1,21 @@
+meta {
+  name: SearchPayments
+  type: http
+  seq: 6
+}
+
+get {
+  url: http://localhost:8080/api/payments/search?orderId=1&minAmount=50&maxAmount=500&page=0&size=10&sort=id,desc&status=PENDING
+  body: none
+  auth: inherit
+}
+
+params:query {
+  orderId: 1
+  minAmount: 50
+  maxAmount: 500
+  page: 0
+  size: 10
+  sort: id,desc
+  status: PENDING
+}
