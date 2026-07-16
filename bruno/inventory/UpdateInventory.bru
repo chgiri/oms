@@ -1,0 +1,21 @@
+meta {
+  name: UpdateInventory
+  type: http
+  seq: 4
+}
+
+put {
+  url: http://localhost:8080/api/inventory/1
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "productId": 1,
+    "location": "WH-EAST-01",
+    "quantityAvailable": 150,
+    "quantityReserved": 20,
+    "reorderLevel": 25
+  }
+}

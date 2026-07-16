@@ -1,0 +1,21 @@
+meta {
+  name: CreateInventory
+  type: http
+  seq: 1
+}
+
+post {
+  url: http://localhost:8080/api/inventory
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "productId": 1,
+    "location": "WH-EAST-01",
+    "quantityAvailable": 120,
+    "quantityReserved": 15,
+    "reorderLevel": 20
+  }
+}

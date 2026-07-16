@@ -1,0 +1,20 @@
+meta {
+  name: SearchInventory
+  type: http
+  seq: 6
+}
+
+get {
+  url: http://localhost:8080/api/inventory/search?productId=1&location=east&lowStockOnly=false&page=0&size=10&sort=location,asc
+  body: none
+  auth: inherit
+}
+
+params:query {
+  productId: 1
+  location: east
+  lowStockOnly: false
+  page: 0
+  size: 10
+  sort: location,asc
+}
