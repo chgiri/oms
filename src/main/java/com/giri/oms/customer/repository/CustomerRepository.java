@@ -40,13 +40,19 @@ public interface CustomerRepository extends JpaRepository<Customer, Long>, JpaSp
     );
 
     // Native query — Postgres-specific full-text search across name and email.
+    // regexp_replace strips non-alphanumeric characters (., @, etc.) from the email
+    // before tokenizing — otherwise Postgres's parser treats an email address as one
+    // atomic token (its "email" token type) rather than splitting it into words, so
+    // a search for a word that's merely part of an email (e.g. "archive" within
+    // "alan.turing@archive.org") would never match without this normalization.
     // Use sparingly — ties you to one DB vendor.
     @Query(value = """
-        SELECT * FROM customers c
-        WHERE to_tsvector('english',
-                c.first_name || ' ' || c.last_name || ' ' ||
-                regexp_replace(c.email, '[^a-zA-Z0-9]+', ' ', 'g'))
-            @@ plainto_tsquery('english', :keyword)
-        """, nativeQuery = true)
+            SELECT * FROM customers c
+            WHERE to_tsvector('english',
+                    c.first_name || ' ' || c.last_name || ' ' ||
+                    regexp_replace(c.email, '[^a-zA-Z0-9]+', ' ', 'g'))
+                @@ plainto_tsquery('english', :keyword)
+            """, nativeQuery = true)
     List<Customer> fullTextSearch(@Param("keyword") String keyword);
+
 }

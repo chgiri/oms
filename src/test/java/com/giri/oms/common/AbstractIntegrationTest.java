@@ -33,7 +33,6 @@ public abstract class AbstractIntegrationTest {
     static {
         POSTGRES = new PostgreSQLContainer<>(DockerImageName.parse("postgres:16-alpine"));
         POSTGRES.start();
-        System.out.println(POSTGRES.getMappedPort(5432));
     }
 
     @DynamicPropertySource
