@@ -1,0 +1,20 @@
+meta {
+  name: SearchShipments
+  type: http
+  seq: 6
+}
+
+get {
+  url: http://localhost:8080/api/shipments/search?orderId=1&status=PENDING&carrier=UPS&page=0&size=10&sort=id,desc
+  body: none
+  auth: inherit
+}
+
+params:query {
+  orderId: 1
+  status: PENDING
+  carrier: UPS
+  page: 0
+  size: 10
+  sort: id,desc
+}

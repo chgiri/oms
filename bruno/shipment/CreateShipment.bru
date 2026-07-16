@@ -1,0 +1,18 @@
+meta {
+  name: CreateShipment
+  type: http
+  seq: 1
+}
+
+post {
+  url: http://localhost:8080/api/shipments
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "orderId": 1,
+    "carrier": "UPS"
+  }
+}

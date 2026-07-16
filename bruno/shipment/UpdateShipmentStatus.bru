@@ -1,0 +1,18 @@
+meta {
+  name: UpdateShipmentStatus
+  type: http
+  seq: 4
+}
+
+patch {
+  url: http://localhost:8080/api/shipments/1/status
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "status": "SHIPPED",
+    "trackingNumber": "1Z999AA10123456784"
+  }
+}

@@ -9,6 +9,8 @@ import com.giri.oms.order.exception.OrderNotFoundException;
 import com.giri.oms.payment.exception.IllegalPaymentStateException;
 import com.giri.oms.payment.exception.PaymentNotFoundException;
 import com.giri.oms.product.exception.ProductNotFoundException;
+import com.giri.oms.shipment.exception.IllegalShipmentStateException;
+import com.giri.oms.shipment.exception.ShipmentNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -143,6 +145,34 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalPaymentStateException.class)
     public ResponseEntity<ErrorResponse> handleIllegalPaymentState(IllegalPaymentStateException ex, HttpServletRequest request) {
         log.warn("Illegal payment state transition — path: {}, message: {}", request.getRequestURI(), ex.getMessage());
+
+        ErrorResponse response = new ErrorResponse(
+                LocalDateTime.now(),
+                HttpStatus.CONFLICT.value(),
+                HttpStatus.CONFLICT.getReasonPhrase(),
+                ex.getMessage(),
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
+
+    @ExceptionHandler(ShipmentNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleShipmentNotFound(ShipmentNotFoundException ex, HttpServletRequest request) {
+        log.warn("Shipment not found — path: {}, message: {}", request.getRequestURI(), ex.getMessage());
+
+        ErrorResponse response = new ErrorResponse(
+                LocalDateTime.now(),
+                HttpStatus.NOT_FOUND.value(),
+                HttpStatus.NOT_FOUND.getReasonPhrase(),
+                ex.getMessage(),
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
+    @ExceptionHandler(IllegalShipmentStateException.class)
+    public ResponseEntity<ErrorResponse> handleIllegalShipmentState(IllegalShipmentStateException ex, HttpServletRequest request) {
+        log.warn("Illegal shipment state transition — path: {}, message: {}", request.getRequestURI(), ex.getMessage());
 
         ErrorResponse response = new ErrorResponse(
                 LocalDateTime.now(),
