@@ -90,7 +90,6 @@ class OrderServiceImplTest {
         product.setId(1L);
         product.setName("Wireless Mouse");
         product.setPrice(new BigDecimal("25.99"));
-        product.setStock(50);
 
         OrderItem orderItem = new OrderItem();
         orderItem.setId(1L);

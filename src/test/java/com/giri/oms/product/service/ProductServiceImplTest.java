@@ -59,7 +59,6 @@ class ProductServiceImplTest {
         product.setName("Wireless Mouse");
         product.setDescription("Ergonomic wireless mouse");
         product.setPrice(new BigDecimal("25.99"));
-        product.setStock(50);
         product.setCreatedAt(LocalDateTime.now());
         product.setUpdatedAt(LocalDateTime.now());
 
@@ -67,11 +66,10 @@ class ProductServiceImplTest {
         productRequest.setName("Wireless Mouse");
         productRequest.setDescription("Ergonomic wireless mouse");
         productRequest.setPrice(new BigDecimal("25.99"));
-        productRequest.setStock(50);
 
         productResponse = new ProductResponse(
                 1L, "Wireless Mouse", "Ergonomic wireless mouse",
-                new BigDecimal("25.99"), 50, LocalDateTime.now(), LocalDateTime.now());
+                new BigDecimal("25.99"), LocalDateTime.now(), LocalDateTime.now());
     }
 
     @Nested
@@ -210,11 +208,11 @@ class ProductServiceImplTest {
             Page<Product> productPage = new PageImpl<>(List.of(product));
             Pageable pageable = PageRequest.of(0, 10);
 
-            when(productRepository.searchProducts("mouse", null, null, false, pageable))
+            when(productRepository.searchProducts("mouse", null, null, pageable))
                     .thenReturn(productPage);
             when(productMapper.mapToProductResponse(product)).thenReturn(productResponse);
 
-            Page<ProductResponse> result = productService.searchProducts("mouse", null, null, false, pageable);
+            Page<ProductResponse> result = productService.searchProducts("mouse", null, null, pageable);
 
             assertThat(result.getContent()).containsExactly(productResponse);
         }

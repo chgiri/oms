@@ -62,7 +62,7 @@ class PaymentRepositoryTest extends AbstractIntegrationTest {
         productRepository.deleteAll();
 
         Customer ada = customerRepository.save(customer("Ada", "Lovelace", "ada@example.com"));
-        Product mouse = productRepository.save(product("Wireless Mouse", "25.99", 200));
+        Product mouse = productRepository.save(product("Wireless Mouse", "25.99"));
 
         order1 = orderRepository.save(order(ada, "77.97", mouse, 3));
         order2 = orderRepository.save(order(ada, "25.99", mouse, 1));
@@ -81,11 +81,10 @@ class PaymentRepositoryTest extends AbstractIntegrationTest {
         return customer;
     }
 
-    private Product product(String name, String price, int stock) {
+    private Product product(String name, String price) {
         Product product = new Product();
         product.setName(name);
         product.setPrice(new BigDecimal(price));
-        product.setStock(stock);
         return product;
     }
 

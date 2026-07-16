@@ -35,17 +35,16 @@ class ProductRepositoryTest extends AbstractIntegrationTest {
     void setUp() {
         productRepository.deleteAll();
 
-        productRepository.save(product("Wireless Mouse", "Ergonomic wireless mouse", "25.99", 50));
-        productRepository.save(product("Mechanical Keyboard", "RGB backlit mechanical keyboard", "89.99", 0));
-        productRepository.save(product("USB-C Hub", "7-in-1 USB-C hub with HDMI", "45.50", 15));
+        productRepository.save(product("Wireless Mouse", "Ergonomic wireless mouse", "25.99"));
+        productRepository.save(product("Mechanical Keyboard", "RGB backlit mechanical keyboard", "89.99"));
+        productRepository.save(product("USB-C Hub", "7-in-1 USB-C hub with HDMI", "45.50"));
     }
 
-    private Product product(String name, String description, String price, int stock) {
+    private Product product(String name, String description, String price) {
         Product product = new Product();
         product.setName(name);
         product.setDescription(description);
         product.setPrice(new BigDecimal(price));
-        product.setStock(stock);
         return product;
     }
 
@@ -58,15 +57,6 @@ class ProductRepositoryTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void findByStockLessThan_returnsOnlyLowStockProducts() {
-        List<Product> results = productRepository.findByStockLessThan(20);
-
-        assertThat(results)
-                .extracting(Product::getName)
-                .containsExactlyInAnyOrder("Mechanical Keyboard", "USB-C Hub");
-    }
-
-    @Test
     void existsByNameIgnoreCase_trueWhenNameMatches() {
         assertThat(productRepository.existsByNameIgnoreCase("wireless mouse")).isTrue();
         assertThat(productRepository.existsByNameIgnoreCase("Nonexistent Product")).isFalse();
@@ -75,26 +65,16 @@ class ProductRepositoryTest extends AbstractIntegrationTest {
     @Test
     void searchProducts_filtersOnAllProvidedCriteria() {
         Page<Product> results = productRepository.searchProducts(
-                "USB", null, new BigDecimal("50.00"), true, PageRequest.of(0, 10));
+                "USB", null, new BigDecimal("50.00"), PageRequest.of(0, 10));
 
         assertThat(results.getContent()).hasSize(1);
         assertThat(results.getContent().get(0).getName()).isEqualTo("USB-C Hub");
     }
 
     @Test
-    void searchProducts_withInStockOnlyTrue_excludesZeroStockProducts() {
-        Page<Product> results = productRepository.searchProducts(
-                null, null, null, true, PageRequest.of(0, 10));
-
-        assertThat(results.getContent())
-                .extracting(Product::getName)
-                .doesNotContain("Mechanical Keyboard"); // stock = 0
-    }
-
-    @Test
     void searchProducts_withAllNullFilters_returnsEverything() {
         Page<Product> results = productRepository.searchProducts(
-                null, null, null, false, PageRequest.of(0, 10));
+                null, null, null, PageRequest.of(0, 10));
 
         assertThat(results.getTotalElements()).isEqualTo(3);
     }

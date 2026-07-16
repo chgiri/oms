@@ -29,6 +29,4 @@ public class Product extends BaseEntity {
 
     @Column(nullable = false, precision = 7, scale = 2)
     private BigDecimal price;
-
-    private int stock;
 }

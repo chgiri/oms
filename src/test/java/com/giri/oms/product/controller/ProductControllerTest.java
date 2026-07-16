@@ -53,13 +53,12 @@ class ProductControllerTest {
     void setUp() {
         productResponse = new ProductResponse(
                 1L, "Wireless Mouse", "Ergonomic wireless mouse",
-                new BigDecimal("25.99"), 50, LocalDateTime.now(), LocalDateTime.now());
+                new BigDecimal("25.99"), LocalDateTime.now(), LocalDateTime.now());
 
         validRequest = new ProductRequest();
         validRequest.setName("Wireless Mouse");
         validRequest.setDescription("Ergonomic wireless mouse");
         validRequest.setPrice(new BigDecimal("25.99"));
-        validRequest.setStock(50);
     }
 
     @Nested
@@ -86,17 +85,6 @@ class ProductControllerTest {
                             .content(objectMapper.writeValueAsString(validRequest)))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.errors.name").exists());
-        }
-
-        @Test
-        void returns400_whenStockIsMissing() throws Exception {
-            validRequest.setStock(null);
-
-            mockMvc.perform(post("/api/products")
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(validRequest)))
-                    .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.errors.stock").exists());
         }
 
         @Test
@@ -210,7 +198,7 @@ class ProductControllerTest {
         @Test
         void returns200AndFiltersByQueryParams() throws Exception {
             Page<ProductResponse> page = new PageImpl<>(List.of(productResponse), PageRequest.of(0, 10), 1);
-            when(productService.searchProducts(eq("mouse"), any(), any(), eq(false), any()))
+            when(productService.searchProducts(eq("mouse"), any(), any(), any()))
                     .thenReturn(page);
 
             mockMvc.perform(get("/api/products/search").param("name", "mouse"))

@@ -34,11 +34,6 @@ public class ProductSpecification {
                 maxPrice == null ? null : cb.lessThanOrEqualTo(root.get("price"), maxPrice);
     }
 
-    public static Specification<Product> isInStock(boolean inStockOnly) {
-        return (root, query, cb) ->
-                !inStockOnly ? null : cb.greaterThan(root.get("stock"), 0);
-    }
-
     public static Specification<Product> createdAfter(java.time.LocalDateTime date) {
         return (root, query, cb) ->
                 date == null ? null : cb.greaterThanOrEqualTo(root.get("createdAt"), date);
@@ -49,11 +44,10 @@ public class ProductSpecification {
      * a null Specification as a no-op condition automatically).
      */
     public static Specification<Product> buildSearchSpec(String name, BigDecimal minPrice,
-                                                         BigDecimal maxPrice, boolean inStockOnly) {
+                                                         BigDecimal maxPrice) {
         return Specification.where(hasName(name))
                 .and(hasMinPrice(minPrice))
-                .and(hasMaxPrice(maxPrice))
-                .and(isInStock(inStockOnly));
+                .and(hasMaxPrice(maxPrice));
     }
 
     /**
@@ -62,7 +56,7 @@ public class ProductSpecification {
      * entry point instead of several small static methods.
      */
     public static Specification<Product> searchProducts(String name, BigDecimal minPrice,
-                                                        BigDecimal maxPrice, boolean inStockOnly) {
+                                                        BigDecimal maxPrice) {
         return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
 
@@ -74,9 +68,6 @@ public class ProductSpecification {
             }
             if (maxPrice != null) {
                 predicates.add(cb.lessThanOrEqualTo(root.get("price"), maxPrice));
-            }
-            if (inStockOnly) {
-                predicates.add(cb.greaterThan(root.get("stock"), 0));
             }
 
             return cb.and(predicates.toArray(new Predicate[0]));

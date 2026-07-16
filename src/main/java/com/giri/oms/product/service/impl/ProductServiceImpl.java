@@ -33,7 +33,7 @@ public class ProductServiceImpl implements ProductService {
     private final ProductMapper productMapper;
 
     private static final Set<String> ALLOWED_SORT_FIELDS =
-            Set.of("id", "name", "price", "stock", "createdAt", "updatedAt");
+            Set.of("id", "name", "price", "createdAt", "updatedAt");
 
     @Override
     @Transactional // write operation — overrides the class-level readOnly default
@@ -103,16 +103,14 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public Page<ProductResponse> searchProducts(String name, BigDecimal minPrice, BigDecimal maxPrice,
-                                                boolean inStockOnly, Pageable pageable) {
-        Page<Product> products = productRepository.searchProducts(name, minPrice, maxPrice, inStockOnly, pageable);
+    public Page<ProductResponse> searchProducts(String name, BigDecimal minPrice, BigDecimal maxPrice, Pageable pageable) {
+        Page<Product> products = productRepository.searchProducts(name, minPrice, maxPrice, pageable);
         return products.map(productMapper::mapToProductResponse);
     }
 
     @Override
-    public Page<ProductResponse> searchProductsBySpecification(String name, BigDecimal minPrice, BigDecimal maxPrice,
-                                                               boolean inStockOnly, Pageable pageable) {
-        var spec = ProductSpecification.buildSearchSpec(name, minPrice, maxPrice, inStockOnly);
+    public Page<ProductResponse> searchProductsBySpecification(String name, BigDecimal minPrice, BigDecimal maxPrice, Pageable pageable) {
+        var spec = ProductSpecification.buildSearchSpec(name, minPrice, maxPrice);
         Page<Product> products = productRepository.findAll(spec, pageable);
         return products.map(productMapper::mapToProductResponse);
     }

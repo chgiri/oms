@@ -47,19 +47,18 @@ class InventoryRepositoryTest extends AbstractIntegrationTest {
         inventoryRepository.deleteAll();
         productRepository.deleteAll();
 
-        mouse = productRepository.save(product("Wireless Mouse", "25.99", 200));
-        keyboard = productRepository.save(product("Mechanical Keyboard", "89.99", 40));
+        mouse = productRepository.save(product("Wireless Mouse", "25.99"));
+        keyboard = productRepository.save(product("Mechanical Keyboard", "89.99"));
 
         inventoryRepository.save(inventory(mouse, "WH-EAST-01", 120, 15, 20));   // healthy stock
         inventoryRepository.save(inventory(mouse, "WH-WEST-02", 5, 0, 20));      // low stock (available <= reorder)
         inventoryRepository.save(inventory(keyboard, "WH-EAST-01", 40, 5, 10));  // healthy stock
     }
 
-    private Product product(String name, String price, int stock) {
+    private Product product(String name, String price) {
         Product product = new Product();
         product.setName(name);
         product.setPrice(new BigDecimal(price));
-        product.setStock(stock);
         return product;
     }
 

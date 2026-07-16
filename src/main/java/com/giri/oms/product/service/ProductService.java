@@ -20,9 +20,8 @@ public interface ProductService {
 
     void deleteProduct (Long productId);
 
-    Page<ProductResponse> searchProducts(String name, BigDecimal minPrice, BigDecimal maxPrice, boolean inStockOnly, Pageable pageable);
+    Page<ProductResponse> searchProducts(String name, BigDecimal minPrice, BigDecimal maxPrice, Pageable pageable);
 
-    Page<ProductResponse> searchProductsBySpecification(String name, BigDecimal minPrice, BigDecimal maxPrice,
-                                                        boolean inStockOnly, Pageable pageable);
+    Page<ProductResponse> searchProductsBySpecification(String name, BigDecimal minPrice, BigDecimal maxPrice, Pageable pageable);
 
 }

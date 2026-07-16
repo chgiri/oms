@@ -47,12 +47,11 @@ public class ProductController {
                                       "name": "Wireless Mouse",
                                       "description": "Ergonomic wireless mouse with USB receiver",
                                       "price": 29.99,
-                                      "stock": 50,
                                       "createdAt": "2026-07-01T10:15:30",
                                       "updatedAt": "2026-07-01T10:15:30"
                                     }
                                     """))),
-            @ApiResponse(responseCode = "400", description = "Validation error — e.g. blank name, negative price, missing stock")
+            @ApiResponse(responseCode = "400", description = "Validation error — e.g. blank name, negative price")
     })
     public ResponseEntity<ProductResponse> createProduct(@Valid @RequestBody ProductRequest productRequest) {
         log.info("POST /api/products — creating product: {}", productRequest.getName());
@@ -79,7 +78,7 @@ public class ProductController {
     @GetMapping
     @Operation(summary = "Get all products (paginated)",
             description = "Returns products page by page. `sortBy` is restricted to an allow-list "
-                    + "(id, name, price, stock, createdAt, updatedAt) — any other value returns a 400.")
+                    + "(id, name, price, createdAt, updatedAt) — any other value returns a 400.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Page of products returned"),
             @ApiResponse(responseCode = "400", description = "Invalid sortBy field")
@@ -89,7 +88,7 @@ public class ProductController {
             @RequestParam(value = "pageNo", defaultValue = "0") int pageNo,
             @Parameter(description = "Number of items per page (capped server-side)", example = "10")
             @RequestParam(value = "pageSize", defaultValue = "10") int pageSize,
-            @Parameter(description = "Field to sort by — id, name, price, stock, createdAt, or updatedAt", example = "id")
+            @Parameter(description = "Field to sort by — id, name, price, createdAt, or updatedAt", example = "id")
             @RequestParam(value = "sortBy", defaultValue = "id") String sortBy,
             @Parameter(description = "Sort direction", schema = @Schema(allowableValues = {"asc", "desc"}))
             @RequestParam(value = "sortDir", defaultValue = "asc") String sortDir) {
@@ -102,7 +101,7 @@ public class ProductController {
     // Build Update Product REST API
     @PutMapping("{id}")
     @Operation(summary = "Update a product",
-            description = "Fully replaces the product's name, description, price, and stock. All fields are re-validated as on create.")
+            description = "Fully replaces the product's name, description, and price. All fields are re-validated as on create.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Product updated"),
             @ApiResponse(responseCode = "400", description = "Validation error"),
@@ -137,7 +136,7 @@ public class ProductController {
     // Build Search Products REST API - @Query (JPQL) approach
     @GetMapping("/search")
     @Operation(summary = "Search products (JPQL query approach)",
-            description = "Filters by any combination of name (partial match), price range, and stock availability. "
+            description = "Filters by any combination of name (partial match) and price range. "
                     + "All filters are optional — omitting all of them returns every product, paginated. "
                     + "Functionally equivalent to /search/advanced; this variant is implemented with a hand-written JPQL @Query.")
     public ResponseEntity<Page<ProductResponse>> searchProducts(
@@ -147,15 +146,13 @@ public class ProductController {
             @RequestParam(required = false) BigDecimal minPrice,
             @Parameter(description = "Maximum price (inclusive)", example = "100.00")
             @RequestParam(required = false) BigDecimal maxPrice,
-            @Parameter(description = "If true, excludes products with zero stock")
-            @RequestParam(defaultValue = "false") boolean inStockOnly,
             @PageableDefault(size = 10, sort ="name") Pageable pageable
     ) {
 
-        log.debug("GET /api/products/search — name={}, minPrice={}, maxPrice={}, inStockOnly={}, page={}, size={}",
-                name, minPrice, maxPrice, inStockOnly, pageable.getPageNumber(), pageable.getPageSize());
+        log.debug("GET /api/products/search — name={}, minPrice={}, maxPrice={}, page={}, size={}",
+                name, minPrice, maxPrice, pageable.getPageNumber(), pageable.getPageSize());
 
-        Page<ProductResponse> results = productService.searchProducts(name, minPrice, maxPrice, inStockOnly, pageable);
+        Page<ProductResponse> results = productService.searchProducts(name, minPrice, maxPrice, pageable);
         return ResponseEntity.ok(results);
     }
 
@@ -171,15 +168,12 @@ public class ProductController {
             @RequestParam(required = false) BigDecimal minPrice,
             @Parameter(description = "Maximum price (inclusive)", example = "100.00")
             @RequestParam(required = false) BigDecimal maxPrice,
-            @Parameter(description = "If true, excludes products with zero stock")
-            @RequestParam(defaultValue = "false") boolean inStockOnly,
             @PageableDefault(size = 10, sort = "name") Pageable pageable
     ) {
-        Page<ProductResponse> results = productService.searchProductsBySpecification(
-                name, minPrice, maxPrice, inStockOnly, pageable);
+        Page<ProductResponse> results = productService.searchProductsBySpecification(name, minPrice, maxPrice, pageable);
 
-        log.debug("GET /api/products/search/advanced — name={}, minPrice={}, maxPrice={}, inStockOnly={}, page={}, size={}",
-                name, minPrice, maxPrice, inStockOnly, pageable.getPageNumber(), pageable.getPageSize());
+        log.debug("GET /api/products/search/advanced — name={}, minPrice={}, maxPrice={}, page={}, size={}",
+                name, minPrice, maxPrice, pageable.getPageNumber(), pageable.getPageSize());
 
         return ResponseEntity.ok(results);
     }

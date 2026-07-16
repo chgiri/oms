@@ -70,7 +70,6 @@ class InventoryServiceImplTest {
         product.setId(1L);
         product.setName("Wireless Mouse");
         product.setPrice(new BigDecimal("25.99"));
-        product.setStock(50);
 
         inventory = new Inventory();
         inventory.setId(1L);

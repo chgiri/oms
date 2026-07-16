@@ -31,9 +31,4 @@ public class ProductRequest {
     @Positive(message = ProductConstants.PRICE_POSITIVE_MESSAGE)
     @Digits(integer = 5, fraction = 2, message = ProductConstants.PRICE_DIGITS_MESSAGE)
     private BigDecimal price;
-
-    @Schema(description = "Units currently in stock (0 or more)", example = "50", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotNull(message = ProductConstants.STOCK_REQUIRED_MESSAGE)
-    @PositiveOrZero(message = ProductConstants.STOCK_POSITIVE_OR_ZERO_MESSAGE)
-    private Integer stock;
 }

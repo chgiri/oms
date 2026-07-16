@@ -28,9 +28,6 @@ public class ProductResponse {
     @Schema(description = "Unit price in USD", example = "29.99")
     private BigDecimal price;
 
-    @Schema(description = "Units currently in stock", example = "50")
-    private int stock;
-
     @Schema(description = "Timestamp the product was created", example = "2026-07-01T10:15:30")
     private LocalDateTime createdAt;
 

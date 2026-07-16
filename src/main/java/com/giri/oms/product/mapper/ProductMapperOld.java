@@ -13,7 +13,6 @@ public class ProductMapperOld {
                 product.getName(),
                 product.getDescription(),
                 product.getPrice(),
-                product.getStock(),
                 product.getCreatedAt(),
                 product.getUpdatedAt()
         );
@@ -24,8 +23,7 @@ public class ProductMapperOld {
                 null,
                 productRequest.getName(),
                 productRequest.getDescription(),
-                productRequest.getPrice(),
-                productRequest.getStock()
+                productRequest.getPrice()
         );
     }
 
@@ -33,7 +31,6 @@ public class ProductMapperOld {
         product.setName(productRequest.getName());
         product.setDescription(productRequest.getDescription());
         product.setPrice(productRequest.getPrice());
-        product.setStock(productRequest.getStock());
     }
 
 

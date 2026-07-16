@@ -56,7 +56,7 @@ class OrderRepositoryTest extends AbstractIntegrationTest {
 
         ada = customerRepository.save(customer("Ada", "Lovelace", "ada@example.com"));
         alan = customerRepository.save(customer("Alan", "Turing", "alan@example.com"));
-        mouse = productRepository.save(product("Wireless Mouse", "25.99", 200));
+        mouse = productRepository.save(product("Wireless Mouse", "25.99"));
 
         orderRepository.save(order(ada, OrderStatus.PENDING, "77.97", mouse, 3));
         orderRepository.save(order(ada, OrderStatus.DELIVERED, "25.99", mouse, 1));
@@ -72,11 +72,10 @@ class OrderRepositoryTest extends AbstractIntegrationTest {
         return customer;
     }
 
-    private Product product(String name, String price, int stock) {
+    private Product product(String name, String price) {
         Product product = new Product();
         product.setName(name);
         product.setPrice(new BigDecimal(price));
-        product.setStock(stock);
         return product;
     }
 

@@ -18,8 +18,6 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
 
     List<Product> findByNameContainingIgnoreCase(String name);
 
-    List<Product> findByStockLessThan(int threshold);
-
     Page<Product> findByPriceBetween(BigDecimal minPrice, BigDecimal maxPrice, Pageable pageable);
 
     boolean existsByNameIgnoreCase(String name);
@@ -32,13 +30,11 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
             WHERE (:name IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', CAST(:name AS string), '%')))
                 AND (:minPrice IS NULL OR p.price >= :minPrice)
                 AND (:maxPrice IS NULL OR p.price <= :maxPrice)
-                AND (:inStockOnly = FALSE OR p.stock > 0)
             """)
     Page<Product> searchProducts(
             @Param("name") String name,
             @Param("minPrice") BigDecimal minPrice,
             @Param("maxPrice") BigDecimal maxPrice,
-            @Param("inStockOnly") boolean inStockOnly,
             Pageable pageable
     );
 
