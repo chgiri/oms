@@ -1,0 +1,21 @@
+meta {
+  name: SearchOrders
+  type: http
+  seq: 6
+}
+
+get {
+  url: http://localhost:8080/api/orders/search?customerId=2&minTotal=50&maxTotal=500&page=0&size=10&sort=id,desc&status=PENDING
+  body: none
+  auth: inherit
+}
+
+params:query {
+  customerId: 2
+  minTotal: 50
+  maxTotal: 500
+  page: 0
+  size: 10
+  sort: id,desc
+  status: PENDING
+}

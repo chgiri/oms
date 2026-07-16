@@ -1,0 +1,17 @@
+meta {
+  name: UpdateOrderStatus
+  type: http
+  seq: 4
+}
+
+patch {
+  url: http://localhost:8080/api/orders/1/status
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "status": "CONFIRMED"
+  }
+}
