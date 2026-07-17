@@ -284,6 +284,28 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
+    // @PreAuthorize rejections throw AccessDeniedException from inside the AOP proxy
+    // around the controller method — that happens during normal Spring MVC dispatch,
+    // so it's this @ControllerAdvice that sees it first, not Spring Security's
+    // ExceptionTranslationFilter/JwtAccessDeniedHandler (those only catch exceptions
+    // that reach back up to the servlet filter chain, which this never does). Without
+    // this handler, the catch-all Exception.class handler below would turn every
+    // @PreAuthorize rejection into a 500 instead of a 403.
+    @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAccessDenied(org.springframework.security.access.AccessDeniedException ex,
+                                                             HttpServletRequest request) {
+        log.warn("Access denied — path: {}, message: {}", request.getRequestURI(), ex.getMessage());
+
+        ErrorResponse response = new ErrorResponse(
+                LocalDateTime.now(),
+                HttpStatus.FORBIDDEN.value(),
+                HttpStatus.FORBIDDEN.getReasonPhrase(),
+                "You do not have permission to perform this action",
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+    }
+
     // Catch-all safety net — anything not handled above lands here as a 500,
     // instead of leaking a raw stack trace to the client.
     @ExceptionHandler(Exception.class)

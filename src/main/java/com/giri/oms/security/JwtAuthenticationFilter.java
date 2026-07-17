@@ -6,7 +6,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.core.annotation.Order;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContext;
@@ -14,7 +13,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
-import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
@@ -25,10 +23,17 @@ import java.io.IOException;
  * rest of the request is treated as authenticated. No token, or an invalid
  * one, and the request simply proceeds unauthenticated; it's the downstream
  * authorization rules (see SecurityConfig) that decide whether that's allowed.
+ *
+ * Deliberately NOT a @Component: this class implements Filter (via
+ * OncePerRequestFilter), and any Filter bean discovered by component-scanning
+ * gets swept into every @WebMvcTest slice regardless of which controller is
+ * under test, dragging in JwtService/UserDetailsService (both @Service, not
+ * part of a web-layer slice) and failing the context for unrelated tests. It
+ * would also risk Spring Boot auto-registering it a second time as a
+ * container-level filter, on top of the explicit addFilterBefore(...) wiring
+ * below. Instead, SecurityConfig constructs it directly as a plain object.
  */
 @Slf4j
-@Component
-@Order(1)
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
