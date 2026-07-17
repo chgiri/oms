@@ -15,6 +15,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.context.TestPropertySource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -28,9 +29,24 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * the project either mocks security away (@AutoConfigureMockMvc(addFilters =
  * false)) or mocks the service layer — this is what actually proves login,
  * token validation, and role-based access control work together.
+ *
+ * @TestPropertySource raises the login rate limit for this class only. This is
+ * the one test class that exercises the real LoginRateLimitFilter (it's a
+ * @SpringBootTest with the full context, not a mocked-security slice), and it
+ * calls the login endpoint many times across its test methods — comfortably
+ * more than the production capacity of 5 attempts/minute. Without this
+ * override, whichever login calls land after the 5th get a genuine 429 instead
+ * of the 200 the test expects, since the underlying Redis bucket is real and
+ * shared for the whole test JVM run (see AbstractIntegrationTest). Production
+ * behavior and any future dedicated rate-limit test are unaffected — this only
+ * applies within this class.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
+@TestPropertySource(properties = {
+        "app.ratelimit.login.capacity=1000",
+        "app.ratelimit.login.refill-tokens=1000"
+})
 class SecurityIntegrationTest extends AbstractIntegrationTest {
 
     @Autowired
@@ -106,6 +122,19 @@ class SecurityIntegrationTest extends AbstractIntegrationTest {
 
         mockMvc.perform(get("/api/customers").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void protectedEndpoint_returns401_withTokenAfterLogout() throws Exception {
+        String token = loginAndGetToken(adminUsername, adminPassword);
+
+        mockMvc.perform(post("/api/auth/logout").header("Authorization", "Bearer " + token))
+                .andExpect(status().isNoContent());
+
+        // Same token, same signature, still unexpired — but now blacklisted in Redis,
+        // so it must be rejected exactly like an invalid one.
+        mockMvc.perform(get("/api/customers").header("Authorization", "Bearer " + token))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test

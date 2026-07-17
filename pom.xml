@@ -17,6 +17,8 @@
 		<org.mapstruct.version>1.6.3</org.mapstruct.version>
 		<testcontainers.version>2.0.5</testcontainers.version>
 		<jjwt.version>0.13.0</jjwt.version>
+		<redisson.version>4.6.1</redisson.version>
+		<bucket4j.version>8.13.1</bucket4j.version>
 	</properties>
 
 	<dependencyManagement>
@@ -47,6 +49,44 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-security</artifactId>
+		</dependency>
+
+		<!-- Redis: connection factory (Lettuce), used by the Spring Cache abstraction
+		     below and by anything reaching for RedisTemplate/StringRedisTemplate directly. -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-redis</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-cache</artifactId>
+		</dependency>
+
+		<!-- Redisson: distributed locks (inventory updates) and the RedissonClient
+		     that backs the Bucket4j rate limiter below. Reuses the same
+		     spring.data.redis.* connection properties as spring-boot-starter-data-redis. -->
+		<dependency>
+			<groupId>org.redisson</groupId>
+			<artifactId>redisson-spring-boot-starter</artifactId>
+			<version>${redisson.version}</version>
+		</dependency>
+
+		<!-- Bucket4j + its Redisson backend: distributed rate limiting (login endpoint)
+		     that works correctly across multiple app instances behind a load balancer. -->
+		<dependency>
+			<groupId>com.bucket4j</groupId>
+			<artifactId>bucket4j_jdk17-core</artifactId>
+			<version>${bucket4j.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>com.bucket4j</groupId>
+			<artifactId>bucket4j_jdk17-redis-common</artifactId>
+			<version>${bucket4j.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>com.bucket4j</groupId>
+			<artifactId>bucket4j_jdk17-redisson</artifactId>
+			<version>${bucket4j.version}</version>
 		</dependency>
 
 		<dependency>

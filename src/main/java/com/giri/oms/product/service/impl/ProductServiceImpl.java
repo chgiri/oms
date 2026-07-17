@@ -1,5 +1,6 @@
 package com.giri.oms.product.service.impl;
 
+import com.giri.oms.common.config.CacheConfig;
 import com.giri.oms.common.dto.PagedResponse;
 import com.giri.oms.product.constants.ProductConstants;
 import com.giri.oms.product.dto.ProductRequest;
@@ -13,6 +14,8 @@ import com.giri.oms.product.service.ProductService;
 import com.giri.oms.product.specification.ProductSpecification;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -48,6 +51,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    @Cacheable(value = CacheConfig.PRODUCTS_CACHE, key = "#productId")
     public ProductResponse getProductById(Long productId) {
         log.debug("Fetching product with id: {}", productId);
         return productMapper.mapToProductResponse(getExistingProduct(productId));
@@ -80,6 +84,7 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional // write operation — overrides the class-level readOnly default
+    @CacheEvict(value = CacheConfig.PRODUCTS_CACHE, key = "#productId")
     public ProductResponse updateProduct(Long productId, ProductRequest request) {
         log.debug("Updating product with id: {}", productId);
 
@@ -93,6 +98,7 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional // write operation — overrides the class-level readOnly default
+    @CacheEvict(value = CacheConfig.PRODUCTS_CACHE, key = "#productId")
     public void deleteProduct(Long productId) {
         log.debug("Deleting product with id: {}", productId);
 

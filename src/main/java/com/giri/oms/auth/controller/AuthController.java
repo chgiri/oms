@@ -20,6 +20,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -78,6 +79,25 @@ public class AuthController {
         log.info("POST /api/auth/login — login attempt for: {}", request.getUsername());
         AuthResponse response = authService.login(request);
         return ResponseEntity.ok(response);
+    }
+
+    // Build Logout REST API
+    @PostMapping("/logout")
+    @Operation(summary = "Log out and revoke the current token",
+            description = "Requires a valid bearer token. Revokes it immediately — the same token is rejected "
+                    + "on any further request even though it hasn't naturally expired yet — by recording it "
+                    + "in a Redis-backed blacklist for the remainder of its lifetime.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Token revoked"),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid bearer token")
+    })
+    public ResponseEntity<Void> logout(@RequestHeader("Authorization") String authorizationHeader) {
+        String token = authorizationHeader.startsWith("Bearer ")
+                ? authorizationHeader.substring("Bearer ".length())
+                : authorizationHeader;
+        log.info("POST /api/auth/logout");
+        authService.logout(token);
+        return ResponseEntity.noContent().build();
     }
 
 }

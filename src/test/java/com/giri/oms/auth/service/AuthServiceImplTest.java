@@ -13,6 +13,7 @@ import com.giri.oms.auth.repository.UserRepository;
 import com.giri.oms.auth.service.impl.AuthServiceImpl;
 import com.giri.oms.security.JwtProperties;
 import com.giri.oms.security.JwtService;
+import com.giri.oms.security.TokenBlacklistService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -53,6 +54,9 @@ class AuthServiceImplTest {
     @Mock
     private JwtService jwtService;
 
+    @Mock
+    private TokenBlacklistService tokenBlacklistService;
+
     private AuthServiceImpl authService;
     private RegisterRequest registerRequest;
 
@@ -62,7 +66,7 @@ class AuthServiceImplTest {
         // plain record (not mockable/injectable the way interfaces are), so it's
         // simplest to just pass a real instance through the constructor directly.
         JwtProperties jwtProperties = new JwtProperties("dGVzdC1zZWNyZXQ=", 86_400_000L);
-        authService = new AuthServiceImpl(userRepository, userMapper, passwordEncoder, authenticationManager, jwtService, jwtProperties);
+        authService = new AuthServiceImpl(userRepository, userMapper, passwordEncoder, authenticationManager, jwtService, jwtProperties, tokenBlacklistService);
 
         registerRequest = new RegisterRequest("jane.doe", "S3curePass!", "jane.doe@example.com", Role.STAFF);
     }

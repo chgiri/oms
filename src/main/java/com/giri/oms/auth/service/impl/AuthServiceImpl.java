@@ -13,6 +13,7 @@ import com.giri.oms.auth.repository.UserRepository;
 import com.giri.oms.auth.service.AuthService;
 import com.giri.oms.security.JwtProperties;
 import com.giri.oms.security.JwtService;
+import com.giri.oms.security.TokenBlacklistService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -38,6 +39,7 @@ public class AuthServiceImpl implements AuthService {
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
     private final JwtProperties jwtProperties;
+    private final TokenBlacklistService tokenBlacklistService;
 
     @Override
     @Transactional
@@ -87,5 +89,11 @@ public class AuthServiceImpl implements AuthService {
 
         log.info(AuthConstants.USER_LOGGED_IN_LOG, request.getUsername());
         return new AuthResponse(token, "Bearer", jwtProperties.expirationMs(), userDetails.getUsername(), role);
+    }
+
+    @Override
+    public void logout(String token) {
+        tokenBlacklistService.blacklist(token, jwtService.getRemainingValidity(token));
+        log.info("User logged out — token revoked");
     }
 }

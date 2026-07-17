@@ -1,0 +1,25 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: oms-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    # Password + persistence for anything beyond local dev — set REDIS_PASSWORD in
+    # your environment (or an .env file next to this compose file) before deploying.
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD:-}
+      --appendonly yes
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+    volumes:
+      - oms-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  oms-redis-data:

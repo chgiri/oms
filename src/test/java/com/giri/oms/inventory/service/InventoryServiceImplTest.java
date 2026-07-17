@@ -2,6 +2,7 @@ package com.giri.oms.inventory.service;
 
 import com.giri.oms.common.dto.PagedResponse;
 import com.giri.oms.common.exception.InvalidSortFieldException;
+import com.giri.oms.common.lock.DistributedLockService;
 import com.giri.oms.inventory.dto.InventoryRequest;
 import com.giri.oms.inventory.dto.InventoryResponse;
 import com.giri.oms.inventory.entity.Inventory;
@@ -37,6 +38,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 /**
@@ -56,6 +58,9 @@ class InventoryServiceImplTest {
     @Mock
     private InventoryMapper inventoryMapper;
 
+    @Mock
+    private DistributedLockService distributedLockService;
+
     @InjectMocks
     private InventoryServiceImpl inventoryService;
 
@@ -66,6 +71,15 @@ class InventoryServiceImplTest {
 
     @BeforeEach
     void setUp() {
+        // updateInventory wraps its work in a distributed lock — for these unit tests
+        // (no real Redis) just run the wrapped action straight through, same as the
+        // real lock does once acquired.
+        lenient().when(distributedLockService.executeWithLock(anyString(), any(), any(), any()))
+                .thenAnswer(invocation -> {
+                    java.util.function.Supplier<?> action = invocation.getArgument(3);
+                    return action.get();
+                });
+
         product = new Product();
         product.setId(1L);
         product.setName("Wireless Mouse");

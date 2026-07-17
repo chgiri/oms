@@ -2,6 +2,7 @@ package com.giri.oms.common.exception;
 
 import com.giri.oms.auth.exception.EmailAlreadyExistsException;
 import com.giri.oms.auth.exception.UsernameAlreadyExistsException;
+import com.giri.oms.common.lock.LockAcquisitionException;
 import com.giri.oms.customer.exception.CustomerEmailAlreadyExistsException;
 import com.giri.oms.customer.exception.CustomerNotFoundException;
 import com.giri.oms.inventory.exception.InventoryAlreadyExistsException;
@@ -93,6 +94,20 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(InventoryAlreadyExistsException.class)
     public ResponseEntity<ErrorResponse> handleInventoryAlreadyExists(InventoryAlreadyExistsException ex, HttpServletRequest request) {
         log.warn("Duplicate inventory record — path: {}, message: {}", request.getRequestURI(), ex.getMessage());
+
+        ErrorResponse response = new ErrorResponse(
+                LocalDateTime.now(),
+                HttpStatus.CONFLICT.value(),
+                HttpStatus.CONFLICT.getReasonPhrase(),
+                ex.getMessage(),
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
+
+    @ExceptionHandler(LockAcquisitionException.class)
+    public ResponseEntity<ErrorResponse> handleLockAcquisitionFailure(LockAcquisitionException ex, HttpServletRequest request) {
+        log.warn("Distributed lock contention — path: {}, message: {}", request.getRequestURI(), ex.getMessage());
 
         ErrorResponse response = new ErrorResponse(
                 LocalDateTime.now(),

@@ -13,8 +13,10 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
+import java.time.Duration;
 import java.util.Date;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -48,6 +50,13 @@ public class JwtService {
                 .collect(Collectors.toList());
 
         return Jwts.builder()
+                .id(UUID.randomUUID().toString()) // jti — guarantees uniqueness even if iat/exp
+                // (second-precision NumericDate) collide with
+                // another token for the same user issued in the
+                // same second; without this, HS256's deterministic
+                // signing would make those two tokens byte-for-byte
+                // identical, so blacklisting one (e.g. via logout)
+                // would silently blacklist the other too.
                 .subject(userDetails.getUsername())
                 .claim(AUTHORITIES_CLAIM, authorities)
                 .issuedAt(now)
@@ -73,6 +82,17 @@ public class JwtService {
             log.debug("Rejected invalid JWT: {}", ex.getMessage());
             return false;
         }
+    }
+
+    /**
+     * How much longer this token has left before it expires on its own. Used to size
+     * the TTL of a blacklist entry on logout — the entry only needs to outlive the
+     * token itself, never longer.
+     */
+    public Duration getRemainingValidity(String token) {
+        Date expiry = parseClaims(token).getExpiration();
+        long millis = expiry.getTime() - System.currentTimeMillis();
+        return Duration.ofMillis(Math.max(millis, 0));
     }
 
     private boolean isExpired(Claims claims) {

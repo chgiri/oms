@@ -3,6 +3,7 @@ package com.giri.oms.common;
 import org.junit.jupiter.api.Tag;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
@@ -29,10 +30,20 @@ import org.testcontainers.utility.DockerImageName;
 public abstract class AbstractIntegrationTest {
 
     static final PostgreSQLContainer<?> POSTGRES;
+    static final GenericContainer<?> REDIS;
 
     static {
         POSTGRES = new PostgreSQLContainer<>(DockerImageName.parse("postgres:16-alpine"));
         POSTGRES.start();
+
+        // Redisson (distributed locks, rate limiting) connects eagerly at application
+        // startup — unlike the Lettuce connection factory backing Spring Cache, it's
+        // not lazy — so a full @SpringBootTest context now needs a real Redis to come
+        // up at all, not just for tests that specifically exercise caching/locking.
+        REDIS = new GenericContainer<>(DockerImageName.parse("redis:7-alpine"))
+                .withCommand("redis-server --requirepass my_secret_test_password")
+                .withExposedPorts(6379);
+        REDIS.start();
     }
 
     @DynamicPropertySource
@@ -40,6 +51,12 @@ public abstract class AbstractIntegrationTest {
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
+
+        registry.add("spring.data.redis.host", REDIS::getHost);
+        registry.add("spring.data.redis.port", () -> REDIS.getMappedPort(6379));
+        // FORCE the autoconfiguration framework to bind an absent password
+        registry.add("spring.data.redis.password", () -> "my_secret_test_password");
+
     }
 
 }

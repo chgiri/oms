@@ -1,7 +1,9 @@
 package com.giri.oms.inventory.service.impl;
 
+import com.giri.oms.common.config.CacheConfig;
 import com.giri.oms.common.dto.PagedResponse;
 import com.giri.oms.common.exception.InvalidSortFieldException;
+import com.giri.oms.common.lock.DistributedLockService;
 import com.giri.oms.inventory.constants.InventoryConstants;
 import com.giri.oms.inventory.dto.InventoryRequest;
 import com.giri.oms.inventory.dto.InventoryResponse;
@@ -17,6 +19,9 @@ import com.giri.oms.product.exception.ProductNotFoundException;
 import com.giri.oms.product.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -24,6 +29,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Set;
 
@@ -36,6 +42,15 @@ public class InventoryServiceImpl implements InventoryService {
     private final InventoryRepository inventoryRepository;
     private final ProductRepository productRepository;
     private final InventoryMapper inventoryMapper;
+    private final DistributedLockService distributedLockService;
+
+    @Value("${app.lock.inventory.wait-seconds}")
+    private long lockWaitSeconds;
+
+    @Value("${app.lock.inventory.lease-seconds}")
+    private long lockLeaseSeconds;
+
+    private static final String INVENTORY_LOCK_PREFIX = "lock:inventory:";
 
     private static final Set<String> ALLOWED_SORT_FIELDS =
             Set.of("id", "location", "quantityAvailable", "quantityReserved", "reorderLevel", "createdAt", "updatedAt");
@@ -62,6 +77,7 @@ public class InventoryServiceImpl implements InventoryService {
     }
 
     @Override
+    @Cacheable(value = CacheConfig.INVENTORY_CACHE, key = "#inventoryId")
     public InventoryResponse getInventoryById(Long inventoryId) {
         log.debug("Fetching inventory record with id: {}", inventoryId);
         return inventoryMapper.mapToInventoryResponse(getExistingInventory(inventoryId));
@@ -121,9 +137,23 @@ public class InventoryServiceImpl implements InventoryService {
 
     @Override
     @Transactional // write operation — overrides the class-level readOnly default
+    @CacheEvict(value = CacheConfig.INVENTORY_CACHE, key = "#inventoryId")
     public InventoryResponse updateInventory(Long inventoryId, InventoryRequest request) {
         log.debug("Updating inventory record with id: {}", inventoryId);
 
+        // Read-modify-write with no optimistic-locking @Version column: two app
+        // instances updating the same row at once (e.g. two concurrent stock
+        // adjustments) can silently lose one of the writes. A distributed lock
+        // keyed by the inventory id serializes that critical section across every
+        // instance, not just within this one JVM.
+        return distributedLockService.executeWithLock(
+                INVENTORY_LOCK_PREFIX + inventoryId,
+                Duration.ofSeconds(lockWaitSeconds),
+                Duration.ofSeconds(lockLeaseSeconds),
+                () -> doUpdateInventory(inventoryId, request));
+    }
+
+    private InventoryResponse doUpdateInventory(Long inventoryId, InventoryRequest request) {
         Inventory inventory = getExistingInventory(inventoryId);
 
         boolean productChanged = !inventory.getProduct().getId().equals(request.getProductId());
@@ -152,6 +182,7 @@ public class InventoryServiceImpl implements InventoryService {
 
     @Override
     @Transactional // write operation — overrides the class-level readOnly default
+    @CacheEvict(value = CacheConfig.INVENTORY_CACHE, key = "#inventoryId")
     public void deleteInventory(Long inventoryId) {
         log.debug("Deleting inventory record with id: {}", inventoryId);
 

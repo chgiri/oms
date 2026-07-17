@@ -11,4 +11,10 @@ public interface AuthService {
 
     AuthResponse login(LoginRequest request);
 
+    /**
+     * Revokes the given bearer token so it's rejected on subsequent requests even
+     * though it hasn't naturally expired yet.
+     */
+    void logout(String token);
+
 }
