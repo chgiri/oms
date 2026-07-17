@@ -22,6 +22,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @Slf4j
@@ -131,9 +132,12 @@ public class CustomerController {
 
     // Build Delete Customer REST API
     @DeleteMapping("{id}")
-    @Operation(summary = "Delete a customer")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Delete a customer", description = "Restricted to ADMIN.")
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "Customer deleted"),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid bearer token"),
+            @ApiResponse(responseCode = "403", description = "Authenticated but not an ADMIN"),
             @ApiResponse(responseCode = "404", description = "No customer exists with the given ID")
     })
     public ResponseEntity<Void> deleteCustomer(

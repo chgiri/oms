@@ -21,6 +21,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -119,9 +120,12 @@ public class ProductController {
 
     // Build Delete Product REST API
     @DeleteMapping("{id}")
-    @Operation(summary = "Delete a product")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Delete a product", description = "Restricted to ADMIN.")
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "Product deleted"),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid bearer token"),
+            @ApiResponse(responseCode = "403", description = "Authenticated but not an ADMIN"),
             @ApiResponse(responseCode = "404", description = "No product exists with the given ID")
     })
     public ResponseEntity<Void> deleteProduct(

@@ -1,5 +1,7 @@
 package com.giri.oms.common.exception;
 
+import com.giri.oms.auth.exception.EmailAlreadyExistsException;
+import com.giri.oms.auth.exception.UsernameAlreadyExistsException;
 import com.giri.oms.customer.exception.CustomerEmailAlreadyExistsException;
 import com.giri.oms.customer.exception.CustomerNotFoundException;
 import com.giri.oms.inventory.exception.InventoryAlreadyExistsException;
@@ -15,6 +17,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -182,6 +186,52 @@ public class GlobalExceptionHandler {
                 request.getRequestURI()
         );
         return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
+
+    @ExceptionHandler(UsernameAlreadyExistsException.class)
+    public ResponseEntity<ErrorResponse> handleUsernameAlreadyExists(UsernameAlreadyExistsException ex, HttpServletRequest request) {
+        log.warn("Username already taken — path: {}, message: {}", request.getRequestURI(), ex.getMessage());
+
+        ErrorResponse response = new ErrorResponse(
+                LocalDateTime.now(),
+                HttpStatus.CONFLICT.value(),
+                HttpStatus.CONFLICT.getReasonPhrase(),
+                ex.getMessage(),
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
+
+    @ExceptionHandler(EmailAlreadyExistsException.class)
+    public ResponseEntity<ErrorResponse> handleEmailAlreadyExists(EmailAlreadyExistsException ex, HttpServletRequest request) {
+        log.warn("Email already registered — path: {}, message: {}", request.getRequestURI(), ex.getMessage());
+
+        ErrorResponse response = new ErrorResponse(
+                LocalDateTime.now(),
+                HttpStatus.CONFLICT.value(),
+                HttpStatus.CONFLICT.getReasonPhrase(),
+                ex.getMessage(),
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
+
+    // Covers both wrong username/password and a disabled account attempting to log
+    // in — AuthenticationManager.authenticate() throws one of these two, and both
+    // map to the same generic 401 so a caller can't use the response to tell
+    // "wrong password" apart from "account exists but disabled".
+    @ExceptionHandler({BadCredentialsException.class, DisabledException.class})
+    public ResponseEntity<ErrorResponse> handleAuthenticationFailure(Exception ex, HttpServletRequest request) {
+        log.warn("Authentication failed — path: {}, message: {}", request.getRequestURI(), ex.getMessage());
+
+        ErrorResponse response = new ErrorResponse(
+                LocalDateTime.now(),
+                HttpStatus.UNAUTHORIZED.value(),
+                HttpStatus.UNAUTHORIZED.getReasonPhrase(),
+                com.giri.oms.auth.constants.AuthConstants.INVALID_CREDENTIALS_MESSAGE,
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
     }
 
     @ExceptionHandler(org.springframework.data.core.PropertyReferenceException.class)

@@ -24,6 +24,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @Slf4j
@@ -134,11 +135,14 @@ public class ShipmentController {
 
     // Build Delete Shipment REST API
     @DeleteMapping("{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Delete a shipment",
-            description = "Only shipments in PENDING or RETURNED status can be deleted — "
+            description = "Restricted to ADMIN. Only shipments in PENDING or RETURNED status can be deleted — "
                     + "once a shipment is in transit or delivered, its record is kept for the audit trail instead.")
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "Shipment deleted"),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid bearer token"),
+            @ApiResponse(responseCode = "403", description = "Authenticated but not an ADMIN"),
             @ApiResponse(responseCode = "404", description = "No shipment exists with the given ID"),
             @ApiResponse(responseCode = "409", description = "The shipment's current status does not allow deletion")
     })

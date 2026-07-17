@@ -1,0 +1,25 @@
+meta {
+  name: Register
+  type: http
+  seq: 2
+}
+
+post {
+  url: http://localhost:8080/api/auth/register
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "username": "jane.doe",
+    "password": "S3curePass!",
+    "email": "jane.doe@example.com",
+    "role": "STAFF"
+  }
+}
+
+docs {
+  Requires an ADMIN bearer token (run Login first) — registration is account
+  provisioning by an admin, not public self-service signup.
+}

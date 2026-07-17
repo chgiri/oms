@@ -10,6 +10,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -35,6 +36,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * business logic.
  */
 @WebMvcTest(ProductController.class)
+@AutoConfigureMockMvc(addFilters = false) // security is tested separately (see SecurityIntegrationTest) - this slice only exercises controller/validation/exception-handling logic
 class ProductControllerTest {
 
     @Autowired

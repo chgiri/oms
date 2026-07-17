@@ -24,6 +24,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -134,11 +135,14 @@ public class PaymentController {
 
     // Build Delete Payment REST API
     @DeleteMapping("{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Delete a payment",
-            description = "Only payments in PENDING or FAILED status can be deleted — "
+            description = "Restricted to ADMIN. Only payments in PENDING or FAILED status can be deleted — "
                     + "once a payment has completed (or been refunded), its record is kept for the audit trail instead.")
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "Payment deleted"),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid bearer token"),
+            @ApiResponse(responseCode = "403", description = "Authenticated but not an ADMIN"),
             @ApiResponse(responseCode = "404", description = "No payment exists with the given ID"),
             @ApiResponse(responseCode = "409", description = "The payment's current status does not allow deletion")
     })

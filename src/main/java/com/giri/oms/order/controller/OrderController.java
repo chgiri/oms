@@ -23,6 +23,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -140,11 +141,14 @@ public class OrderController {
 
     // Build Delete Order REST API
     @DeleteMapping("{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Delete an order",
-            description = "Only orders in PENDING or CANCELLED status can be deleted — "
+            description = "Restricted to ADMIN. Only orders in PENDING or CANCELLED status can be deleted — "
                     + "once an order has shipped, its record is kept for the audit trail instead.")
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "Order deleted"),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid bearer token"),
+            @ApiResponse(responseCode = "403", description = "Authenticated but not an ADMIN"),
             @ApiResponse(responseCode = "404", description = "No order exists with the given ID"),
             @ApiResponse(responseCode = "409", description = "The order's current status does not allow deletion")
     })
