@@ -88,9 +88,20 @@ class OrderOptimisticLockingTest extends AbstractIntegrationTest {
                 .as("both views should start from the same version, as if loaded at the same time")
                 .isEqualTo(secondUsersView.getVersion());
 
+        // Detach secondUsersView too, before writing firstUsersView. Without this, secondUsersView
+        // would still be the managed instance sitting in the persistence context — and merging
+        // firstUsersView would silently update THAT existing managed object instead of doing an
+        // independent version comparison, defeating the whole simulation.
+        entityManager.clear();
+
         // First user confirms the order — this write succeeds and bumps the version in the DB.
         firstUsersView.setStatus(OrderStatus.CONFIRMED);
         orderRepository.saveAndFlush(firstUsersView);
+
+        // Detach again — the merge above just registered a newly-managed instance for this same
+        // row in the persistence context. Clearing it ensures the next merge is also forced to do
+        // a genuinely independent fresh load-and-compare, rather than reusing that instance too.
+        entityManager.clear();
 
         // Second user, working from their now-stale view (still carrying the old version),
         // tries to cancel the same order — without optimistic locking, this would silently
@@ -111,15 +122,18 @@ class OrderOptimisticLockingTest extends AbstractIntegrationTest {
         // Sanity check: optimistic locking should never get in the way of the *normal*,
         // non-concurrent case — load, modify, save, load again, modify, save again.
         Order order = orderRepository.findById(orderId).orElseThrow();
-        Long versionAfterLoad = order.getVersion();
+        long versionAfterLoad = order.getVersion();
 
         order.setStatus(OrderStatus.CONFIRMED);
         Order afterFirstSave = orderRepository.saveAndFlush(order);
-        assertThat(afterFirstSave.getVersion()).isGreaterThan(versionAfterLoad);
+        long versionAfterFirstSave = afterFirstSave.getVersion(); // capture the value now — afterFirstSave
+        // is the same managed reference as order,
+        // and will be mutated again below
+        assertThat(versionAfterFirstSave).isGreaterThan(versionAfterLoad);
 
         afterFirstSave.setStatus(OrderStatus.SHIPPED);
         Order afterSecondSave = orderRepository.saveAndFlush(afterFirstSave);
-        assertThat(afterSecondSave.getVersion()).isGreaterThan(afterFirstSave.getVersion());
+        assertThat(afterSecondSave.getVersion()).isGreaterThan(versionAfterFirstSave);
         assertThat(afterSecondSave.getStatus()).isEqualTo(OrderStatus.SHIPPED);
     }
 }
