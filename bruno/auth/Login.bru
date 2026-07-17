@@ -19,7 +19,9 @@ body:json {
 
 script:post-response {
   if (res.body && res.body.accessToken) {
+    console.log("🚀 Script executed successfully!");
     bru.setEnvVar("token", res.body.accessToken);
+    console.log("Token: " + bru.getEnvVar("token"));
   }
 }
 
