@@ -63,7 +63,7 @@ class OrderSagaEventConsumerTest {
     void inventoryReserved_movesOrderToAwaitingPayment() {
         InventoryReservedEvent event = new InventoryReservedEvent(UUID.randomUUID(), ORDER_ID, LocalDateTime.now());
 
-        consumer.onMessage(record(event), EventType.INVENTORY_RESERVED);
+        consumer.onMessage(record(event), EventType.INVENTORY_RESERVED, null);
 
         verify(orderService).updateOrderStatus(ORDER_ID, OrderStatus.AWAITING_PAYMENT);
     }
@@ -75,7 +75,7 @@ class OrderSagaEventConsumerTest {
         InventoryReservationFailedEvent event =
                 new InventoryReservationFailedEvent(UUID.randomUUID(), ORDER_ID, "insufficient stock", LocalDateTime.now());
 
-        consumer.onMessage(record(event), EventType.INVENTORY_RESERVATION_FAILED);
+        consumer.onMessage(record(event), EventType.INVENTORY_RESERVATION_FAILED, null);
 
         verify(orderService).updateOrderStatus(ORDER_ID, OrderStatus.CANCELLED);
     }
@@ -85,7 +85,7 @@ class OrderSagaEventConsumerTest {
         PaymentConfirmedEvent event = new PaymentConfirmedEvent(
                 UUID.randomUUID(), ORDER_ID, 7L, new BigDecimal("50.00"), "txn-123", LocalDateTime.now());
 
-        consumer.onMessage(record(event), EventType.PAYMENT_CONFIRMED);
+        consumer.onMessage(record(event), EventType.PAYMENT_CONFIRMED, null);
 
         verify(orderService).updateOrderStatus(ORDER_ID, OrderStatus.CONFIRMED);
     }
@@ -97,7 +97,7 @@ class OrderSagaEventConsumerTest {
         // the stock this order held (see OrderCreatedInventoryConsumer).
         PaymentFailedEvent event = new PaymentFailedEvent(UUID.randomUUID(), ORDER_ID, 7L, LocalDateTime.now());
 
-        consumer.onMessage(record(event), EventType.PAYMENT_FAILED);
+        consumer.onMessage(record(event), EventType.PAYMENT_FAILED, null);
 
         verify(orderService).updateOrderStatus(ORDER_ID, OrderStatus.CANCELLED);
     }
@@ -113,7 +113,7 @@ class OrderSagaEventConsumerTest {
         doThrow(new IllegalOrderStateException("already cancelled"))
                 .when(orderService).updateOrderStatus(ORDER_ID, OrderStatus.CANCELLED);
 
-        consumer.onMessage(record(event), EventType.PAYMENT_FAILED);
+        consumer.onMessage(record(event), EventType.PAYMENT_FAILED, null);
 
         verify(orderService).updateOrderStatus(ORDER_ID, OrderStatus.CANCELLED);
         // No assertion beyond "didn't throw" is needed — the test itself failing
@@ -127,21 +127,21 @@ class OrderSagaEventConsumerTest {
         doThrow(new IllegalOrderStateException("already cancelled"))
                 .when(orderService).updateOrderStatus(ORDER_ID, OrderStatus.CANCELLED);
 
-        consumer.onMessage(record(event), EventType.INVENTORY_RESERVATION_FAILED);
+        consumer.onMessage(record(event), EventType.INVENTORY_RESERVATION_FAILED, null);
 
         verify(orderService).updateOrderStatus(ORDER_ID, OrderStatus.CANCELLED);
     }
 
     @Test
     void ignoresOrderCreated_sinceThatBelongsToTheInventoryConsumerGroup() {
-        consumer.onMessage(new ConsumerRecord<>(TOPIC, 0, 0L, ORDER_ID.toString(), "{}"), EventType.ORDER_CREATED);
+        consumer.onMessage(new ConsumerRecord<>(TOPIC, 0, 0L, ORDER_ID.toString(), "{}"), EventType.ORDER_CREATED, null);
 
         verifyNoInteractions(orderService);
     }
 
     @Test
     void ignoresUnknownOrMissingEventType() {
-        consumer.onMessage(new ConsumerRecord<>(TOPIC, 0, 0L, ORDER_ID.toString(), "{}"), null);
+        consumer.onMessage(new ConsumerRecord<>(TOPIC, 0, 0L, ORDER_ID.toString(), "{}"), null, null);
 
         verify(orderService, never()).updateOrderStatus(anyLong(), any());
     }

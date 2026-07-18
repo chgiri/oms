@@ -1,5 +1,6 @@
 package com.giri.oms.inventory.consumer;
 
+import com.giri.oms.common.correlation.MdcCorrelation;
 import com.giri.oms.inventory.exception.InsufficientStockException;
 import com.giri.oms.inventory.service.InventoryReservationService;
 import com.giri.oms.messaging.event.EventType;
@@ -59,8 +60,12 @@ public class OrderCreatedInventoryConsumer {
             groupId = "${spring.kafka.consumer.group-id}")
     public void onMessage(
             ConsumerRecord<String, String> record,
-            @Header(name = "eventType", required = false) String eventType) {
+            @Header(name = "eventType", required = false) String eventType,
+            @Header(name = "correlationId", required = false) String correlationId) {
+        MdcCorrelation.runWithCorrelationId(correlationId, () -> handle(record, eventType));
+    }
 
+    private void handle(ConsumerRecord<String, String> record, String eventType) {
         if (EventType.ORDER_CREATED.equals(eventType)) {
             OrderCreatedEvent event = objectMapper.readValue(record.value(), OrderCreatedEvent.class);
             log.debug("Received OrderCreated event id={} for order id={}", event.eventId(), event.orderId());

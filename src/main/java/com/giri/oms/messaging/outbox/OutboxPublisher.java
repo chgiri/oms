@@ -1,5 +1,6 @@
 package com.giri.oms.messaging.outbox;
 
+import com.giri.oms.common.correlation.MdcCorrelation;
 import com.giri.oms.messaging.config.KafkaAppProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -45,10 +46,22 @@ public class OutboxPublisher {
     }
 
     public void publishSingleEvent(OutboxEvent event) {
+        // This runs on scheduling-1, a shared pool thread with no MDC of its own —
+        // scope the correlation id (captured back when OutboxService.enqueue()
+        // wrote this row) to just this event's publish, so a batch of unrelated
+        // events being flushed in the same poll never bleed correlation ids into
+        // each other's log lines.
+        MdcCorrelation.runWithCorrelationId(event.getCorrelationId(), () -> doPublish(event));
+    }
+
+    private void doPublish(OutboxEvent event) {
         try {
             ProducerRecord<String, String> record = new ProducerRecord<>(
                     event.getTopic(), null, event.getPartitionKey(), event.getPayload());
             record.headers().add(new RecordHeader("eventType", event.getEventType().getBytes(StandardCharsets.UTF_8)));
+            if (event.getCorrelationId() != null) {
+                record.headers().add(new RecordHeader("correlationId", event.getCorrelationId().getBytes(StandardCharsets.UTF_8)));
+            }
 
             kafkaTemplate.send(record).get(SEND_TIMEOUT_SECONDS, TimeUnit.SECONDS);
 

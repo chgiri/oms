@@ -69,7 +69,7 @@ class OrderCreatedInventoryConsumerTest {
     void orderCreated_reservesInventoryForTheOrder() {
         OrderCreatedEvent event = orderCreatedEvent();
 
-        consumer.onMessage(record(event), EventType.ORDER_CREATED);
+        consumer.onMessage(record(event), EventType.ORDER_CREATED, null);
 
         verify(inventoryReservationService).reserveForOrder(any(OrderCreatedEvent.class));
         verifyNoInteractions(outboxService);
@@ -88,7 +88,7 @@ class OrderCreatedInventoryConsumerTest {
                 .thenAnswer(invocation -> new InventoryReservationFailedEvent(
                         invocation.getArgument(1), ORDER_ID, invocation.getArgument(2), LocalDateTime.now()));
 
-        consumer.onMessage(record(event), EventType.ORDER_CREATED);
+        consumer.onMessage(record(event), EventType.ORDER_CREATED, null);
 
         // Business failure — must not propagate and trigger a Kafka retry.
         ArgumentCaptor<Object> payload = ArgumentCaptor.forClass(Object.class);
@@ -103,7 +103,7 @@ class OrderCreatedInventoryConsumerTest {
     void orderCancelled_releasesReservedStockForTheOrder() {
         OrderCancelledEvent event = new OrderCancelledEvent(UUID.randomUUID(), ORDER_ID, LocalDateTime.now());
 
-        consumer.onMessage(record(event), EventType.ORDER_CANCELLED);
+        consumer.onMessage(record(event), EventType.ORDER_CANCELLED, null);
 
         verify(inventoryReservationService).releaseForOrder(any(OrderCancelledEvent.class));
         verifyNoInteractions(outboxService);
@@ -114,7 +114,7 @@ class OrderCreatedInventoryConsumerTest {
     void ignoresEventTypesThisConsumerDoesNotOwn() {
         // PaymentConfirmed/PaymentFailed/OrderConfirmed belong to the order-saga
         // and shipment consumer groups, not this one.
-        consumer.onMessage(new ConsumerRecord<>(TOPIC, 0, 0L, ORDER_ID.toString(), "{}"), EventType.PAYMENT_CONFIRMED);
+        consumer.onMessage(new ConsumerRecord<>(TOPIC, 0, 0L, ORDER_ID.toString(), "{}"), EventType.PAYMENT_CONFIRMED, null);
 
         verifyNoInteractions(inventoryReservationService, outboxService);
     }

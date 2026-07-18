@@ -42,6 +42,17 @@ public class OutboxEvent {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String payload;
 
+    /**
+     * The correlation id (see CorrelationIdConstants.MDC_KEY) that was in MDC
+     * on whichever thread enqueued this event — the original HTTP request
+     * thread for OrderCreated, or a KafkaListenerEndpointContainer thread for
+     * everything downstream (see MdcCorrelation). Null if nothing was in MDC
+     * at enqueue time. OutboxPublisher carries this onto the Kafka record as
+     * a header so the next consumer can pick it back up.
+     */
+    @Column(name = "correlation_id", length = 100)
+    private String correlationId;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private OutboxEventStatus status = OutboxEventStatus.PENDING;
@@ -66,7 +77,8 @@ public class OutboxEvent {
             String eventType,
             String topic,
             String partitionKey,
-            String payload) {
+            String payload,
+            String correlationId) {
         OutboxEvent event = new OutboxEvent();
         event.id = id;
         event.aggregateType = aggregateType;
@@ -75,6 +87,7 @@ public class OutboxEvent {
         event.topic = topic;
         event.partitionKey = partitionKey;
         event.payload = payload;
+        event.correlationId = correlationId;
         event.status = OutboxEventStatus.PENDING;
         event.retryCount = 0;
         return event;

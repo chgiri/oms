@@ -9,7 +9,8 @@ import org.springframework.lang.NonNull;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.UUID;
+import java.security.SecureRandom;
+// import java.util.UUID;
 
 import static com.giri.oms.common.correlation.CorrelationIdConstants.HEADER_NAME;
 import static com.giri.oms.common.correlation.CorrelationIdConstants.MDC_KEY;
@@ -17,9 +18,10 @@ import static com.giri.oms.common.correlation.CorrelationIdConstants.MDC_KEY;
 /**
  * Assigns every request a correlation ID — reused from the caller's
  * X-Correlation-Id header if present (so an upstream gateway or another
- * service can thread its own ID through), otherwise generated fresh — and
- * puts it in MDC so every log line emitted while handling this request
- * carries it automatically (see logging.pattern.console in
+ * service can thread its own ID through, at whatever length/format it
+ * already uses — we don't reshape someone else's ID), otherwise generated
+ * fresh — and puts it in MDC so every log line emitted while handling this
+ * request carries it automatically (see logging.pattern.console in
  * application.properties). Echoed back on the response so the caller can
  * match their own logs against ours, or hand it back to support/QA.
  *
@@ -31,6 +33,14 @@ import static com.giri.oms.common.correlation.CorrelationIdConstants.MDC_KEY;
  * being a @Component.
  */
 public class CorrelationIdFilter extends OncePerRequestFilter {
+
+    // Short on purpose — this ID exists to be eyeballed and grepped in logs,
+    // not to guarantee global uniqueness the way eventId (a real UUID) does
+    // for outbox/idempotency purposes. 8 chars of this alphabet is ~5x10^12
+    // combinations, plenty for telling requests apart in a log stream.
+    private static final int GENERATED_LENGTH = 8;
+    private static final String ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789";
+    private static final SecureRandom RANDOM = new SecureRandom();
 
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request,
@@ -56,6 +66,15 @@ public class CorrelationIdFilter extends OncePerRequestFilter {
         if (incoming != null && !incoming.isBlank()) {
             return incoming.trim();
         }
-        return UUID.randomUUID().toString();
+		// return UUID.randomUUID().toString();
+        return generateShortId();
+    }
+
+    private String generateShortId() {
+        StringBuilder id = new StringBuilder(GENERATED_LENGTH);
+        for (int i = 0; i < GENERATED_LENGTH; i++) {
+            id.append(ALPHABET.charAt(RANDOM.nextInt(ALPHABET.length())));
+        }
+        return id.toString();
     }
 }

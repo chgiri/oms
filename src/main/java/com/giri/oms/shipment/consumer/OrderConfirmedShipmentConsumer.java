@@ -1,5 +1,6 @@
 package com.giri.oms.shipment.consumer;
 
+import com.giri.oms.common.correlation.MdcCorrelation;
 import com.giri.oms.messaging.event.EventType;
 import com.giri.oms.messaging.event.OrderConfirmedEvent;
 import com.giri.oms.shipment.service.ShipmentAutoCreationService;
@@ -30,8 +31,12 @@ public class OrderConfirmedShipmentConsumer {
             groupId = "${app.kafka.consumer.shipment-service-group-id}")
     public void onMessage(
             ConsumerRecord<String, String> record,
-            @Header(name = "eventType", required = false) String eventType) {
+            @Header(name = "eventType", required = false) String eventType,
+            @Header(name = "correlationId", required = false) String correlationId) {
+        MdcCorrelation.runWithCorrelationId(correlationId, () -> handle(record, eventType));
+    }
 
+    private void handle(ConsumerRecord<String, String> record, String eventType) {
         if (!EventType.ORDER_CONFIRMED.equals(eventType)) {
             log.debug("Ignoring event of type {} on order-events topic (key={})", eventType, record.key());
             return;
