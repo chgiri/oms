@@ -3,11 +3,14 @@ package com.giri.oms.messaging.outbox;
 import com.giri.oms.messaging.config.KafkaAppProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.header.internals.RecordHeader;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -43,8 +46,11 @@ public class OutboxPublisher {
 
     public void publishSingleEvent(OutboxEvent event) {
         try {
-            kafkaTemplate.send(event.getTopic(), event.getPartitionKey(), event.getPayload())
-                    .get(SEND_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            ProducerRecord<String, String> record = new ProducerRecord<>(
+                    event.getTopic(), null, event.getPartitionKey(), event.getPayload());
+            record.headers().add(new RecordHeader("eventType", event.getEventType().getBytes(StandardCharsets.UTF_8)));
+
+            kafkaTemplate.send(record).get(SEND_TIMEOUT_SECONDS, TimeUnit.SECONDS);
 
             event.markPublished();
             outboxEventRepository.save(event);

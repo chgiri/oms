@@ -125,6 +125,11 @@ class OrderCreatedOutboxIntegrationTest extends AbstractIntegrationTest {
             ConsumerRecord<String, String> record = pollForRecord(consumer, createdOrder.getId().toString());
             assertThat(record.key()).isEqualTo(createdOrder.getId().toString());
 
+            org.apache.kafka.common.header.Header eventTypeHeader = record.headers().lastHeader("eventType");
+            assertThat(eventTypeHeader).isNotNull();
+            assertThat(new String(eventTypeHeader.value(), java.nio.charset.StandardCharsets.UTF_8))
+                    .isEqualTo(EventType.ORDER_CREATED);
+
             OrderCreatedEvent kafkaPayload = objectMapper.readValue(record.value(), OrderCreatedEvent.class);
             assertThat(kafkaPayload.eventId()).isEqualTo(outboxEvent.getId());
             assertThat(kafkaPayload.orderId()).isEqualTo(createdOrder.getId());
