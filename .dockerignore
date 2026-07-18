@@ -1,0 +1,42 @@
+# Version control
+.git
+.gitignore
+.gitattributes
+
+# IDE
+.idea
+.vscode
+*.iml
+*.iws
+*.ipr
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+# Build output — the build stage compiles fresh from src/, we never want a
+# stale local target/*.jar accidentally getting copied in
+target/
+build/
+
+# Local secrets — never send these into the build context
+.env
+.env.*
+!.env.example
+
+# Docker files themselves don't need to be in the image
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Misc
+*.log
+logs/
+.DS_Store
+Thumbs.db
+HELP.md
+bruno/
+mvnw.cmd

@@ -50,6 +50,10 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-security</artifactId>
 		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-actuator</artifactId>
+		</dependency>
 
 		<!-- Redis: connection factory (Lettuce), used by the Spring Cache abstraction
 		     below and by anything reaching for RedisTemplate/StringRedisTemplate directly. -->
