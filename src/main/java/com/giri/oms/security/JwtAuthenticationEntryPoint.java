@@ -37,7 +37,8 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
                 LocalDateTime.now(),
                 HttpStatus.UNAUTHORIZED.value(),
                 HttpStatus.UNAUTHORIZED.getReasonPhrase(),
-                "A valid Bearer token is required to access this resource",
+                com.giri.oms.common.exception.ErrorCode.UNAUTHENTICATED.code(),
+                com.giri.oms.common.exception.ErrorCode.UNAUTHENTICATED.formatMessage(),
                 request.getRequestURI()
         );
 

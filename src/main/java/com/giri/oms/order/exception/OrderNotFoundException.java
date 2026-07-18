@@ -1,13 +1,19 @@
 package com.giri.oms.order.exception;
 
-import com.giri.oms.order.constants.OrderConstants;
+import com.giri.oms.common.exception.ErrorCode;
+import com.giri.oms.common.exception.ErrorCoded;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ResponseStatus;
 
 @ResponseStatus(value = HttpStatus.NOT_FOUND)
-public class OrderNotFoundException extends RuntimeException {
+public class OrderNotFoundException extends RuntimeException implements ErrorCoded {
 
     public OrderNotFoundException(Long id) {
-        super(String.format(OrderConstants.ORDER_NOT_FOUND_MESSAGE, id));
+        super(ErrorCode.ORDER_NOT_FOUND.formatMessage(id));
+    }
+
+    @Override
+    public ErrorCode getErrorCode() {
+        return ErrorCode.ORDER_NOT_FOUND;
     }
 }

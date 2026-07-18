@@ -6,12 +6,9 @@ public final class InventoryConstants {
         // utility class — no instances
     }
 
-    // ---- Exception messages (used with String.format) ----
-    public static final String INVENTORY_NOT_FOUND_MESSAGE = "Inventory record not found with id: %d";
-    public static final String INVENTORY_ALREADY_EXISTS_MESSAGE =
-            "An inventory record already exists for product id %d at location: %s";
-    public static final String INSUFFICIENT_STOCK_MESSAGE =
-            "Insufficient stock for product id %d: requested %d, available %d";
+    // ---- Exception messages ----
+    // Not-found / already-exists / insufficient-stock messages now live in
+    // com.giri.oms.common.exception.ErrorCode alongside their error codes.
 
     // ---- Bean Validation messages ----
     public static final String PRODUCT_ID_REQUIRED_MESSAGE = "Product ID must not be null";

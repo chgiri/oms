@@ -12,7 +12,8 @@ public final class ProductConstants {
     }
 
     // ---- Exception messages (used with String.format) ----
-    public static final String PRODUCT_NOT_FOUND_MESSAGE = "Product not found with id: %d";
+    // PRODUCT_NOT_FOUND message now lives in com.giri.oms.common.exception.ErrorCode
+    // alongside its error code.
     public static final String PRODUCT_ALREADY_EXISTS_MESSAGE = "Product already exists with name: %s";
 
     // ---- Bean Validation messages ----

@@ -11,9 +11,9 @@ public final class CustomerConstants {
         // utility class — no instances
     }
 
-    // ---- Exception messages (used with String.format) ----
-    public static final String CUSTOMER_NOT_FOUND_MESSAGE = "Customer not found with id: %d";
-    public static final String CUSTOMER_EMAIL_ALREADY_EXISTS_MESSAGE = "A customer already exists with email: %s";
+    // ---- Exception messages ----
+    // Not-found / already-exists messages now live in
+    // com.giri.oms.common.exception.ErrorCode alongside their error codes.
 
     // ---- Bean Validation messages ----
     public static final String FIRST_NAME_REQUIRED_MESSAGE = "First name must not be blank";

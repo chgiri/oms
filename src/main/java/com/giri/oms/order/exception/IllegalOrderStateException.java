@@ -1,5 +1,7 @@
 package com.giri.oms.order.exception;
 
+import com.giri.oms.common.exception.ErrorCode;
+import com.giri.oms.common.exception.ErrorCoded;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ResponseStatus;
 
@@ -9,9 +11,14 @@ import org.springframework.web.bind.annotation.ResponseStatus;
  * point where deletion makes sense.
  */
 @ResponseStatus(value = HttpStatus.CONFLICT)
-public class IllegalOrderStateException extends RuntimeException {
+public class IllegalOrderStateException extends RuntimeException implements ErrorCoded {
 
     public IllegalOrderStateException(String message) {
         super(message);
+    }
+
+    @Override
+    public ErrorCode getErrorCode() {
+        return ErrorCode.ILLEGAL_ORDER_STATE;
     }
 }

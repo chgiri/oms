@@ -7,7 +7,8 @@ public final class OrderConstants {
     }
 
     // ---- Exception messages (used with String.format) ----
-    public static final String ORDER_NOT_FOUND_MESSAGE = "Order not found with id: %d";
+    // ORDER_NOT_FOUND message now lives in com.giri.oms.common.exception.ErrorCode
+    // alongside its error code.
     public static final String INVALID_STATUS_TRANSITION_MESSAGE =
             "Cannot transition order id %d from status %s to %s";
     public static final String ORDER_NOT_DELETABLE_MESSAGE =

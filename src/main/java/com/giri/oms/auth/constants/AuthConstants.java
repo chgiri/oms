@@ -7,9 +7,8 @@ public final class AuthConstants {
     }
 
     // ---- Exception messages (used with String.format) ----
-    public static final String USERNAME_ALREADY_EXISTS_MESSAGE = "Username already taken: %s";
-    public static final String EMAIL_ALREADY_EXISTS_MESSAGE = "Email already registered: %s";
-    public static final String INVALID_CREDENTIALS_MESSAGE = "Invalid username or password";
+    // Not-found / already-exists / invalid-credentials messages now live in
+    // com.giri.oms.common.exception.ErrorCode alongside their error codes.
 
     // ---- Bean Validation messages ----
     public static final String USERNAME_REQUIRED_MESSAGE = "Username must not be blank";

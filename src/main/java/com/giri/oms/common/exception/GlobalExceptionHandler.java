@@ -32,6 +32,14 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Every handler here builds an {@link ErrorResponse} that carries both the human-readable
+ * {@code message} and a stable {@code errorCode} (see {@link ErrorCode}) so clients can
+ * branch on the code instead of parsing message text. For exceptions that implement
+ * {@link ErrorCoded}, the code comes from the exception itself via {@link #codeOf}; for
+ * framework-thrown exceptions that can't implement our interface, the code is fixed per
+ * handler below.
+ */
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -39,197 +47,85 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ProductNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleProductNotFound(ProductNotFoundException ex, HttpServletRequest request) {
         log.warn("Product not found — path: {}, message: {}", request.getRequestURI(), ex.getMessage());
-
-        ErrorResponse response = new ErrorResponse(
-                LocalDateTime.now(),
-                HttpStatus.NOT_FOUND.value(),
-                HttpStatus.NOT_FOUND.getReasonPhrase(),
-                ex.getMessage(),
-                request.getRequestURI()
-        );
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+        return build(HttpStatus.NOT_FOUND, codeOf(ex), ex.getMessage(), request);
     }
 
     @ExceptionHandler(CustomerNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleCustomerNotFound(CustomerNotFoundException ex, HttpServletRequest request) {
         log.warn("Customer not found — path: {}, message: {}", request.getRequestURI(), ex.getMessage());
-
-        ErrorResponse response = new ErrorResponse(
-                LocalDateTime.now(),
-                HttpStatus.NOT_FOUND.value(),
-                HttpStatus.NOT_FOUND.getReasonPhrase(),
-                ex.getMessage(),
-                request.getRequestURI()
-        );
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+        return build(HttpStatus.NOT_FOUND, codeOf(ex), ex.getMessage(), request);
     }
 
     @ExceptionHandler(CustomerEmailAlreadyExistsException.class)
     public ResponseEntity<ErrorResponse> handleCustomerAlreadyExists(CustomerEmailAlreadyExistsException ex, HttpServletRequest request) {
         log.warn("Customer already exists — path: {}, message: {}", request.getRequestURI(), ex.getMessage());
-
-        ErrorResponse response = new ErrorResponse(
-                LocalDateTime.now(),
-                HttpStatus.CONFLICT.value(),
-                HttpStatus.CONFLICT.getReasonPhrase(),
-                ex.getMessage(),
-                request.getRequestURI()
-        );
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+        return build(HttpStatus.CONFLICT, codeOf(ex), ex.getMessage(), request);
     }
 
     @ExceptionHandler(InventoryNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleInventoryNotFound(InventoryNotFoundException ex, HttpServletRequest request) {
         log.warn("Inventory record not found — path: {}, message: {}", request.getRequestURI(), ex.getMessage());
-
-        ErrorResponse response = new ErrorResponse(
-                LocalDateTime.now(),
-                HttpStatus.NOT_FOUND.value(),
-                HttpStatus.NOT_FOUND.getReasonPhrase(),
-                ex.getMessage(),
-                request.getRequestURI()
-        );
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+        return build(HttpStatus.NOT_FOUND, codeOf(ex), ex.getMessage(), request);
     }
 
     @ExceptionHandler(InventoryAlreadyExistsException.class)
     public ResponseEntity<ErrorResponse> handleInventoryAlreadyExists(InventoryAlreadyExistsException ex, HttpServletRequest request) {
         log.warn("Duplicate inventory record — path: {}, message: {}", request.getRequestURI(), ex.getMessage());
-
-        ErrorResponse response = new ErrorResponse(
-                LocalDateTime.now(),
-                HttpStatus.CONFLICT.value(),
-                HttpStatus.CONFLICT.getReasonPhrase(),
-                ex.getMessage(),
-                request.getRequestURI()
-        );
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+        return build(HttpStatus.CONFLICT, codeOf(ex), ex.getMessage(), request);
     }
 
     @ExceptionHandler(LockAcquisitionException.class)
     public ResponseEntity<ErrorResponse> handleLockAcquisitionFailure(LockAcquisitionException ex, HttpServletRequest request) {
         log.warn("Distributed lock contention — path: {}, message: {}", request.getRequestURI(), ex.getMessage());
-
-        ErrorResponse response = new ErrorResponse(
-                LocalDateTime.now(),
-                HttpStatus.CONFLICT.value(),
-                HttpStatus.CONFLICT.getReasonPhrase(),
-                ex.getMessage(),
-                request.getRequestURI()
-        );
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+        return build(HttpStatus.CONFLICT, codeOf(ex), ex.getMessage(), request);
     }
 
     @ExceptionHandler(OrderNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleOrderNotFound(OrderNotFoundException ex, HttpServletRequest request) {
         log.warn("Order not found — path: {}, message: {}", request.getRequestURI(), ex.getMessage());
-
-        ErrorResponse response = new ErrorResponse(
-                LocalDateTime.now(),
-                HttpStatus.NOT_FOUND.value(),
-                HttpStatus.NOT_FOUND.getReasonPhrase(),
-                ex.getMessage(),
-                request.getRequestURI()
-        );
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+        return build(HttpStatus.NOT_FOUND, codeOf(ex), ex.getMessage(), request);
     }
 
     @ExceptionHandler(IllegalOrderStateException.class)
     public ResponseEntity<ErrorResponse> handleIllegalOrderState(IllegalOrderStateException ex, HttpServletRequest request) {
         log.warn("Illegal order state transition — path: {}, message: {}", request.getRequestURI(), ex.getMessage());
-
-        ErrorResponse response = new ErrorResponse(
-                LocalDateTime.now(),
-                HttpStatus.CONFLICT.value(),
-                HttpStatus.CONFLICT.getReasonPhrase(),
-                ex.getMessage(),
-                request.getRequestURI()
-        );
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+        return build(HttpStatus.CONFLICT, codeOf(ex), ex.getMessage(), request);
     }
 
     @ExceptionHandler(PaymentNotFoundException.class)
     public ResponseEntity<ErrorResponse> handlePaymentNotFound(PaymentNotFoundException ex, HttpServletRequest request) {
         log.warn("Payment not found — path: {}, message: {}", request.getRequestURI(), ex.getMessage());
-
-        ErrorResponse response = new ErrorResponse(
-                LocalDateTime.now(),
-                HttpStatus.NOT_FOUND.value(),
-                HttpStatus.NOT_FOUND.getReasonPhrase(),
-                ex.getMessage(),
-                request.getRequestURI()
-        );
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+        return build(HttpStatus.NOT_FOUND, codeOf(ex), ex.getMessage(), request);
     }
 
     @ExceptionHandler(IllegalPaymentStateException.class)
     public ResponseEntity<ErrorResponse> handleIllegalPaymentState(IllegalPaymentStateException ex, HttpServletRequest request) {
         log.warn("Illegal payment state transition — path: {}, message: {}", request.getRequestURI(), ex.getMessage());
-
-        ErrorResponse response = new ErrorResponse(
-                LocalDateTime.now(),
-                HttpStatus.CONFLICT.value(),
-                HttpStatus.CONFLICT.getReasonPhrase(),
-                ex.getMessage(),
-                request.getRequestURI()
-        );
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+        return build(HttpStatus.CONFLICT, codeOf(ex), ex.getMessage(), request);
     }
 
     @ExceptionHandler(ShipmentNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleShipmentNotFound(ShipmentNotFoundException ex, HttpServletRequest request) {
         log.warn("Shipment not found — path: {}, message: {}", request.getRequestURI(), ex.getMessage());
-
-        ErrorResponse response = new ErrorResponse(
-                LocalDateTime.now(),
-                HttpStatus.NOT_FOUND.value(),
-                HttpStatus.NOT_FOUND.getReasonPhrase(),
-                ex.getMessage(),
-                request.getRequestURI()
-        );
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+        return build(HttpStatus.NOT_FOUND, codeOf(ex), ex.getMessage(), request);
     }
 
     @ExceptionHandler(IllegalShipmentStateException.class)
     public ResponseEntity<ErrorResponse> handleIllegalShipmentState(IllegalShipmentStateException ex, HttpServletRequest request) {
         log.warn("Illegal shipment state transition — path: {}, message: {}", request.getRequestURI(), ex.getMessage());
-
-        ErrorResponse response = new ErrorResponse(
-                LocalDateTime.now(),
-                HttpStatus.CONFLICT.value(),
-                HttpStatus.CONFLICT.getReasonPhrase(),
-                ex.getMessage(),
-                request.getRequestURI()
-        );
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+        return build(HttpStatus.CONFLICT, codeOf(ex), ex.getMessage(), request);
     }
 
     @ExceptionHandler(UsernameAlreadyExistsException.class)
     public ResponseEntity<ErrorResponse> handleUsernameAlreadyExists(UsernameAlreadyExistsException ex, HttpServletRequest request) {
         log.warn("Username already taken — path: {}, message: {}", request.getRequestURI(), ex.getMessage());
-
-        ErrorResponse response = new ErrorResponse(
-                LocalDateTime.now(),
-                HttpStatus.CONFLICT.value(),
-                HttpStatus.CONFLICT.getReasonPhrase(),
-                ex.getMessage(),
-                request.getRequestURI()
-        );
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+        return build(HttpStatus.CONFLICT, codeOf(ex), ex.getMessage(), request);
     }
 
     @ExceptionHandler(EmailAlreadyExistsException.class)
     public ResponseEntity<ErrorResponse> handleEmailAlreadyExists(EmailAlreadyExistsException ex, HttpServletRequest request) {
         log.warn("Email already registered — path: {}, message: {}", request.getRequestURI(), ex.getMessage());
-
-        ErrorResponse response = new ErrorResponse(
-                LocalDateTime.now(),
-                HttpStatus.CONFLICT.value(),
-                HttpStatus.CONFLICT.getReasonPhrase(),
-                ex.getMessage(),
-                request.getRequestURI()
-        );
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+        return build(HttpStatus.CONFLICT, codeOf(ex), ex.getMessage(), request);
     }
 
     // Covers both wrong username/password and a disabled account attempting to log
@@ -239,30 +135,16 @@ public class GlobalExceptionHandler {
     @ExceptionHandler({BadCredentialsException.class, DisabledException.class})
     public ResponseEntity<ErrorResponse> handleAuthenticationFailure(Exception ex, HttpServletRequest request) {
         log.warn("Authentication failed — path: {}, message: {}", request.getRequestURI(), ex.getMessage());
-
-        ErrorResponse response = new ErrorResponse(
-                LocalDateTime.now(),
-                HttpStatus.UNAUTHORIZED.value(),
-                HttpStatus.UNAUTHORIZED.getReasonPhrase(),
-                com.giri.oms.auth.constants.AuthConstants.INVALID_CREDENTIALS_MESSAGE,
-                request.getRequestURI()
-        );
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+        return build(HttpStatus.UNAUTHORIZED, ErrorCode.INVALID_CREDENTIALS,
+                ErrorCode.INVALID_CREDENTIALS.formatMessage(), request);
     }
 
     @ExceptionHandler(org.springframework.data.core.PropertyReferenceException.class)
     public ResponseEntity<ErrorResponse> handleInvalidSortProperty(
             org.springframework.data.core.PropertyReferenceException ex, HttpServletRequest request) {
         log.warn("Invalid sort property in request — path: {}, message: {}", request.getRequestURI(), ex.getMessage());
-
-        ErrorResponse response = new ErrorResponse(
-                LocalDateTime.now(),
-                HttpStatus.BAD_REQUEST.value(),
-                HttpStatus.BAD_REQUEST.getReasonPhrase(),
-                "Invalid sort field: " + ex.getPropertyName(),
-                request.getRequestURI()
-        );
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        return build(HttpStatus.BAD_REQUEST, ErrorCode.INVALID_SORT_FIELD,
+                ErrorCode.INVALID_SORT_FIELD.formatMessage(ex.getPropertyName()), request);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -281,6 +163,7 @@ public class GlobalExceptionHandler {
         response.put("timestamp", LocalDateTime.now());
         response.put("status", HttpStatus.BAD_REQUEST.value());
         response.put("error", "Validation Failed");
+        response.put("errorCode", ErrorCode.VALIDATION_FAILED.code());
         response.put("path", request.getRequestURI());
         response.put("errors", fieldErrors);
 
@@ -290,14 +173,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(InvalidSortFieldException.class)
     public ResponseEntity<ErrorResponse> handleInvalidSortField(InvalidSortFieldException ex, HttpServletRequest request) {
         log.warn("Invalid sort field — path: {}, message: {}", request.getRequestURI(), ex.getMessage());
-
-        ErrorResponse response = new ErrorResponse(
-                LocalDateTime.now(),
-                HttpStatus.BAD_REQUEST.value(),
-                HttpStatus.BAD_REQUEST.getReasonPhrase(),
-                ex.getMessage(), request.getRequestURI()
-        );
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        return build(HttpStatus.BAD_REQUEST, codeOf(ex), ex.getMessage(), request);
     }
 
     // @PreAuthorize rejections throw AccessDeniedException from inside the AOP proxy
@@ -311,29 +187,15 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleAccessDenied(org.springframework.security.access.AccessDeniedException ex,
                                                              HttpServletRequest request) {
         log.warn("Access denied — path: {}, message: {}", request.getRequestURI(), ex.getMessage());
-
-        ErrorResponse response = new ErrorResponse(
-                LocalDateTime.now(),
-                HttpStatus.FORBIDDEN.value(),
-                HttpStatus.FORBIDDEN.getReasonPhrase(),
-                "You do not have permission to perform this action",
-                request.getRequestURI()
-        );
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+        return build(HttpStatus.FORBIDDEN, ErrorCode.ACCESS_DENIED,
+                ErrorCode.ACCESS_DENIED.formatMessage(), request);
     }
 
     @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
     public ResponseEntity<ErrorResponse> handleOptimisticLockingFailure(ObjectOptimisticLockingFailureException ex, HttpServletRequest request) {
         log.warn("Optimistic locking conflict — path: {}, entity: {}", request.getRequestURI(), ex.getPersistentClassName());
-
-        ErrorResponse response = new ErrorResponse(
-                LocalDateTime.now(),
-                HttpStatus.CONFLICT.value(),
-                HttpStatus.CONFLICT.getReasonPhrase(),
-                "This record was modified by someone else in the meantime — please refresh and try again.",
-                request.getRequestURI()
-        );
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+        return build(HttpStatus.CONFLICT, ErrorCode.OPTIMISTIC_LOCK_CONFLICT,
+                ErrorCode.OPTIMISTIC_LOCK_CONFLICT.formatMessage(), request);
     }
 
     // Catch-all safety net — anything not handled above lands here as a 500,
@@ -341,15 +203,24 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleUnexpectedException(Exception ex, HttpServletRequest request) {
         log.error("Unhandled exception — path: {}", request.getRequestURI(), ex);
+        return build(HttpStatus.INTERNAL_SERVER_ERROR, ErrorCode.INTERNAL_ERROR,
+                ErrorCode.INTERNAL_ERROR.formatMessage(), request);
+    }
 
+    private ResponseEntity<ErrorResponse> build(HttpStatus status, ErrorCode errorCode, String message,
+                                                 HttpServletRequest request) {
         ErrorResponse response = new ErrorResponse(
                 LocalDateTime.now(),
-                HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase(),
-                "An unexpected error occurred. Please try again later.",
+                status.value(),
+                status.getReasonPhrase(),
+                errorCode.code(),
+                message,
                 request.getRequestURI()
         );
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(response);
+        return ResponseEntity.status(status).body(response);
+    }
+
+    private ErrorCode codeOf(ErrorCoded ex) {
+        return ex.getErrorCode();
     }
 }

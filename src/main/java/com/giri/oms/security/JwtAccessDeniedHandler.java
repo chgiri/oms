@@ -37,7 +37,8 @@ public class JwtAccessDeniedHandler implements AccessDeniedHandler {
                 LocalDateTime.now(),
                 HttpStatus.FORBIDDEN.value(),
                 HttpStatus.FORBIDDEN.getReasonPhrase(),
-                "You do not have permission to perform this action",
+                com.giri.oms.common.exception.ErrorCode.ACCESS_DENIED.code(),
+                com.giri.oms.common.exception.ErrorCode.ACCESS_DENIED.formatMessage(),
                 request.getRequestURI()
         );
 

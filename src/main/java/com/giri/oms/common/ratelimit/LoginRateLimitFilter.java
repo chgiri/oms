@@ -75,7 +75,8 @@ public class LoginRateLimitFilter extends OncePerRequestFilter {
                 LocalDateTime.now(),
                 HttpStatus.TOO_MANY_REQUESTS.value(),
                 HttpStatus.TOO_MANY_REQUESTS.getReasonPhrase(),
-                "Too many login attempts — please try again in " + retryAfterSeconds + " seconds",
+                com.giri.oms.common.exception.ErrorCode.RATE_LIMIT_EXCEEDED.code(),
+                com.giri.oms.common.exception.ErrorCode.RATE_LIMIT_EXCEEDED.formatMessage(retryAfterSeconds),
                 path
         );
         response.getWriter().write(objectMapper.writeValueAsString(errorResponse));
