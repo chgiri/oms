@@ -5,6 +5,8 @@ import com.giri.oms.auth.dto.LoginRequest;
 import com.giri.oms.auth.dto.RegisterRequest;
 import com.giri.oms.auth.dto.UserResponse;
 import com.giri.oms.auth.service.AuthService;
+import com.giri.oms.common.exception.ErrorCode;
+import com.giri.oms.common.openapi.ApiErrorCodes;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
@@ -53,12 +55,9 @@ public class AuthController {
                                       "enabled": true,
                                       "createdAt": "2026-07-16T10:15:30"
                                     }
-                                    """))),
-            @ApiResponse(responseCode = "400", description = "Validation error — e.g. blank username, password under 8 characters"),
-            @ApiResponse(responseCode = "401", description = "Missing or invalid bearer token"),
-            @ApiResponse(responseCode = "403", description = "Authenticated but not an ADMIN"),
-            @ApiResponse(responseCode = "409", description = "Username or email already taken")
+                                    """)))
     })
+    @ApiErrorCodes({ErrorCode.USERNAME_ALREADY_EXISTS, ErrorCode.EMAIL_ALREADY_EXISTS})
     public ResponseEntity<UserResponse> register(@Valid @RequestBody RegisterRequest request) {
         log.info("POST /api/auth/register — registering user: {}", request.getUsername());
         UserResponse response = authService.register(request);
@@ -70,10 +69,9 @@ public class AuthController {
     @Operation(summary = "Log in and obtain a JWT",
             description = "Public endpoint. On success, returns a bearer token to send as "
                     + "'Authorization: Bearer <token>' on every subsequent request.")
+    @ApiErrorCodes({ErrorCode.INVALID_CREDENTIALS})
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Login successful"),
-            @ApiResponse(responseCode = "400", description = "Validation error — e.g. blank username or password"),
-            @ApiResponse(responseCode = "401", description = "Invalid username or password")
+            @ApiResponse(responseCode = "200", description = "Login successful")
     })
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
         log.info("POST /api/auth/login — login attempt for: {}", request.getUsername());
@@ -87,9 +85,9 @@ public class AuthController {
             description = "Requires a valid bearer token. Revokes it immediately — the same token is rejected "
                     + "on any further request even though it hasn't naturally expired yet — by recording it "
                     + "in a Redis-backed blacklist for the remainder of its lifetime.")
+    @ApiErrorCodes({ErrorCode.UNAUTHENTICATED})
     @ApiResponses({
-            @ApiResponse(responseCode = "204", description = "Token revoked"),
-            @ApiResponse(responseCode = "401", description = "Missing or invalid bearer token")
+            @ApiResponse(responseCode = "204", description = "Token revoked")
     })
     public ResponseEntity<Void> logout(@RequestHeader("Authorization") String authorizationHeader) {
         String token = authorizationHeader.startsWith("Bearer ")

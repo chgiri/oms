@@ -1,6 +1,8 @@
 package com.giri.oms.payment.controller;
 
 import com.giri.oms.common.dto.PagedResponse;
+import com.giri.oms.common.exception.ErrorCode;
+import com.giri.oms.common.openapi.ApiErrorCodes;
 import com.giri.oms.payment.dto.PaymentRequest;
 import com.giri.oms.payment.dto.PaymentResponse;
 import com.giri.oms.payment.dto.PaymentStatusUpdateRequest;
@@ -58,10 +60,9 @@ public class PaymentController {
                                       "createdAt": "2026-07-01T10:15:30",
                                       "updatedAt": "2026-07-01T10:15:30"
                                     }
-                                    """))),
-            @ApiResponse(responseCode = "400", description = "Validation error — e.g. missing orderId, non-positive amount, missing method"),
-            @ApiResponse(responseCode = "404", description = "No order exists with the given ID")
+                                    """)))
     })
+    @ApiErrorCodes({ErrorCode.ORDER_NOT_FOUND, ErrorCode.ILLEGAL_ORDER_STATE})
     public ResponseEntity<PaymentResponse> createPayment(@Valid @RequestBody PaymentRequest paymentRequest) {
         log.info("POST /api/payments — creating payment for order id: {}", paymentRequest.getOrderId());
         PaymentResponse savedPayment = paymentService.createPayment(paymentRequest);
@@ -71,9 +72,9 @@ public class PaymentController {
     // Build Get Payment REST API
     @GetMapping("{id}")
     @Operation(summary = "Get a payment by ID")
+    @ApiErrorCodes({ErrorCode.PAYMENT_NOT_FOUND})
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Payment found"),
-            @ApiResponse(responseCode = "404", description = "No payment exists with the given ID")
+            @ApiResponse(responseCode = "200", description = "Payment found")
     })
     public ResponseEntity<PaymentResponse> getPaymentById(
             @Parameter(description = "ID of the payment to fetch", example = "1")
@@ -88,9 +89,9 @@ public class PaymentController {
     @Operation(summary = "Get all payments (paginated)",
             description = "Returns payments page by page. `sortBy` is restricted to an allow-list "
                     + "(id, amount, status, method, createdAt, updatedAt) — any other value returns a 400.")
+    @ApiErrorCodes({ErrorCode.INVALID_SORT_FIELD})
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Page of payments returned"),
-            @ApiResponse(responseCode = "400", description = "Invalid sortBy field")
+            @ApiResponse(responseCode = "200", description = "Page of payments returned")
     })
     public ResponseEntity<PagedResponse<PaymentResponse>> getAllPayments(
             @Parameter(description = "Page number, 0-indexed", example = "0")
@@ -116,11 +117,9 @@ public class PaymentController {
                     + "An optional transactionReference in the request body is recorded alongside the transition "
                     + "(typically supplied when confirming a COMPLETED payment); omitting it leaves any existing "
                     + "reference on the payment unchanged.")
+    @ApiErrorCodes({ErrorCode.PAYMENT_NOT_FOUND, ErrorCode.ILLEGAL_PAYMENT_STATE})
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Payment status updated"),
-            @ApiResponse(responseCode = "400", description = "Validation error — e.g. missing status"),
-            @ApiResponse(responseCode = "404", description = "No payment exists with the given ID"),
-            @ApiResponse(responseCode = "409", description = "The requested transition is not allowed from the payment's current status")
+            @ApiResponse(responseCode = "200", description = "Payment status updated")
     })
     public ResponseEntity<PaymentResponse> updatePaymentStatus(
             @Parameter(description = "ID of the payment to update", example = "1")
@@ -139,12 +138,9 @@ public class PaymentController {
     @Operation(summary = "Delete a payment",
             description = "Restricted to ADMIN. Only payments in PENDING or FAILED status can be deleted — "
                     + "once a payment has completed (or been refunded), its record is kept for the audit trail instead.")
+    @ApiErrorCodes({ErrorCode.PAYMENT_NOT_FOUND, ErrorCode.ILLEGAL_PAYMENT_STATE})
     @ApiResponses({
-            @ApiResponse(responseCode = "204", description = "Payment deleted"),
-            @ApiResponse(responseCode = "401", description = "Missing or invalid bearer token"),
-            @ApiResponse(responseCode = "403", description = "Authenticated but not an ADMIN"),
-            @ApiResponse(responseCode = "404", description = "No payment exists with the given ID"),
-            @ApiResponse(responseCode = "409", description = "The payment's current status does not allow deletion")
+            @ApiResponse(responseCode = "204", description = "Payment deleted")
     })
     public ResponseEntity<Void> deletePayment(
             @Parameter(description = "ID of the payment to delete", example = "1")

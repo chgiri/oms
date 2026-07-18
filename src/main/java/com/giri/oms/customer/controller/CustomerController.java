@@ -1,6 +1,8 @@
 package com.giri.oms.customer.controller;
 
 import com.giri.oms.common.dto.PagedResponse;
+import com.giri.oms.common.exception.ErrorCode;
+import com.giri.oms.common.openapi.ApiErrorCodes;
 import com.giri.oms.customer.dto.CustomerRequest;
 import com.giri.oms.customer.dto.CustomerResponse;
 import com.giri.oms.customer.entity.CustomerStatus;
@@ -59,10 +61,9 @@ public class CustomerController {
                                       "createdAt": "2026-07-01T10:15:30",
                                       "updatedAt": "2026-07-01T10:15:30"
                                     }
-                                    """))),
-            @ApiResponse(responseCode = "400", description = "Validation error — e.g. blank name, malformed email, invalid phone"),
-            @ApiResponse(responseCode = "409", description = "A customer with this email already exists")
+                                    """)))
     })
+    @ApiErrorCodes({ErrorCode.CUSTOMER_EMAIL_ALREADY_EXISTS})
     public ResponseEntity<CustomerResponse> createCustomer(@Valid @RequestBody CustomerRequest customerRequest) {
         log.info("POST /api/customers — creating customer: {}", customerRequest.getEmail());
         CustomerResponse savedCustomer = customerService.createCustomer(customerRequest);
@@ -72,9 +73,9 @@ public class CustomerController {
     // Build Get Customer REST API
     @GetMapping("{id}")
     @Operation(summary = "Get a customer by ID")
+    @ApiErrorCodes({ErrorCode.CUSTOMER_NOT_FOUND})
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Customer found"),
-            @ApiResponse(responseCode = "404", description = "No customer exists with the given ID")
+            @ApiResponse(responseCode = "200", description = "Customer found")
     })
     public ResponseEntity<CustomerResponse> getCustomerById(
             @Parameter(description = "ID of the customer to fetch", example = "1")
@@ -89,9 +90,9 @@ public class CustomerController {
     @Operation(summary = "Get all customers (paginated)",
             description = "Returns customers page by page. `sortBy` is restricted to an allow-list "
                     + "(id, firstName, lastName, email, status, createdAt, updatedAt) — any other value returns a 400.")
+    @ApiErrorCodes({ErrorCode.INVALID_SORT_FIELD})
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Page of customers returned"),
-            @ApiResponse(responseCode = "400", description = "Invalid sortBy field")
+            @ApiResponse(responseCode = "200", description = "Page of customers returned")
     })
     public ResponseEntity<PagedResponse<CustomerResponse>> getAllCustomers(
             @Parameter(description = "Page number, 0-indexed", example = "0")
@@ -114,11 +115,9 @@ public class CustomerController {
             description = "Fully replaces the customer's name, email, phone, address, and status. "
                     + "All fields are re-validated as on create. "
                     + "Changing the email to one already used by another customer returns a 409.")
+    @ApiErrorCodes({ErrorCode.CUSTOMER_NOT_FOUND, ErrorCode.CUSTOMER_EMAIL_ALREADY_EXISTS})
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Customer updated"),
-            @ApiResponse(responseCode = "400", description = "Validation error"),
-            @ApiResponse(responseCode = "404", description = "No customer exists with the given ID"),
-            @ApiResponse(responseCode = "409", description = "Another customer already uses this email")
+            @ApiResponse(responseCode = "200", description = "Customer updated")
     })
     public ResponseEntity<CustomerResponse> updateCustomer(
             @Parameter(description = "ID of the customer to update", example = "1")
@@ -134,11 +133,9 @@ public class CustomerController {
     @DeleteMapping("{id}")
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Delete a customer", description = "Restricted to ADMIN.")
+    @ApiErrorCodes({ErrorCode.CUSTOMER_NOT_FOUND})
     @ApiResponses({
-            @ApiResponse(responseCode = "204", description = "Customer deleted"),
-            @ApiResponse(responseCode = "401", description = "Missing or invalid bearer token"),
-            @ApiResponse(responseCode = "403", description = "Authenticated but not an ADMIN"),
-            @ApiResponse(responseCode = "404", description = "No customer exists with the given ID")
+            @ApiResponse(responseCode = "204", description = "Customer deleted")
     })
     public ResponseEntity<Void> deleteCustomer(
             @Parameter(description = "ID of the customer to delete", example = "1")

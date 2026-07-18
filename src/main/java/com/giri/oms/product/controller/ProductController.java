@@ -1,6 +1,8 @@
 package com.giri.oms.product.controller;
 
 import com.giri.oms.common.dto.PagedResponse;
+import com.giri.oms.common.exception.ErrorCode;
+import com.giri.oms.common.openapi.ApiErrorCodes;
 import com.giri.oms.product.dto.ProductRequest;
 import com.giri.oms.product.dto.ProductResponse;
 import com.giri.oms.product.service.ProductService;
@@ -51,8 +53,7 @@ public class ProductController {
                                       "createdAt": "2026-07-01T10:15:30",
                                       "updatedAt": "2026-07-01T10:15:30"
                                     }
-                                    """))),
-            @ApiResponse(responseCode = "400", description = "Validation error — e.g. blank name, negative price")
+                                    """)))
     })
     public ResponseEntity<ProductResponse> createProduct(@Valid @RequestBody ProductRequest productRequest) {
         log.info("POST /api/products — creating product: {}", productRequest.getName());
@@ -63,9 +64,9 @@ public class ProductController {
     // Build Get Product REST API
     @GetMapping("{id}")
     @Operation(summary = "Get a product by ID")
+    @ApiErrorCodes({ErrorCode.PRODUCT_NOT_FOUND})
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Product found"),
-            @ApiResponse(responseCode = "404", description = "No product exists with the given ID")
+            @ApiResponse(responseCode = "200", description = "Product found")
     })
     public ResponseEntity<ProductResponse> getProductById(
             @Parameter(description = "ID of the product to fetch", example = "1")
@@ -80,9 +81,9 @@ public class ProductController {
     @Operation(summary = "Get all products (paginated)",
             description = "Returns products page by page. `sortBy` is restricted to an allow-list "
                     + "(id, name, price, createdAt, updatedAt) — any other value returns a 400.")
+    @ApiErrorCodes({ErrorCode.INVALID_SORT_FIELD})
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Page of products returned"),
-            @ApiResponse(responseCode = "400", description = "Invalid sortBy field")
+            @ApiResponse(responseCode = "200", description = "Page of products returned")
     })
     public ResponseEntity<PagedResponse<ProductResponse>> getAllProducts(
             @Parameter(description = "Page number, 0-indexed", example = "0")
@@ -103,10 +104,9 @@ public class ProductController {
     @PutMapping("{id}")
     @Operation(summary = "Update a product",
             description = "Fully replaces the product's name, description, and price. All fields are re-validated as on create.")
+    @ApiErrorCodes({ErrorCode.PRODUCT_NOT_FOUND})
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Product updated"),
-            @ApiResponse(responseCode = "400", description = "Validation error"),
-            @ApiResponse(responseCode = "404", description = "No product exists with the given ID")
+            @ApiResponse(responseCode = "200", description = "Product updated")
     })
     public ResponseEntity<ProductResponse> updateProduct(
             @Parameter(description = "ID of the product to update", example = "1")
@@ -122,11 +122,9 @@ public class ProductController {
     @DeleteMapping("{id}")
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Delete a product", description = "Restricted to ADMIN.")
+    @ApiErrorCodes({ErrorCode.PRODUCT_NOT_FOUND})
     @ApiResponses({
-            @ApiResponse(responseCode = "204", description = "Product deleted"),
-            @ApiResponse(responseCode = "401", description = "Missing or invalid bearer token"),
-            @ApiResponse(responseCode = "403", description = "Authenticated but not an ADMIN"),
-            @ApiResponse(responseCode = "404", description = "No product exists with the given ID")
+            @ApiResponse(responseCode = "204", description = "Product deleted")
     })
     public ResponseEntity<Void> deleteProduct(
             @Parameter(description = "ID of the product to delete", example = "1")

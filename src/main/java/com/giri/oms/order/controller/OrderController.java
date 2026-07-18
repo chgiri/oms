@@ -1,6 +1,8 @@
 package com.giri.oms.order.controller;
 
 import com.giri.oms.common.dto.PagedResponse;
+import com.giri.oms.common.exception.ErrorCode;
+import com.giri.oms.common.openapi.ApiErrorCodes;
 import com.giri.oms.order.dto.OrderRequest;
 import com.giri.oms.order.dto.OrderResponse;
 import com.giri.oms.order.dto.OrderStatusUpdateRequest;
@@ -68,10 +70,9 @@ public class OrderController {
                                       "createdAt": "2026-07-01T10:15:30",
                                       "updatedAt": "2026-07-01T10:15:30"
                                     }
-                                    """))),
-            @ApiResponse(responseCode = "400", description = "Validation error — e.g. missing customerId, empty items list, non-positive quantity"),
-            @ApiResponse(responseCode = "404", description = "No customer or product exists with the given ID")
+                                    """)))
     })
+    @ApiErrorCodes({ErrorCode.CUSTOMER_NOT_FOUND, ErrorCode.PRODUCT_NOT_FOUND})
     public ResponseEntity<OrderResponse> createOrder(@Valid @RequestBody OrderRequest orderRequest) {
         log.info("POST /api/orders — creating order for customer id: {}", orderRequest.getCustomerId());
         OrderResponse savedOrder = orderService.createOrder(orderRequest);
@@ -81,9 +82,9 @@ public class OrderController {
     // Build Get Order REST API
     @GetMapping("{id}")
     @Operation(summary = "Get an order by ID")
+    @ApiErrorCodes({ErrorCode.ORDER_NOT_FOUND})
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Order found"),
-            @ApiResponse(responseCode = "404", description = "No order exists with the given ID")
+            @ApiResponse(responseCode = "200", description = "Order found")
     })
     public ResponseEntity<OrderResponse> getOrderById(
             @Parameter(description = "ID of the order to fetch", example = "1")
@@ -98,9 +99,9 @@ public class OrderController {
     @Operation(summary = "Get all orders (paginated)",
             description = "Returns orders page by page. `sortBy` is restricted to an allow-list "
                     + "(id, status, totalAmount, createdAt, updatedAt) — any other value returns a 400.")
+    @ApiErrorCodes({ErrorCode.INVALID_SORT_FIELD})
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Page of orders returned"),
-            @ApiResponse(responseCode = "400", description = "Invalid sortBy field")
+            @ApiResponse(responseCode = "200", description = "Page of orders returned")
     })
     public ResponseEntity<PagedResponse<OrderResponse>> getAllOrders(
             @Parameter(description = "Page number, 0-indexed", example = "0")
@@ -123,11 +124,9 @@ public class OrderController {
             description = "Moves the order to a new status. Allowed transitions: "
                     + "PENDING → CONFIRMED or CANCELLED; CONFIRMED → SHIPPED or CANCELLED; SHIPPED → DELIVERED. "
                     + "DELIVERED and CANCELLED are terminal — any other transition returns a 409.")
+    @ApiErrorCodes({ErrorCode.ORDER_NOT_FOUND, ErrorCode.ILLEGAL_ORDER_STATE})
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Order status updated"),
-            @ApiResponse(responseCode = "400", description = "Validation error — e.g. missing status"),
-            @ApiResponse(responseCode = "404", description = "No order exists with the given ID"),
-            @ApiResponse(responseCode = "409", description = "The requested transition is not allowed from the order's current status")
+            @ApiResponse(responseCode = "200", description = "Order status updated")
     })
     public ResponseEntity<OrderResponse> updateOrderStatus(
             @Parameter(description = "ID of the order to update", example = "1")
@@ -145,12 +144,9 @@ public class OrderController {
     @Operation(summary = "Delete an order",
             description = "Restricted to ADMIN. Only orders in PENDING or CANCELLED status can be deleted — "
                     + "once an order has shipped, its record is kept for the audit trail instead.")
+    @ApiErrorCodes({ErrorCode.ORDER_NOT_FOUND, ErrorCode.ILLEGAL_ORDER_STATE})
     @ApiResponses({
-            @ApiResponse(responseCode = "204", description = "Order deleted"),
-            @ApiResponse(responseCode = "401", description = "Missing or invalid bearer token"),
-            @ApiResponse(responseCode = "403", description = "Authenticated but not an ADMIN"),
-            @ApiResponse(responseCode = "404", description = "No order exists with the given ID"),
-            @ApiResponse(responseCode = "409", description = "The order's current status does not allow deletion")
+            @ApiResponse(responseCode = "204", description = "Order deleted")
     })
     public ResponseEntity<Void> deleteOrder(
             @Parameter(description = "ID of the order to delete", example = "1")

@@ -1,6 +1,8 @@
 package com.giri.oms.inventory.controller;
 
 import com.giri.oms.common.dto.PagedResponse;
+import com.giri.oms.common.exception.ErrorCode;
+import com.giri.oms.common.openapi.ApiErrorCodes;
 import com.giri.oms.inventory.dto.InventoryRequest;
 import com.giri.oms.inventory.dto.InventoryResponse;
 import com.giri.oms.inventory.service.InventoryService;
@@ -54,11 +56,9 @@ public class InventoryController {
                                       "createdAt": "2026-07-01T10:15:30",
                                       "updatedAt": "2026-07-01T10:15:30"
                                     }
-                                    """))),
-            @ApiResponse(responseCode = "400", description = "Validation error — e.g. missing productId, negative quantity"),
-            @ApiResponse(responseCode = "404", description = "No product exists with the given productId"),
-            @ApiResponse(responseCode = "409", description = "An inventory record already exists for this product at this location")
+                                    """)))
     })
+    @ApiErrorCodes({ErrorCode.PRODUCT_NOT_FOUND, ErrorCode.INVENTORY_ALREADY_EXISTS})
     public ResponseEntity<InventoryResponse> createInventory(@Valid @RequestBody InventoryRequest inventoryRequest) {
         log.info("POST /api/inventory — creating inventory for product id: {} at location: {}",
                 inventoryRequest.getProductId(), inventoryRequest.getLocation());
@@ -69,9 +69,9 @@ public class InventoryController {
     // Build Get Inventory REST API
     @GetMapping("{id}")
     @Operation(summary = "Get an inventory record by ID")
+    @ApiErrorCodes({ErrorCode.INVENTORY_NOT_FOUND})
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Inventory record found"),
-            @ApiResponse(responseCode = "404", description = "No inventory record exists with the given ID")
+            @ApiResponse(responseCode = "200", description = "Inventory record found")
     })
     public ResponseEntity<InventoryResponse> getInventoryById(
             @Parameter(description = "ID of the inventory record to fetch", example = "1")
@@ -87,9 +87,9 @@ public class InventoryController {
             description = "Returns inventory records page by page. `sortBy` is restricted to an allow-list "
                     + "(id, location, quantityAvailable, quantityReserved, reorderLevel, createdAt, updatedAt) "
                     + "— any other value returns a 400.")
+    @ApiErrorCodes({ErrorCode.INVALID_SORT_FIELD})
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Page of inventory records returned"),
-            @ApiResponse(responseCode = "400", description = "Invalid sortBy field")
+            @ApiResponse(responseCode = "200", description = "Page of inventory records returned")
     })
     public ResponseEntity<PagedResponse<InventoryResponse>> getAllInventory(
             @Parameter(description = "Page number, 0-indexed", example = "0")
@@ -112,11 +112,10 @@ public class InventoryController {
             description = "Fully replaces the record's product, location, quantities, and reorder level. "
                     + "All fields are re-validated as on create. Moving the record to a (product, location) "
                     + "pair already used by another record returns a 409.")
+    @ApiErrorCodes({ErrorCode.INVENTORY_NOT_FOUND, ErrorCode.PRODUCT_NOT_FOUND, ErrorCode.INVENTORY_ALREADY_EXISTS,
+            ErrorCode.LOCK_ACQUISITION_FAILED})
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Inventory record updated"),
-            @ApiResponse(responseCode = "400", description = "Validation error"),
-            @ApiResponse(responseCode = "404", description = "No inventory record (or referenced product) exists with the given ID"),
-            @ApiResponse(responseCode = "409", description = "Another record already exists for this product at this location")
+            @ApiResponse(responseCode = "200", description = "Inventory record updated")
     })
     public ResponseEntity<InventoryResponse> updateInventory(
             @Parameter(description = "ID of the inventory record to update", example = "1")
@@ -132,11 +131,9 @@ public class InventoryController {
     @DeleteMapping("{id}")
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Delete an inventory record", description = "Restricted to ADMIN.")
+    @ApiErrorCodes({ErrorCode.INVENTORY_NOT_FOUND})
     @ApiResponses({
-            @ApiResponse(responseCode = "204", description = "Inventory record deleted"),
-            @ApiResponse(responseCode = "401", description = "Missing or invalid bearer token"),
-            @ApiResponse(responseCode = "403", description = "Authenticated but not an ADMIN"),
-            @ApiResponse(responseCode = "404", description = "No inventory record exists with the given ID")
+            @ApiResponse(responseCode = "204", description = "Inventory record deleted")
     })
     public ResponseEntity<Void> deleteInventory(
             @Parameter(description = "ID of the inventory record to delete", example = "1")

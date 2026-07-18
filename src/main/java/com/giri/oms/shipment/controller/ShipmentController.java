@@ -1,6 +1,8 @@
 package com.giri.oms.shipment.controller;
 
 import com.giri.oms.common.dto.PagedResponse;
+import com.giri.oms.common.exception.ErrorCode;
+import com.giri.oms.common.openapi.ApiErrorCodes;
 import com.giri.oms.shipment.dto.ShipmentRequest;
 import com.giri.oms.shipment.dto.ShipmentResponse;
 import com.giri.oms.shipment.dto.ShipmentStatusUpdateRequest;
@@ -57,10 +59,9 @@ public class ShipmentController {
                                       "createdAt": "2026-07-01T10:15:30",
                                       "updatedAt": "2026-07-01T10:15:30"
                                     }
-                                    """))),
-            @ApiResponse(responseCode = "400", description = "Validation error — e.g. missing orderId, missing carrier"),
-            @ApiResponse(responseCode = "404", description = "No order exists with the given ID")
+                                    """)))
     })
+    @ApiErrorCodes({ErrorCode.ORDER_NOT_FOUND})
     public ResponseEntity<ShipmentResponse> createShipment(@Valid @RequestBody ShipmentRequest shipmentRequest) {
         log.info("POST /api/shipments — creating shipment for order id: {}", shipmentRequest.getOrderId());
         ShipmentResponse savedShipment = shipmentService.createShipment(shipmentRequest);
@@ -70,9 +71,9 @@ public class ShipmentController {
     // Build Get Shipment REST API
     @GetMapping("{id}")
     @Operation(summary = "Get a shipment by ID")
+    @ApiErrorCodes({ErrorCode.SHIPMENT_NOT_FOUND})
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Shipment found"),
-            @ApiResponse(responseCode = "404", description = "No shipment exists with the given ID")
+            @ApiResponse(responseCode = "200", description = "Shipment found")
     })
     public ResponseEntity<ShipmentResponse> getShipmentById(
             @Parameter(description = "ID of the shipment to fetch", example = "1")
@@ -87,9 +88,9 @@ public class ShipmentController {
     @Operation(summary = "Get all shipments (paginated)",
             description = "Returns shipments page by page. `sortBy` is restricted to an allow-list "
                     + "(id, status, carrier, shippedAt, deliveredAt, createdAt, updatedAt) — any other value returns a 400.")
+    @ApiErrorCodes({ErrorCode.INVALID_SORT_FIELD})
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Page of shipments returned"),
-            @ApiResponse(responseCode = "400", description = "Invalid sortBy field")
+            @ApiResponse(responseCode = "200", description = "Page of shipments returned")
     })
     public ResponseEntity<PagedResponse<ShipmentResponse>> getAllShipments(
             @Parameter(description = "Page number, 0-indexed", example = "0")
@@ -116,11 +117,9 @@ public class ShipmentController {
                     + "(typically supplied when moving to SHIPPED); omitting it leaves any existing tracking "
                     + "number on the shipment unchanged. shippedAt and deliveredAt are stamped automatically "
                     + "the first time the shipment reaches SHIPPED or DELIVERED respectively.")
+    @ApiErrorCodes({ErrorCode.SHIPMENT_NOT_FOUND, ErrorCode.ILLEGAL_SHIPMENT_STATE})
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Shipment status updated"),
-            @ApiResponse(responseCode = "400", description = "Validation error — e.g. missing status"),
-            @ApiResponse(responseCode = "404", description = "No shipment exists with the given ID"),
-            @ApiResponse(responseCode = "409", description = "The requested transition is not allowed from the shipment's current status")
+            @ApiResponse(responseCode = "200", description = "Shipment status updated")
     })
     public ResponseEntity<ShipmentResponse> updateShipmentStatus(
             @Parameter(description = "ID of the shipment to update", example = "1")
@@ -139,12 +138,9 @@ public class ShipmentController {
     @Operation(summary = "Delete a shipment",
             description = "Restricted to ADMIN. Only shipments in PENDING or RETURNED status can be deleted — "
                     + "once a shipment is in transit or delivered, its record is kept for the audit trail instead.")
+    @ApiErrorCodes({ErrorCode.SHIPMENT_NOT_FOUND, ErrorCode.ILLEGAL_SHIPMENT_STATE})
     @ApiResponses({
-            @ApiResponse(responseCode = "204", description = "Shipment deleted"),
-            @ApiResponse(responseCode = "401", description = "Missing or invalid bearer token"),
-            @ApiResponse(responseCode = "403", description = "Authenticated but not an ADMIN"),
-            @ApiResponse(responseCode = "404", description = "No shipment exists with the given ID"),
-            @ApiResponse(responseCode = "409", description = "The shipment's current status does not allow deletion")
+            @ApiResponse(responseCode = "204", description = "Shipment deleted")
     })
     public ResponseEntity<Void> deleteShipment(
             @Parameter(description = "ID of the shipment to delete", example = "1")
