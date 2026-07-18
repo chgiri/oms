@@ -6,6 +6,8 @@ import com.giri.oms.customer.entity.Customer;
 import com.giri.oms.customer.exception.CustomerNotFoundException;
 import com.giri.oms.customer.repository.CustomerRepository;
 import com.giri.oms.messaging.event.EventType;
+import com.giri.oms.messaging.event.OrderCancelledEvent;
+import com.giri.oms.messaging.event.OrderCancelledEventFactory;
 import com.giri.oms.messaging.event.OrderConfirmedEvent;
 import com.giri.oms.messaging.event.OrderConfirmedEventFactory;
 import com.giri.oms.messaging.event.OrderCreatedEvent;
@@ -58,6 +60,7 @@ public class OrderServiceImpl implements OrderService {
     private final OutboxService outboxService;
     private final OrderCreatedEventFactory orderCreatedEventFactory;
     private final OrderConfirmedEventFactory orderConfirmedEventFactory;
+    private final OrderCancelledEventFactory orderCancelledEventFactory;
 
     private static final Set<String> ALLOWED_SORT_FIELDS =
             Set.of("id", "status", "totalAmount", "createdAt", "updatedAt");
@@ -70,13 +73,19 @@ public class OrderServiceImpl implements OrderService {
     static {
         // PENDING -> AWAITING_PAYMENT: inventory reservation succeeded (Phase 2).
         // PENDING -> CANCELLED: inventory reservation failed, or a manual cancel
-        // before reservation completes.
+        // before reservation completes — nothing was ever reserved, so Phase 4's
+        // release flow below is naturally a no-op for this path.
         ALLOWED_TRANSITIONS.put(OrderStatus.PENDING, EnumSet.of(OrderStatus.AWAITING_PAYMENT, OrderStatus.CANCELLED));
         // AWAITING_PAYMENT -> CONFIRMED: payment confirmed (Phase 3).
-        // AWAITING_PAYMENT -> CANCELLED: payment failed, or a manual cancel while
-        // waiting on payment (Phase 4 is responsible for releasing the stock this
-        // reserved).
+        // AWAITING_PAYMENT -> CANCELLED: payment failed (Phase 4, driven by
+        // OrderSagaEventConsumer reacting to PaymentFailed), or a manual cancel
+        // while waiting on payment. Either way stock was reserved for this order,
+        // so this enqueues OrderCancelled below to release it.
         ALLOWED_TRANSITIONS.put(OrderStatus.AWAITING_PAYMENT, EnumSet.of(OrderStatus.CONFIRMED, OrderStatus.CANCELLED));
+        // CONFIRMED -> CANCELLED: manual cancel after payment but before shipping.
+        // Stock is still reserved at this point too (it isn't released until
+        // shipment, which this codebase doesn't model as consuming it), so this
+        // also needs the OrderCancelled release below.
         ALLOWED_TRANSITIONS.put(OrderStatus.CONFIRMED, EnumSet.of(OrderStatus.SHIPPED, OrderStatus.CANCELLED));
         ALLOWED_TRANSITIONS.put(OrderStatus.SHIPPED, EnumSet.of(OrderStatus.DELIVERED));
     }
@@ -213,10 +222,12 @@ public class OrderServiceImpl implements OrderService {
 
         // Enqueued in the same transaction as the status change above (see
         // InventoryReservationServiceImpl.reserveForOrder for the fuller version
-        // of this note on why that matters). This is what drives Phase 3's
-        // shipment creation.
+        // of this note on why that matters). CONFIRMED drives Phase 3's shipment
+        // creation; CANCELLED drives Phase 4's stock release.
         if (newStatus == OrderStatus.CONFIRMED) {
             enqueueOrderConfirmedEvent(updatedOrder);
+        } else if (newStatus == OrderStatus.CANCELLED) {
+            enqueueOrderCancelledEvent(updatedOrder);
         }
 
         log.info(OrderConstants.ORDER_STATUS_UPDATED_LOG, updatedOrder.getId(), newStatus);
@@ -233,6 +244,19 @@ public class OrderServiceImpl implements OrderService {
                 EventType.ORDER_CONFIRMED,
                 orderConfirmedEventFactory.topic(),
                 orderConfirmedEventFactory.partitionKey(order.getId()),
+                event);
+    }
+
+    private void enqueueOrderCancelledEvent(Order order) {
+        UUID eventId = UUID.randomUUID();
+        OrderCancelledEvent event = orderCancelledEventFactory.cancelled(order.getId(), eventId);
+        outboxService.enqueue(
+                eventId,
+                orderCancelledEventFactory.aggregateType(),
+                orderCancelledEventFactory.aggregateId(order.getId()),
+                EventType.ORDER_CANCELLED,
+                orderCancelledEventFactory.topic(),
+                orderCancelledEventFactory.partitionKey(order.getId()),
                 event);
     }
 

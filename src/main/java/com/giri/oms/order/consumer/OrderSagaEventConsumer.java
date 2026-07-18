@@ -4,6 +4,7 @@ import com.giri.oms.messaging.event.EventType;
 import com.giri.oms.messaging.event.InventoryReservationFailedEvent;
 import com.giri.oms.messaging.event.InventoryReservedEvent;
 import com.giri.oms.messaging.event.PaymentConfirmedEvent;
+import com.giri.oms.messaging.event.PaymentFailedEvent;
 import com.giri.oms.order.entity.OrderStatus;
 import com.giri.oms.order.exception.IllegalOrderStateException;
 import com.giri.oms.order.service.OrderService;
@@ -17,8 +18,8 @@ import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Drives the order's own status forward as its saga participants report
- * outcomes: inventory (Phase 2) and now payment (Phase 3, happy path only —
- * PaymentFailed's compensating CANCELLED transition is Phase 4).
+ * outcomes: inventory (Phase 2) and payment (Phase 3 happy path, Phase 4
+ * compensation).
  *
  * <p>Topic strategy: every order-lifecycle event — OrderCreated, the Phase 2
  * outcomes, PaymentConfirmed/PaymentFailed, and OrderConfirmed — stays on the
@@ -74,10 +75,17 @@ public class OrderSagaEventConsumer {
             PaymentConfirmedEvent event = objectMapper.readValue(record.value(), PaymentConfirmedEvent.class);
             log.debug("Received PaymentConfirmed event id={} for order id={}", event.eventId(), event.orderId());
             applyTransition(event.orderId(), OrderStatus.CONFIRMED);
+        } else if (EventType.PAYMENT_FAILED.equals(eventType)) {
+            // Phase 4's compensating flow: payment didn't go through, so the order
+            // can't proceed. Moving it to CANCELLED here is what makes
+            // OrderServiceImpl.updateOrderStatus enqueue OrderCancelled, which the
+            // inventory module reacts to by releasing the stock this order held.
+            PaymentFailedEvent event = objectMapper.readValue(record.value(), PaymentFailedEvent.class);
+            log.debug("Received PaymentFailed event id={} for order id={}", event.eventId(), event.orderId());
+            applyTransition(event.orderId(), OrderStatus.CANCELLED);
         } else {
             // Not one of the event types this consumer cares about — OrderCreated
-            // is handled by the inventory group, and PaymentFailed has no reaction
-            // yet (Phase 4 adds the CANCELLED compensation for it).
+            // is handled by the inventory group.
             log.debug("Ignoring event of type {} on order-events topic (key={})", eventType, record.key());
         }
     }

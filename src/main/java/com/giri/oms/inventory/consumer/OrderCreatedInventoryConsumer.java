@@ -5,6 +5,7 @@ import com.giri.oms.inventory.service.InventoryReservationService;
 import com.giri.oms.messaging.event.EventType;
 import com.giri.oms.messaging.event.InventoryReservationEventFactory;
 import com.giri.oms.messaging.event.InventoryReservationFailedEvent;
+import com.giri.oms.messaging.event.OrderCancelledEvent;
 import com.giri.oms.messaging.event.OrderCreatedEvent;
 import com.giri.oms.messaging.outbox.OutboxService;
 import lombok.RequiredArgsConstructor;
@@ -18,20 +19,22 @@ import tools.jackson.databind.json.JsonMapper;
 import java.util.UUID;
 
 /**
- * Phase 2 of the Kafka rollout: reserves inventory in response to OrderCreated
- * events published via the outbox in Phase 1, then reports the outcome back
- * onto the same order-events topic as an InventoryReserved or
- * InventoryReservationFailed event (consumed by OrderSagaEventConsumer to
- * move the order to AWAITING_PAYMENT or CANCELLED).
+ * Reacts to two order-lifecycle events for the inventory module: OrderCreated
+ * (Phase 2 — reserves stock, reports InventoryReserved/InventoryReservationFailed
+ * back onto the same topic for OrderSagaEventConsumer to act on) and
+ * OrderCancelled (Phase 4 — releases whatever stock was reserved for that
+ * order, a no-op if nothing was).
  *
  * Delivery/consistency notes:
  * - At-least-once delivery: Kafka may redeliver a message (rebalance, retry after
- *   a transient failure, consumer restart before offset commit). Reservation is
- *   made idempotent via InventoryReservationServiceImpl, not by anything here.
+ *   a transient failure, consumer restart before offset commit). Both reservation
+ *   and release are made idempotent via InventoryReservationServiceImpl, not by
+ *   anything here.
  * - Ordering: the outbox publishes with the order id as the partition key
- *   (see OrderCreatedEventFactory.partitionKey), so all events for one order land
- *   on the same partition and are processed in order, and no two consumer
- *   instances in this group process the same order concurrently.
+ *   (see OrderCreatedEventFactory.partitionKey / OrderCancelledEventFactory.partitionKey),
+ *   so all events for one order land on the same partition and are processed in
+ *   order, and no two consumer instances in this group process the same order
+ *   concurrently.
  * - Offset commit: with Spring Kafka's default ack mode, the offset only commits
  *   after this method returns normally. A business failure (e.g.
  *   InsufficientStockException) is caught here so it does NOT block the offset —
@@ -58,19 +61,23 @@ public class OrderCreatedInventoryConsumer {
             ConsumerRecord<String, String> record,
             @Header(name = "eventType", required = false) String eventType) {
 
-        // The order-events topic is expected to carry more than just OrderCreated
-        // once Phase 3/4 land (e.g. PaymentConfirmed, OrderCancelled). The outbox
-        // stamps every message with an "eventType" header (see OutboxPublisher), so
-        // this filters to the one type this consumer cares about instead of trying
-        // (and failing) to parse every message on the topic as an OrderCreatedEvent.
-        if (!EventType.ORDER_CREATED.equals(eventType)) {
+        if (EventType.ORDER_CREATED.equals(eventType)) {
+            OrderCreatedEvent event = objectMapper.readValue(record.value(), OrderCreatedEvent.class);
+            log.debug("Received OrderCreated event id={} for order id={}", event.eventId(), event.orderId());
+            reserve(event);
+        } else if (EventType.ORDER_CANCELLED.equals(eventType)) {
+            OrderCancelledEvent event = objectMapper.readValue(record.value(), OrderCancelledEvent.class);
+            log.debug("Received OrderCancelled event id={} for order id={}", event.eventId(), event.orderId());
+            inventoryReservationService.releaseForOrder(event);
+        } else {
+            // Not one of the event types this consumer cares about — the other
+            // order-lifecycle events (PaymentConfirmed/PaymentFailed/OrderConfirmed)
+            // belong to the order-saga and shipment consumer groups.
             log.debug("Ignoring event of type {} on order-events topic (key={})", eventType, record.key());
-            return;
         }
+    }
 
-        OrderCreatedEvent event = objectMapper.readValue(record.value(), OrderCreatedEvent.class);
-        log.debug("Received OrderCreated event id={} for order id={}", event.eventId(), event.orderId());
-
+    private void reserve(OrderCreatedEvent event) {
         try {
             inventoryReservationService.reserveForOrder(event);
         } catch (InsufficientStockException ex) {

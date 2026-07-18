@@ -8,6 +8,7 @@ import com.giri.oms.inventory.repository.InventoryReservationRepository;
 import com.giri.oms.inventory.repository.InventoryRepository;
 import com.giri.oms.inventory.service.impl.InventoryReservationServiceImpl;
 import com.giri.oms.messaging.event.InventoryReservationEventFactory;
+import com.giri.oms.messaging.event.OrderCancelledEvent;
 import com.giri.oms.messaging.event.OrderCreatedEvent;
 import com.giri.oms.messaging.outbox.OutboxService;
 import org.junit.jupiter.api.BeforeEach;
@@ -160,6 +161,103 @@ class InventoryReservationServiceImplTest {
 
         verify(inventoryRepository, times(2)).save(any());
         verify(inventoryReservationRepository, times(2)).save(any());
+    }
+
+    // ---- Phase 4: releaseForOrder (compensating flow off OrderCancelled) ----
+
+    @Test
+    void releaseForOrder_restoresAvailableAndDecrementsReserved_whenReservationExists() {
+        Inventory inventory = inventory(10L, PRODUCT_ID, "WAREHOUSE-A", 7, 3);
+        InventoryReservation reservation = reservation(1L, ORDER_ID, PRODUCT_ID, 10L, 3);
+        when(inventoryReservationRepository.findByOrderId(ORDER_ID)).thenReturn(List.of(reservation));
+        when(inventoryRepository.findById(10L)).thenReturn(java.util.Optional.of(inventory));
+
+        reservationService.releaseForOrder(orderCancelledEvent());
+
+        ArgumentCaptor<Inventory> savedInventory = ArgumentCaptor.forClass(Inventory.class);
+        verify(inventoryRepository).save(savedInventory.capture());
+        assertThat(savedInventory.getValue().getQuantityAvailable()).isEqualTo(10);
+        assertThat(savedInventory.getValue().getQuantityReserved()).isEqualTo(0);
+    }
+
+    @Test
+    void releaseForOrder_deletesTheReservationRow_soARedeliveryIsANoOp() {
+        Inventory inventory = inventory(10L, PRODUCT_ID, "WAREHOUSE-A", 7, 3);
+        InventoryReservation reservation = reservation(1L, ORDER_ID, PRODUCT_ID, 10L, 3);
+        when(inventoryReservationRepository.findByOrderId(ORDER_ID)).thenReturn(List.of(reservation));
+        when(inventoryRepository.findById(10L)).thenReturn(java.util.Optional.of(inventory));
+
+        reservationService.releaseForOrder(orderCancelledEvent());
+
+        verify(inventoryReservationRepository).delete(reservation);
+    }
+
+    @Test
+    void releaseForOrder_isNoOp_whenNothingWasEverReserved() {
+        when(inventoryReservationRepository.findByOrderId(ORDER_ID)).thenReturn(List.of());
+
+        reservationService.releaseForOrder(orderCancelledEvent());
+
+        verify(inventoryRepository, never()).findById(any());
+        verify(inventoryRepository, never()).save(any());
+        verify(inventoryReservationRepository, never()).delete(any(InventoryReservation.class));
+    }
+
+    @Test
+    void releaseForOrder_releasesEveryLineItemIndependently() {
+        Long secondProductId = 2L;
+        InventoryReservation first = reservation(1L, ORDER_ID, PRODUCT_ID, 10L, 3);
+        InventoryReservation second = reservation(2L, ORDER_ID, secondProductId, 11L, 5);
+        when(inventoryReservationRepository.findByOrderId(ORDER_ID)).thenReturn(List.of(first, second));
+        when(inventoryRepository.findById(10L))
+                .thenReturn(java.util.Optional.of(inventory(10L, PRODUCT_ID, "WAREHOUSE-A", 7, 3)));
+        when(inventoryRepository.findById(11L))
+                .thenReturn(java.util.Optional.of(inventory(11L, secondProductId, "WAREHOUSE-A", 0, 5)));
+
+        reservationService.releaseForOrder(orderCancelledEvent());
+
+        verify(inventoryRepository, times(2)).save(any());
+        verify(inventoryReservationRepository).delete(first);
+        verify(inventoryReservationRepository).delete(second);
+    }
+
+    @Test
+    void releaseForOrder_dropsReservationWithoutTouchingStock_whenInventoryIdIsNull() {
+        // Legacy row from before V14 added inventory_id — there's no location to
+        // credit back, so this should only clean up the reservation record and
+        // must never touch InventoryRepository at all.
+        InventoryReservation legacyReservation = reservation(1L, ORDER_ID, PRODUCT_ID, null, 3);
+        when(inventoryReservationRepository.findByOrderId(ORDER_ID)).thenReturn(List.of(legacyReservation));
+
+        reservationService.releaseForOrder(orderCancelledEvent());
+
+        verify(inventoryRepository, never()).findById(any());
+        verify(inventoryRepository, never()).save(any());
+        verify(inventoryReservationRepository).delete(legacyReservation);
+    }
+
+    @Test
+    void releaseForOrder_skipsStockRestoration_whenTheInventoryRecordNoLongerExists() {
+        InventoryReservation reservation = reservation(1L, ORDER_ID, PRODUCT_ID, 10L, 3);
+        when(inventoryReservationRepository.findByOrderId(ORDER_ID)).thenReturn(List.of(reservation));
+        when(inventoryRepository.findById(10L)).thenReturn(java.util.Optional.empty());
+
+        reservationService.releaseForOrder(orderCancelledEvent());
+
+        verify(inventoryRepository, never()).save(any());
+        // Still cleans up the reservation row even though stock couldn't be restored —
+        // otherwise a redelivery would retry forever against a row that will never resolve.
+        verify(inventoryReservationRepository).delete(reservation);
+    }
+
+    private InventoryReservation reservation(Long id, Long orderId, Long productId, Long inventoryId, int quantity) {
+        InventoryReservation reservation = InventoryReservation.of(orderId, productId, inventoryId, EVENT_ID, quantity);
+        reservation.setId(id);
+        return reservation;
+    }
+
+    private OrderCancelledEvent orderCancelledEvent() {
+        return new OrderCancelledEvent(UUID.randomUUID(), ORDER_ID, LocalDateTime.now());
     }
 
     private Inventory inventory(Long inventoryId, Long productId, String location, int available, int reserved) {

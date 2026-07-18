@@ -46,6 +46,13 @@ public class InventoryReservation extends BaseEntity {
     @Column(name = "product_id", nullable = false)
     private Long productId;
 
+    // Which Inventory row (location) this reservation decremented — Phase 4's
+    // release flow credits stock back here. Nullable only for rows written
+    // before V14 added this column; every row this module writes going forward
+    // always sets it (see InventoryReservationServiceImpl.doReserveLineItem).
+    @Column(name = "inventory_id")
+    private Long inventoryId;
+
     // The OrderCreated event's eventId — kept for traceability (which delivery of
     // the event produced this reservation), not for the idempotency check itself.
     @Column(name = "event_id", nullable = false)
@@ -54,10 +61,11 @@ public class InventoryReservation extends BaseEntity {
     @Column(nullable = false)
     private int quantity;
 
-    public static InventoryReservation of(Long orderId, Long productId, UUID eventId, int quantity) {
+    public static InventoryReservation of(Long orderId, Long productId, Long inventoryId, UUID eventId, int quantity) {
         InventoryReservation reservation = new InventoryReservation();
         reservation.orderId = orderId;
         reservation.productId = productId;
+        reservation.inventoryId = inventoryId;
         reservation.eventId = eventId;
         reservation.quantity = quantity;
         return reservation;

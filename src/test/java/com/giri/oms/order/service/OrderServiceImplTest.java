@@ -8,6 +8,8 @@ import com.giri.oms.customer.exception.CustomerNotFoundException;
 import com.giri.oms.customer.repository.CustomerRepository;
 import com.giri.oms.messaging.event.OrderCreatedEventFactory;
 import com.giri.oms.messaging.event.OrderConfirmedEventFactory;
+import com.giri.oms.messaging.event.OrderCancelledEvent;
+import com.giri.oms.messaging.event.OrderCancelledEventFactory;
 import com.giri.oms.messaging.outbox.OutboxService;
 import com.giri.oms.order.dto.OrderItemRequest;
 import com.giri.oms.order.dto.OrderItemResponse;
@@ -83,6 +85,9 @@ class OrderServiceImplTest {
 
     @Mock
     private OrderConfirmedEventFactory orderConfirmedEventFactory;
+
+    @Mock
+    private OrderCancelledEventFactory orderCancelledEventFactory;
 
     @InjectMocks
     private OrderServiceImpl orderService;
@@ -341,6 +346,57 @@ class OrderServiceImplTest {
                     .isInstanceOf(IllegalOrderStateException.class);
 
             verify(orderRepository, never()).save(any());
+        }
+
+        // ---- Phase 4: cancellation enqueues OrderCancelled for the inventory
+        // module to react to. Previously untested — nothing in this class ever
+        // asserted the outbox call, and orderCancelledEventFactory wasn't even
+        // mocked, so exercising this path would have thrown an NPE. ----
+
+        @ParameterizedTest
+        @EnumSource(value = OrderStatus.class, names = {"PENDING", "AWAITING_PAYMENT", "CONFIRMED"})
+        void enqueuesOrderCancelledEvent_whenTransitioningToCancelled_fromAnyNonTerminalStatus(OrderStatus fromStatus) {
+            // PENDING -> CANCELLED: e.g. inventory reservation failed, or a manual
+            //   cancel before anything was ever reserved.
+            // AWAITING_PAYMENT -> CANCELLED: driven by OrderSagaEventConsumer
+            //   reacting to PaymentFailed — stock was reserved, so it must be released.
+            // CONFIRMED -> CANCELLED: manual cancel after payment but before shipping —
+            //   stock is still reserved at this point too.
+            order.setStatus(fromStatus);
+            when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+            when(orderRepository.save(order)).thenReturn(order);
+            when(orderMapper.mapToOrderResponse(order)).thenReturn(orderResponse);
+            when(orderMapper.mapToOrderItemResponse(any(OrderItem.class)))
+                    .thenReturn(orderResponse.getItems().get(0));
+            when(orderCancelledEventFactory.aggregateType()).thenReturn("Order");
+            when(orderCancelledEventFactory.aggregateId(1L)).thenReturn("1");
+            when(orderCancelledEventFactory.topic()).thenReturn("oms.order.events");
+            when(orderCancelledEventFactory.partitionKey(1L)).thenReturn("1");
+            when(orderCancelledEventFactory.cancelled(eq(1L), any(UUID.class))).thenReturn(
+                    new OrderCancelledEvent(UUID.randomUUID(), 1L, LocalDateTime.now()));
+
+            orderService.updateOrderStatus(1L, OrderStatus.CANCELLED);
+
+            assertThat(order.getStatus()).isEqualTo(OrderStatus.CANCELLED);
+            verify(outboxService).enqueue(any(UUID.class), eq("Order"), eq("1"), eq(EventType.ORDER_CANCELLED),
+                    eq("oms.order.events"), eq("1"), any(OrderCancelledEvent.class));
+        }
+
+        @Test
+        void doesNotEnqueueOrderCancelledEvent_whenTransitioningToConfirmed() {
+            // Sanity check on the other side of the branch in updateOrderStatus —
+            // a CONFIRMED transition must never also fire an OrderCancelled event.
+            order.setStatus(OrderStatus.AWAITING_PAYMENT);
+            when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+            when(orderRepository.save(order)).thenReturn(order);
+            when(orderMapper.mapToOrderResponse(order)).thenReturn(orderResponse);
+            when(orderMapper.mapToOrderItemResponse(any(OrderItem.class)))
+                    .thenReturn(orderResponse.getItems().get(0));
+
+            orderService.updateOrderStatus(1L, OrderStatus.CONFIRMED);
+
+            verify(outboxService, never()).enqueue(any(), any(), any(), eq(EventType.ORDER_CANCELLED), any(), any(), any());
+            verifyNoInteractions(orderCancelledEventFactory);
         }
     }
 

@@ -1,12 +1,14 @@
 package com.giri.oms.inventory.service;
 
+import com.giri.oms.messaging.event.OrderCancelledEvent;
 import com.giri.oms.messaging.event.OrderCreatedEvent;
 
 /**
  * Reserves stock in response to an OrderCreated event (Phase 2 of the Kafka
- * rollout — see OrderCreatedInventoryConsumer). Kept separate from
- * InventoryService: that interface is CRUD over inventory records driven by
- * REST callers, this one is a single event-driven use case with its own
+ * rollout — see OrderCreatedInventoryConsumer), and releases it back in
+ * response to an OrderCancelled event (Phase 4's compensating flow). Kept
+ * separate from InventoryService: that interface is CRUD over inventory
+ * records driven by REST callers, this one is event-driven with its own
  * idempotency and locking concerns.
  */
 public interface InventoryReservationService {
@@ -21,4 +23,13 @@ public interface InventoryReservationService {
      *         left partially reserved.
      */
     void reserveForOrder(OrderCreatedEvent event);
+
+    /**
+     * Releases every reservation held for this order back to available stock.
+     * A no-op if nothing was ever reserved for the order (e.g. it was
+     * cancelled while still PENDING) — deleting each reservation row as it's
+     * released is also what makes a redelivery of the same OrderCancelled
+     * event idempotent: the second delivery finds nothing left to release.
+     */
+    void releaseForOrder(OrderCancelledEvent event);
 }

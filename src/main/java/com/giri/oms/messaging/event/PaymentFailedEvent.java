@@ -5,12 +5,9 @@ import java.util.UUID;
 
 /**
  * Published by the payment module (see PaymentServiceImpl.updatePaymentStatus)
- * when a payment transitions to FAILED. Nothing consumes this yet — moving the
- * order to CANCELLED in response is Phase 4's compensating flow (it also needs
- * to release the inventory reserved in Phase 2, which this event alone doesn't
- * drive). Published now anyway so the event exists on the topic before Phase 4
- * needs it, the same way Phase 1 published OrderCreated before Phase 2 had a
- * consumer for it.
+ * when a payment transitions to FAILED. Consumed by OrderSagaEventConsumer to
+ * move the order from AWAITING_PAYMENT to CANCELLED (Phase 4), which in turn
+ * triggers OrderCancelledEvent to release the inventory reserved in Phase 2.
  */
 public record PaymentFailedEvent(
         UUID eventId,

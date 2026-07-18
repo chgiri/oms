@@ -11,6 +11,7 @@ import com.giri.oms.inventory.service.InventoryReservationService;
 import com.giri.oms.messaging.event.EventType;
 import com.giri.oms.messaging.event.InventoryReservationEventFactory;
 import com.giri.oms.messaging.event.InventoryReservedEvent;
+import com.giri.oms.messaging.event.OrderCancelledEvent;
 import com.giri.oms.messaging.event.OrderCreatedEvent;
 import com.giri.oms.messaging.outbox.OutboxService;
 import lombok.RequiredArgsConstructor;
@@ -115,7 +116,8 @@ public class InventoryReservationServiceImpl implements InventoryReservationServ
         inventoryRepository.save(inventory);
 
         try {
-            inventoryReservationRepository.save(InventoryReservation.of(orderId, productId, eventId, quantity));
+            inventoryReservationRepository.save(
+                    InventoryReservation.of(orderId, productId, inventory.getId(), eventId, quantity));
         } catch (DataIntegrityViolationException ex) {
             // Belt-and-braces: the unique (order_id, product_id) constraint caught a
             // race the pre-checks above missed. Someone else already reserved this
@@ -144,5 +146,68 @@ public class InventoryReservationServiceImpl implements InventoryReservationServ
 
     private int totalAvailable(List<Inventory> records) {
         return records.stream().mapToInt(Inventory::getQuantityAvailable).sum();
+    }
+
+    @Override
+    @Transactional
+    public void releaseForOrder(OrderCancelledEvent event) {
+        List<InventoryReservation> reservations = inventoryReservationRepository.findByOrderId(event.orderId());
+
+        if (reservations.isEmpty()) {
+            // Either nothing was ever reserved for this order (cancelled while
+            // still PENDING, before Phase 2 got to it), or a prior delivery of
+            // this same OrderCancelled event already released everything —
+            // releaseLineItem deletes each reservation row as it's processed
+            // (see below), so a redelivery finds nothing left and is a no-op
+            // rather than double-crediting stock.
+            log.debug("No inventory reservations found for order id={} — nothing to release", event.orderId());
+            return;
+        }
+
+        for (InventoryReservation reservation : reservations) {
+            releaseLineItem(reservation);
+        }
+    }
+
+    private void releaseLineItem(InventoryReservation reservation) {
+        // Same per-product lock as reserveLineItem — it's guarding concurrent
+        // read-modify-write access to an Inventory row's counts, which applies
+        // just as much to a release as to a reservation.
+        distributedLockService.executeWithLock(
+                RESERVATION_LOCK_PREFIX + reservation.getProductId(),
+                Duration.ofSeconds(lockWaitSeconds),
+                Duration.ofSeconds(lockLeaseSeconds),
+                () -> doReleaseLineItem(reservation));
+    }
+
+    private Void doReleaseLineItem(InventoryReservation reservation) {
+        if (reservation.getInventoryId() == null) {
+            // Predates V14 adding the inventory_id column — there's no way to
+            // know which location to credit back. Drop the reservation record
+            // (it's done its job as an idempotency guard) and log loudly so
+            // this can be reconciled manually rather than silently losing stock.
+            log.warn("Reservation id={} for order id={}/product id={} has no recorded inventory location "
+                            + "(predates Phase 4) — cannot restore stock automatically; dropping the reservation record only.",
+                    reservation.getId(), reservation.getOrderId(), reservation.getProductId());
+            inventoryReservationRepository.delete(reservation);
+            return null;
+        }
+
+        inventoryRepository.findById(reservation.getInventoryId()).ifPresentOrElse(
+                inventory -> {
+                    inventory.setQuantityAvailable(inventory.getQuantityAvailable() + reservation.getQuantity());
+                    inventory.setQuantityReserved(inventory.getQuantityReserved() - reservation.getQuantity());
+                    inventoryRepository.save(inventory);
+                    log.info(InventoryConstants.STOCK_RELEASED_LOG, reservation.getQuantity(),
+                            reservation.getProductId(), reservation.getOrderId(), inventory.getLocation());
+                },
+                () -> log.warn(
+                        "Inventory record id={} referenced by reservation id={} no longer exists — skipping stock restoration",
+                        reservation.getInventoryId(), reservation.getId()));
+
+        // Deleting (rather than marking "released") is what makes a redelivery
+        // of the same OrderCancelled event idempotent — see releaseForOrder.
+        inventoryReservationRepository.delete(reservation);
+        return null;
     }
 }

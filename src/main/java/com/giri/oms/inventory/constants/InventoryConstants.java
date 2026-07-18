@@ -30,6 +30,8 @@ public final class InventoryConstants {
     public static final String INVENTORY_DELETED_LOG = "Inventory record deleted successfully with id: {}";
     public static final String STOCK_RESERVED_LOG =
             "Reserved {} unit(s) of product id {} for order id {} at inventory location: {}";
+    public static final String STOCK_RELEASED_LOG =
+            "Released {} unit(s) of product id {} reserved for order id {} back to inventory location: {}";
     public static final String RESERVATION_SKIPPED_ALREADY_PROCESSED_LOG =
             "Skipping reservation for order id {} / product id {} — already reserved (duplicate delivery)";
 }
