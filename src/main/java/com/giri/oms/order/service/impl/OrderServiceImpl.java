@@ -65,7 +65,15 @@ public class OrderServiceImpl implements OrderService {
     private static final Map<OrderStatus, Set<OrderStatus>> ALLOWED_TRANSITIONS = new EnumMap<>(OrderStatus.class);
 
     static {
-        ALLOWED_TRANSITIONS.put(OrderStatus.PENDING, EnumSet.of(OrderStatus.CONFIRMED, OrderStatus.CANCELLED));
+        // PENDING -> AWAITING_PAYMENT: inventory reservation succeeded (Phase 2).
+        // PENDING -> CANCELLED: inventory reservation failed, or a manual cancel
+        // before reservation completes.
+        ALLOWED_TRANSITIONS.put(OrderStatus.PENDING, EnumSet.of(OrderStatus.AWAITING_PAYMENT, OrderStatus.CANCELLED));
+        // AWAITING_PAYMENT -> CONFIRMED: payment confirmed (Phase 3).
+        // AWAITING_PAYMENT -> CANCELLED: payment failed, or a manual cancel while
+        // waiting on payment (Phase 4 is responsible for releasing the stock this
+        // reserved).
+        ALLOWED_TRANSITIONS.put(OrderStatus.AWAITING_PAYMENT, EnumSet.of(OrderStatus.CONFIRMED, OrderStatus.CANCELLED));
         ALLOWED_TRANSITIONS.put(OrderStatus.CONFIRMED, EnumSet.of(OrderStatus.SHIPPED, OrderStatus.CANCELLED));
         ALLOWED_TRANSITIONS.put(OrderStatus.SHIPPED, EnumSet.of(OrderStatus.DELIVERED));
     }

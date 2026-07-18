@@ -8,7 +8,11 @@ import com.giri.oms.inventory.exception.InsufficientStockException;
 import com.giri.oms.inventory.repository.InventoryReservationRepository;
 import com.giri.oms.inventory.repository.InventoryRepository;
 import com.giri.oms.inventory.service.InventoryReservationService;
+import com.giri.oms.messaging.event.EventType;
+import com.giri.oms.messaging.event.InventoryReservationEventFactory;
+import com.giri.oms.messaging.event.InventoryReservedEvent;
 import com.giri.oms.messaging.event.OrderCreatedEvent;
+import com.giri.oms.messaging.outbox.OutboxService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -29,6 +33,8 @@ public class InventoryReservationServiceImpl implements InventoryReservationServ
     private final InventoryRepository inventoryRepository;
     private final InventoryReservationRepository inventoryReservationRepository;
     private final DistributedLockService distributedLockService;
+    private final OutboxService outboxService;
+    private final InventoryReservationEventFactory inventoryReservationEventFactory;
 
     @Value("${app.lock.inventory.wait-seconds}")
     private long lockWaitSeconds;
@@ -48,6 +54,29 @@ public class InventoryReservationServiceImpl implements InventoryReservationServ
         for (OrderCreatedEvent.OrderItemEvent item : event.items()) {
             reserveLineItem(event.orderId(), event.eventId(), item);
         }
+
+        // Enqueued in the same transaction as the reservation writes above, so
+        // the outbox pattern's usual guarantee applies: either the stock
+        // decrements + reservation rows + this event all commit together, or
+        // none of them do. On a redelivery of the same OrderCreated event where
+        // every line item was already reserved (see the idempotency check in
+        // reserveLineItem), this still re-enqueues an InventoryReserved event —
+        // that's fine, since OrderSagaEventConsumer treats a repeat delivery
+        // as an idempotent no-op (the order has already left PENDING).
+        enqueueReservedEvent(event.orderId());
+    }
+
+    private void enqueueReservedEvent(Long orderId) {
+        UUID eventId = UUID.randomUUID();
+        InventoryReservedEvent reservedEvent = inventoryReservationEventFactory.reserved(orderId, eventId);
+        outboxService.enqueue(
+                eventId,
+                inventoryReservationEventFactory.aggregateType(),
+                inventoryReservationEventFactory.aggregateId(orderId),
+                EventType.INVENTORY_RESERVED,
+                inventoryReservationEventFactory.topic(),
+                inventoryReservationEventFactory.partitionKey(orderId),
+                reservedEvent);
     }
 
     private void reserveLineItem(Long orderId, UUID eventId, OrderCreatedEvent.OrderItemEvent item) {

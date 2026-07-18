@@ -276,6 +276,24 @@ class OrderServiceImplTest {
 
         @Test
         void transitionsAndReturnsMappedResponse_whenTransitionIsAllowed() {
+            // order starts PENDING; PENDING -> AWAITING_PAYMENT is the Phase 2
+            // transition (inventory reserved).
+            when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+            when(orderRepository.save(order)).thenReturn(order);
+            when(orderMapper.mapToOrderResponse(order)).thenReturn(orderResponse);
+            when(orderMapper.mapToOrderItemResponse(any(OrderItem.class)))
+                    .thenReturn(orderResponse.getItems().get(0));
+
+            orderService.updateOrderStatus(1L, OrderStatus.AWAITING_PAYMENT);
+
+            assertThat(order.getStatus()).isEqualTo(OrderStatus.AWAITING_PAYMENT);
+            verify(orderRepository).save(order);
+        }
+
+        @Test
+        void transitionsAndReturnsMappedResponse_whenConfirmingFromAwaitingPayment() {
+            // The Phase 3 transition (payment confirmed).
+            order.setStatus(OrderStatus.AWAITING_PAYMENT);
             when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
             when(orderRepository.save(order)).thenReturn(order);
             when(orderMapper.mapToOrderResponse(order)).thenReturn(orderResponse);
@@ -299,7 +317,7 @@ class OrderServiceImplTest {
         }
 
         @ParameterizedTest
-        @EnumSource(value = OrderStatus.class, names = {"SHIPPED", "DELIVERED"})
+        @EnumSource(value = OrderStatus.class, names = {"CONFIRMED", "SHIPPED", "DELIVERED"})
         void throwsIllegalOrderStateException_whenTransitionSkipsAheadOfAllowedNextStatuses(OrderStatus illegalTarget) {
             when(orderRepository.findById(1L)).thenReturn(Optional.of(order)); // order starts PENDING
 
@@ -355,7 +373,7 @@ class OrderServiceImplTest {
         }
 
         @ParameterizedTest
-        @EnumSource(value = OrderStatus.class, names = {"CONFIRMED", "SHIPPED", "DELIVERED"})
+        @EnumSource(value = OrderStatus.class, names = {"AWAITING_PAYMENT", "CONFIRMED", "SHIPPED", "DELIVERED"})
         void throwsIllegalOrderStateException_whenStatusDoesNotAllowDeletion(OrderStatus nonDeletableStatus) {
             order.setStatus(nonDeletableStatus);
             when(orderRepository.findById(1L)).thenReturn(Optional.of(order));

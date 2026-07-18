@@ -33,9 +33,9 @@ public class KafkaConfig {
 
     /**
      * Applies to every @KafkaListener in the app (Spring Boot wires this into the
-     * auto-configured listener container factory automatically) — currently just
-     * OrderCreatedInventoryConsumer, but this doesn't need to change as more
-     * consumers are added in later phases.
+     * auto-configured listener container factory automatically) — currently
+     * OrderCreatedInventoryConsumer and OrderSagaEventConsumer, and this doesn't
+     * need to change as more consumers are added in later phases.
      *
      * Retries a failure 3 times, 2 seconds apart, to ride out a brief DB/Redis
      * blip without holding up the partition for too long. If it's still failing

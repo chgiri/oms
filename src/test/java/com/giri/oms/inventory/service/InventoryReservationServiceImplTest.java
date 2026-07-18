@@ -7,7 +7,9 @@ import com.giri.oms.inventory.exception.InsufficientStockException;
 import com.giri.oms.inventory.repository.InventoryReservationRepository;
 import com.giri.oms.inventory.repository.InventoryRepository;
 import com.giri.oms.inventory.service.impl.InventoryReservationServiceImpl;
+import com.giri.oms.messaging.event.InventoryReservationEventFactory;
 import com.giri.oms.messaging.event.OrderCreatedEvent;
+import com.giri.oms.messaging.outbox.OutboxService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -48,6 +50,12 @@ class InventoryReservationServiceImplTest {
 
     @Mock
     private DistributedLockService distributedLockService;
+
+    @Mock
+    private OutboxService outboxService;
+
+    @Mock
+    private InventoryReservationEventFactory inventoryReservationEventFactory;
 
     @InjectMocks
     private InventoryReservationServiceImpl reservationService;
