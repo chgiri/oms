@@ -5,6 +5,7 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.kafka.KafkaContainer;
 import org.testcontainers.utility.DockerImageName;
 
 /**
@@ -31,6 +32,7 @@ public abstract class AbstractIntegrationTest {
 
     static final PostgreSQLContainer<?> POSTGRES;
     static final GenericContainer<?> REDIS;
+    public static final KafkaContainer KAFKA;
 
     static {
         POSTGRES = new PostgreSQLContainer<>(DockerImageName.parse("postgres:16-alpine"));
@@ -44,6 +46,9 @@ public abstract class AbstractIntegrationTest {
                 .withCommand("redis-server --requirepass my_secret_test_password")
                 .withExposedPorts(6379);
         REDIS.start();
+
+        KAFKA = new KafkaContainer(DockerImageName.parse("apache/kafka-native:3.8.0"));
+        KAFKA.start();
     }
 
     @DynamicPropertySource
@@ -57,6 +62,8 @@ public abstract class AbstractIntegrationTest {
         // FORCE the autoconfiguration framework to bind an absent password
         registry.add("spring.data.redis.password", () -> "my_secret_test_password");
 
+        registry.add("spring.kafka.bootstrap-servers", KAFKA::getBootstrapServers);
+        registry.add("app.kafka.outbox.poll-interval-ms", () -> 100000L);
     }
 
 }

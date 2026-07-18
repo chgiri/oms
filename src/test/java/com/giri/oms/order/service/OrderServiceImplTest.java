@@ -6,6 +6,8 @@ import com.giri.oms.customer.entity.Customer;
 import com.giri.oms.customer.entity.CustomerStatus;
 import com.giri.oms.customer.exception.CustomerNotFoundException;
 import com.giri.oms.customer.repository.CustomerRepository;
+import com.giri.oms.messaging.event.OrderCreatedEventFactory;
+import com.giri.oms.messaging.outbox.OutboxService;
 import com.giri.oms.order.dto.OrderItemRequest;
 import com.giri.oms.order.dto.OrderItemResponse;
 import com.giri.oms.order.dto.OrderRequest;
@@ -21,6 +23,8 @@ import com.giri.oms.order.service.impl.OrderServiceImpl;
 import com.giri.oms.product.entity.Product;
 import com.giri.oms.product.exception.ProductNotFoundException;
 import com.giri.oms.product.repository.ProductRepository;
+import com.giri.oms.messaging.event.EventType;
+import com.giri.oms.messaging.event.OrderCreatedEvent;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -41,11 +45,13 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 /**
@@ -67,6 +73,12 @@ class OrderServiceImplTest {
 
     @Mock
     private OrderMapper orderMapper;
+
+    @Mock
+    private OutboxService outboxService;
+
+    @Mock
+    private OrderCreatedEventFactory orderCreatedEventFactory;
 
     @InjectMocks
     private OrderServiceImpl orderService;
@@ -122,9 +134,20 @@ class OrderServiceImplTest {
 
         @Test
         void savesAndReturnsMappedResponse() {
+            // Only stubbed here (and in computesTotalAmountAsSumOfLineItemSubtotals
+            // below) — the two exception-path tests in this class throw before
+            // OrderServiceImpl ever reaches the outbox-enqueue code that calls
+            // these, so stubbing them anywhere those tests would also run trips
+            // Mockito's strict-stubs UnnecessaryStubbingException.
+            when(orderCreatedEventFactory.aggregateType()).thenReturn("Order");
+            when(orderCreatedEventFactory.aggregateId(any(Order.class))).thenReturn("1");
+            when(orderCreatedEventFactory.topic()).thenReturn("oms.order.events");
+            when(orderCreatedEventFactory.partitionKey(any(Order.class))).thenReturn("1");
             when(customerRepository.findById(1L)).thenReturn(Optional.of(customer));
             when(productRepository.findById(1L)).thenReturn(Optional.of(product));
             when(orderRepository.save(any(Order.class))).thenReturn(order);
+            when(orderCreatedEventFactory.create(eq(order), any(UUID.class))).thenReturn(
+                    new OrderCreatedEvent(UUID.randomUUID(), 1L, 1L, "PENDING", new BigDecimal("77.97"), List.of(), LocalDateTime.now()));
             when(orderMapper.mapToOrderResponse(order)).thenReturn(orderResponse);
             when(orderMapper.mapToOrderItemResponse(any(OrderItem.class)))
                     .thenReturn(orderResponse.getItems().get(0));
@@ -133,6 +156,8 @@ class OrderServiceImplTest {
 
             assertThat(result.getTotalAmount()).isEqualByComparingTo("77.97");
             assertThat(result.getStatus()).isEqualTo(OrderStatus.PENDING);
+            verify(outboxService).enqueue(any(UUID.class), eq("Order"), eq("1"), eq(EventType.ORDER_CREATED),
+                    eq("oms.order.events"), eq("1"), any(OrderCreatedEvent.class));
         }
 
         @Test
@@ -151,6 +176,8 @@ class OrderServiceImplTest {
             when(productRepository.findById(1L)).thenReturn(Optional.of(product));
             when(productRepository.findById(2L)).thenReturn(Optional.of(keyboard));
             when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+            when(orderCreatedEventFactory.create(any(Order.class), any(UUID.class))).thenReturn(
+                    new OrderCreatedEvent(UUID.randomUUID(), 1L, 1L, "PENDING", new BigDecimal("141.97"), List.of(), LocalDateTime.now()));
             when(orderMapper.mapToOrderResponse(any(Order.class))).thenReturn(orderResponse);
             when(orderMapper.mapToOrderItemResponse(any(OrderItem.class)))
                     .thenReturn(orderResponse.getItems().get(0));
@@ -172,6 +199,7 @@ class OrderServiceImplTest {
                     .hasMessageContaining("99");
 
             verify(orderRepository, never()).save(any());
+            verify(outboxService, never()).enqueue(any(), any(), any(), any(), any(), any(), any());
         }
 
         @Test
@@ -185,6 +213,7 @@ class OrderServiceImplTest {
                     .hasMessageContaining("99");
 
             verify(orderRepository, never()).save(any());
+            verify(outboxService, never()).enqueue(any(), any(), any(), any(), any(), any(), any());
         }
     }
 
