@@ -2,7 +2,14 @@ package com.giri.oms.payment.service.impl;
 
 import com.giri.oms.common.dto.PagedResponse;
 import com.giri.oms.common.exception.InvalidSortFieldException;
+import com.giri.oms.messaging.event.EventType;
+import com.giri.oms.messaging.event.PaymentConfirmedEvent;
+import com.giri.oms.messaging.event.PaymentEventFactory;
+import com.giri.oms.messaging.event.PaymentFailedEvent;
+import com.giri.oms.messaging.outbox.OutboxService;
 import com.giri.oms.order.entity.Order;
+import com.giri.oms.order.entity.OrderStatus;
+import com.giri.oms.order.exception.IllegalOrderStateException;
 import com.giri.oms.order.exception.OrderNotFoundException;
 import com.giri.oms.order.repository.OrderRepository;
 import com.giri.oms.payment.constants.PaymentConstants;
@@ -32,6 +39,7 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -42,6 +50,8 @@ public class PaymentServiceImpl implements PaymentService {
     private final PaymentRepository paymentRepository;
     private final OrderRepository orderRepository;
     private final PaymentMapper paymentMapper;
+    private final OutboxService outboxService;
+    private final PaymentEventFactory paymentEventFactory;
 
     private static final Set<String> ALLOWED_SORT_FIELDS =
             Set.of("id", "amount", "status", "method", "createdAt", "updatedAt");
@@ -67,6 +77,16 @@ public class PaymentServiceImpl implements PaymentService {
         log.debug("Creating payment for order id: {}", request.getOrderId());
 
         Order order = getExistingOrder(request.getOrderId());
+        // Inventory must already be reserved (Phase 2) before it makes sense to
+        // take a payment — an order that's still PENDING has nothing backing it
+        // yet, and one that's already CONFIRMED/SHIPPED/etc. shouldn't accept a
+        // new payment through this path.
+        if (order.getStatus() != OrderStatus.AWAITING_PAYMENT) {
+            log.warn("Rejected payment creation for order id: {} — order is not awaiting payment (status: {})",
+                    order.getId(), order.getStatus());
+            throw new IllegalOrderStateException(
+                    String.format(PaymentConstants.ORDER_NOT_AWAITING_PAYMENT_MESSAGE, order.getId(), order.getStatus()));
+        }
 
         Payment payment = new Payment();
         payment.setOrder(order);
@@ -159,8 +179,47 @@ public class PaymentServiceImpl implements PaymentService {
         }
         Payment updatedPayment = paymentRepository.save(payment);
 
+        // Enqueued in the same transaction as the status change above, so the
+        // outbox pattern's usual atomicity guarantee applies here too (see
+        // InventoryReservationServiceImpl.reserveForOrder for the fuller version
+        // of this note).
+        if (newStatus == PaymentStatus.COMPLETED) {
+            enqueuePaymentConfirmedEvent(updatedPayment);
+        } else if (newStatus == PaymentStatus.FAILED) {
+            enqueuePaymentFailedEvent(updatedPayment);
+        }
+
         log.info(PaymentConstants.PAYMENT_STATUS_UPDATED_LOG, updatedPayment.getId(), newStatus);
         return paymentMapper.mapToPaymentResponse(updatedPayment);
+    }
+
+    private void enqueuePaymentConfirmedEvent(Payment payment) {
+        UUID eventId = UUID.randomUUID();
+        Long orderId = payment.getOrder().getId();
+        PaymentConfirmedEvent event = paymentEventFactory.confirmed(
+                orderId, payment.getId(), eventId, payment.getAmount(), payment.getTransactionReference());
+        outboxService.enqueue(
+                eventId,
+                paymentEventFactory.aggregateType(),
+                paymentEventFactory.aggregateId(orderId),
+                EventType.PAYMENT_CONFIRMED,
+                paymentEventFactory.topic(),
+                paymentEventFactory.partitionKey(orderId),
+                event);
+    }
+
+    private void enqueuePaymentFailedEvent(Payment payment) {
+        UUID eventId = UUID.randomUUID();
+        Long orderId = payment.getOrder().getId();
+        PaymentFailedEvent event = paymentEventFactory.failed(orderId, payment.getId(), eventId);
+        outboxService.enqueue(
+                eventId,
+                paymentEventFactory.aggregateType(),
+                paymentEventFactory.aggregateId(orderId),
+                EventType.PAYMENT_FAILED,
+                paymentEventFactory.topic(),
+                paymentEventFactory.partitionKey(orderId),
+                event);
     }
 
     @Override
@@ -182,14 +241,14 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     public Page<PaymentResponse> searchPayments(Long orderId, PaymentStatus status, PaymentMethod method,
-                                                 BigDecimal minAmount, BigDecimal maxAmount, Pageable pageable) {
+                                                BigDecimal minAmount, BigDecimal maxAmount, Pageable pageable) {
         Page<Payment> results = paymentRepository.searchPayments(orderId, status, method, minAmount, maxAmount, normalizeSort(pageable));
         return results.map(paymentMapper::mapToPaymentResponse);
     }
 
     @Override
     public Page<PaymentResponse> searchPaymentsBySpecification(Long orderId, PaymentStatus status, PaymentMethod method,
-                                                                 BigDecimal minAmount, BigDecimal maxAmount, Pageable pageable) {
+                                                               BigDecimal minAmount, BigDecimal maxAmount, Pageable pageable) {
         var spec = PaymentSpecification.buildSearchSpec(orderId, status, method, minAmount, maxAmount);
         Page<Payment> results = paymentRepository.findAll(spec, normalizeSort(pageable));
         return results.map(paymentMapper::mapToPaymentResponse);

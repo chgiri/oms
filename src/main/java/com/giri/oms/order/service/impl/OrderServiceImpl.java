@@ -6,6 +6,8 @@ import com.giri.oms.customer.entity.Customer;
 import com.giri.oms.customer.exception.CustomerNotFoundException;
 import com.giri.oms.customer.repository.CustomerRepository;
 import com.giri.oms.messaging.event.EventType;
+import com.giri.oms.messaging.event.OrderConfirmedEvent;
+import com.giri.oms.messaging.event.OrderConfirmedEventFactory;
 import com.giri.oms.messaging.event.OrderCreatedEvent;
 import com.giri.oms.messaging.event.OrderCreatedEventFactory;
 import com.giri.oms.messaging.outbox.OutboxService;
@@ -55,6 +57,7 @@ public class OrderServiceImpl implements OrderService {
     private final OrderMapper orderMapper;
     private final OutboxService outboxService;
     private final OrderCreatedEventFactory orderCreatedEventFactory;
+    private final OrderConfirmedEventFactory orderConfirmedEventFactory;
 
     private static final Set<String> ALLOWED_SORT_FIELDS =
             Set.of("id", "status", "totalAmount", "createdAt", "updatedAt");
@@ -208,8 +211,29 @@ public class OrderServiceImpl implements OrderService {
         order.setStatus(newStatus);
         Order updatedOrder = orderRepository.save(order);
 
+        // Enqueued in the same transaction as the status change above (see
+        // InventoryReservationServiceImpl.reserveForOrder for the fuller version
+        // of this note on why that matters). This is what drives Phase 3's
+        // shipment creation.
+        if (newStatus == OrderStatus.CONFIRMED) {
+            enqueueOrderConfirmedEvent(updatedOrder);
+        }
+
         log.info(OrderConstants.ORDER_STATUS_UPDATED_LOG, updatedOrder.getId(), newStatus);
         return mapToOrderResponse(updatedOrder);
+    }
+
+    private void enqueueOrderConfirmedEvent(Order order) {
+        UUID eventId = UUID.randomUUID();
+        OrderConfirmedEvent event = orderConfirmedEventFactory.confirmed(order.getId(), eventId);
+        outboxService.enqueue(
+                eventId,
+                orderConfirmedEventFactory.aggregateType(),
+                orderConfirmedEventFactory.aggregateId(order.getId()),
+                EventType.ORDER_CONFIRMED,
+                orderConfirmedEventFactory.topic(),
+                orderConfirmedEventFactory.partitionKey(order.getId()),
+                event);
     }
 
     @Override

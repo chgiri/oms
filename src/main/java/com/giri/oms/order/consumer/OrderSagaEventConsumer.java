@@ -3,6 +3,7 @@ package com.giri.oms.order.consumer;
 import com.giri.oms.messaging.event.EventType;
 import com.giri.oms.messaging.event.InventoryReservationFailedEvent;
 import com.giri.oms.messaging.event.InventoryReservedEvent;
+import com.giri.oms.messaging.event.PaymentConfirmedEvent;
 import com.giri.oms.order.entity.OrderStatus;
 import com.giri.oms.order.exception.IllegalOrderStateException;
 import com.giri.oms.order.service.OrderService;
@@ -15,20 +16,20 @@ import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Drives the order's own status forward as its saga participants (currently
- * just inventory; payment and shipment join in Phase 3) report outcomes.
+ * Drives the order's own status forward as its saga participants report
+ * outcomes: inventory (Phase 2) and now payment (Phase 3, happy path only —
+ * PaymentFailed's compensating CANCELLED transition is Phase 4).
  *
  * <p>Topic strategy: every order-lifecycle event — OrderCreated, the Phase 2
- * outcomes handled here, and the Phase 3 events to come (PaymentConfirmed,
- * PaymentFailed, ShipmentCreated, ...) — stays on the single
- * {@code app.kafka.topics.order-events} topic, all keyed by order id. Kafka
- * only guarantees ordering within a partition, not across topics, and this
- * saga's correctness depends on each order's events being processed in the
- * order they happened (e.g. a stray InventoryReservationFailed must never be
- * allowed to arrive logically "after" a PaymentConfirmed for the same order).
- * Splitting into per-domain topics (payment-events, shipment-events, ...)
- * would mean reconstructing that ordering across topics by hand; staying on
- * one topic gets it for free. The {@code eventType} header (see
+ * outcomes, PaymentConfirmed/PaymentFailed, and OrderConfirmed — stays on the
+ * single {@code app.kafka.topics.order-events} topic, all keyed by order id.
+ * Kafka only guarantees ordering within a partition, not across topics, and
+ * this saga's correctness depends on each order's events being processed in
+ * the order they happened (e.g. a stray InventoryReservationFailed must never
+ * be allowed to arrive logically "after" a PaymentConfirmed for the same
+ * order). Splitting into per-domain topics (payment-events, shipment-events,
+ * ...) would mean reconstructing that ordering across topics by hand; staying
+ * on one topic gets it for free. The {@code eventType} header (see
  * OutboxPublisher/OrderCreatedInventoryConsumer) is what lets each consumer
  * pick just the event types it cares about back out of that shared stream.
  *
@@ -69,10 +70,14 @@ public class OrderSagaEventConsumer {
             log.debug("Received InventoryReservationFailed event id={} for order id={}: {}",
                     event.eventId(), event.orderId(), event.reason());
             applyTransition(event.orderId(), OrderStatus.CANCELLED);
+        } else if (EventType.PAYMENT_CONFIRMED.equals(eventType)) {
+            PaymentConfirmedEvent event = objectMapper.readValue(record.value(), PaymentConfirmedEvent.class);
+            log.debug("Received PaymentConfirmed event id={} for order id={}", event.eventId(), event.orderId());
+            applyTransition(event.orderId(), OrderStatus.CONFIRMED);
         } else {
-            // Not one of the event types this consumer cares about — OrderCreated,
-            // and the Phase 3 events to come, are handled by other consumer groups
-            // on this same topic.
+            // Not one of the event types this consumer cares about — OrderCreated
+            // is handled by the inventory group, and PaymentFailed has no reaction
+            // yet (Phase 4 adds the CANCELLED compensation for it).
             log.debug("Ignoring event of type {} on order-events topic (key={})", eventType, record.key());
         }
     }

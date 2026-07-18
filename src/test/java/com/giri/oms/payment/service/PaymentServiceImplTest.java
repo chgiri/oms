@@ -4,8 +4,14 @@ import com.giri.oms.common.dto.PagedResponse;
 import com.giri.oms.common.exception.InvalidSortFieldException;
 import com.giri.oms.customer.entity.Customer;
 import com.giri.oms.customer.entity.CustomerStatus;
+import com.giri.oms.messaging.event.EventType;
+import com.giri.oms.messaging.event.PaymentConfirmedEvent;
+import com.giri.oms.messaging.event.PaymentEventFactory;
+import com.giri.oms.messaging.event.PaymentFailedEvent;
+import com.giri.oms.messaging.outbox.OutboxService;
 import com.giri.oms.order.entity.Order;
 import com.giri.oms.order.entity.OrderStatus;
+import com.giri.oms.order.exception.IllegalOrderStateException;
 import com.giri.oms.order.exception.OrderNotFoundException;
 import com.giri.oms.order.repository.OrderRepository;
 import com.giri.oms.payment.dto.PaymentRequest;
@@ -38,11 +44,13 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 /**
@@ -61,6 +69,15 @@ class PaymentServiceImplTest {
 
     @Mock
     private PaymentMapper paymentMapper;
+
+    // Phase 3: PaymentServiceImpl enqueues PaymentConfirmed/PaymentFailed onto the
+    // outbox when a payment's status changes — these two need to be mocked too,
+    // same as OrderServiceImplTest does for its own outbox/event-factory pair.
+    @Mock
+    private OutboxService outboxService;
+
+    @Mock
+    private PaymentEventFactory paymentEventFactory;
 
     @InjectMocks
     private PaymentServiceImpl paymentService;
@@ -82,7 +99,10 @@ class PaymentServiceImplTest {
         order = new Order();
         order.setId(1L);
         order.setCustomer(customer);
-        order.setStatus(OrderStatus.PENDING);
+        // AWAITING_PAYMENT, not PENDING: createPayment requires inventory to already
+        // be reserved (Phase 2) before it'll accept a payment — see the dedicated
+        // rejection test in CreatePayment for the PENDING case.
+        order.setStatus(OrderStatus.AWAITING_PAYMENT);
         order.setTotalAmount(new BigDecimal("77.97"));
 
         payment = new Payment();
@@ -138,6 +158,19 @@ class PaymentServiceImplTest {
             assertThatThrownBy(() -> paymentService.createPayment(paymentRequest))
                     .isInstanceOf(OrderNotFoundException.class)
                     .hasMessageContaining("99");
+
+            verify(paymentRepository, never()).save(any());
+        }
+
+        @ParameterizedTest
+        @EnumSource(value = OrderStatus.class, names = {"AWAITING_PAYMENT"}, mode = EnumSource.Mode.EXCLUDE)
+        void throwsIllegalOrderStateException_whenOrderIsNotAwaitingPayment(OrderStatus nonAwaitingStatus) {
+            order.setStatus(nonAwaitingStatus);
+            when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+
+            assertThatThrownBy(() -> paymentService.createPayment(paymentRequest))
+                    .isInstanceOf(IllegalOrderStateException.class)
+                    .hasMessageContaining(nonAwaitingStatus.toString());
 
             verify(paymentRepository, never()).save(any());
         }
@@ -239,6 +272,63 @@ class PaymentServiceImplTest {
                     .isInstanceOf(PaymentNotFoundException.class);
 
             verify(paymentRepository, never()).save(any());
+        }
+
+        @Test
+        void enqueuesPaymentConfirmedEvent_whenTransitioningToCompleted() {
+            when(paymentRepository.findById(1L)).thenReturn(Optional.of(payment));
+            when(paymentRepository.save(payment)).thenReturn(payment);
+            when(paymentMapper.mapToPaymentResponse(payment)).thenReturn(paymentResponse);
+
+            UUID eventId = UUID.randomUUID();
+            PaymentConfirmedEvent event = new PaymentConfirmedEvent(
+                    eventId, 1L, 1L, payment.getAmount(), "txn_9f8c3d2a", LocalDateTime.now());
+            when(paymentEventFactory.confirmed(eq(1L), eq(1L), any(UUID.class), any(BigDecimal.class), eq("txn_9f8c3d2a")))
+                    .thenReturn(event);
+            when(paymentEventFactory.aggregateType()).thenReturn("Order");
+            when(paymentEventFactory.aggregateId(1L)).thenReturn("1");
+            when(paymentEventFactory.topic()).thenReturn("oms.order.events");
+            when(paymentEventFactory.partitionKey(1L)).thenReturn("1");
+
+            paymentService.updatePaymentStatus(1L, PaymentStatus.COMPLETED, "txn_9f8c3d2a");
+
+            verify(outboxService).enqueue(any(UUID.class), eq("Order"), eq("1"),
+                    eq(EventType.PAYMENT_CONFIRMED), eq("oms.order.events"), eq("1"), eq(event));
+            verify(outboxService, never()).enqueue(any(), any(), any(), eq(EventType.PAYMENT_FAILED), any(), any(), any());
+        }
+
+        @Test
+        void enqueuesPaymentFailedEvent_whenTransitioningToFailed() {
+            when(paymentRepository.findById(1L)).thenReturn(Optional.of(payment));
+            when(paymentRepository.save(payment)).thenReturn(payment);
+            when(paymentMapper.mapToPaymentResponse(payment)).thenReturn(paymentResponse);
+
+            UUID eventId = UUID.randomUUID();
+            PaymentFailedEvent event = new PaymentFailedEvent(eventId, 1L, 1L, LocalDateTime.now());
+            when(paymentEventFactory.failed(eq(1L), eq(1L), any(UUID.class))).thenReturn(event);
+            when(paymentEventFactory.aggregateType()).thenReturn("Order");
+            when(paymentEventFactory.aggregateId(1L)).thenReturn("1");
+            when(paymentEventFactory.topic()).thenReturn("oms.order.events");
+            when(paymentEventFactory.partitionKey(1L)).thenReturn("1");
+
+            paymentService.updatePaymentStatus(1L, PaymentStatus.FAILED, null);
+
+            assertThat(payment.getStatus()).isEqualTo(PaymentStatus.FAILED);
+            verify(outboxService).enqueue(any(UUID.class), eq("Order"), eq("1"),
+                    eq(EventType.PAYMENT_FAILED), eq("oms.order.events"), eq("1"), eq(event));
+            verify(outboxService, never()).enqueue(any(), any(), any(), eq(EventType.PAYMENT_CONFIRMED), any(), any(), any());
+        }
+
+        @Test
+        void doesNotEnqueueAnyEvent_whenTransitioningToRefunded() {
+            payment.setStatus(PaymentStatus.COMPLETED);
+            when(paymentRepository.findById(1L)).thenReturn(Optional.of(payment));
+            when(paymentRepository.save(payment)).thenReturn(payment);
+            when(paymentMapper.mapToPaymentResponse(payment)).thenReturn(paymentResponse);
+
+            paymentService.updatePaymentStatus(1L, PaymentStatus.REFUNDED, null);
+
+            verifyNoInteractions(outboxService, paymentEventFactory);
         }
 
         @Test

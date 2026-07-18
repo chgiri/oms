@@ -7,6 +7,7 @@ import com.giri.oms.customer.entity.CustomerStatus;
 import com.giri.oms.customer.exception.CustomerNotFoundException;
 import com.giri.oms.customer.repository.CustomerRepository;
 import com.giri.oms.messaging.event.OrderCreatedEventFactory;
+import com.giri.oms.messaging.event.OrderConfirmedEventFactory;
 import com.giri.oms.messaging.outbox.OutboxService;
 import com.giri.oms.order.dto.OrderItemRequest;
 import com.giri.oms.order.dto.OrderItemResponse;
@@ -79,6 +80,9 @@ class OrderServiceImplTest {
 
     @Mock
     private OrderCreatedEventFactory orderCreatedEventFactory;
+
+    @Mock
+    private OrderConfirmedEventFactory orderConfirmedEventFactory;
 
     @InjectMocks
     private OrderServiceImpl orderService;

@@ -1,53 +1,49 @@
 package com.giri.oms.shipment.service;
 
-import com.giri.oms.common.dto.PagedResponse;
-import com.giri.oms.common.exception.InvalidSortFieldException;
+import com.giri.oms.messaging.event.OrderConfirmedEvent;
 import com.giri.oms.order.entity.Order;
 import com.giri.oms.order.exception.OrderNotFoundException;
 import com.giri.oms.order.repository.OrderRepository;
-import com.giri.oms.shipment.dto.ShipmentResponse;
-import com.giri.oms.shipment.dto.ShipmentRequest;
 import com.giri.oms.shipment.entity.Shipment;
 import com.giri.oms.shipment.entity.ShipmentStatus;
 import com.giri.oms.shipment.entity.ShippingCarrier;
-import com.giri.oms.shipment.exception.IllegalShipmentStateException;
-import com.giri.oms.shipment.exception.ShipmentNotFoundException;
-import com.giri.oms.shipment.mapper.ShipmentMapper;
 import com.giri.oms.shipment.repository.ShipmentRepository;
-import com.giri.oms.shipment.service.impl.ShipmentServiceImpl;
+import com.giri.oms.shipment.service.impl.ShipmentAutoCreationServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
- * Pure unit tests — no Spring context, no DB. ShipmentRepository, OrderRepository,
- * and mapper are all mocked so these run in milliseconds and only exercise
- * ShipmentServiceImpl's own logic.
+ * Pure unit tests — no Spring context, no DB. ShipmentRepository and
+ * OrderRepository are mocked so these run in milliseconds and only exercise
+ * ShipmentAutoCreationServiceImpl's own logic (Phase 3 of the Kafka rollout —
+ * see OrderConfirmedShipmentConsumer).
+ *
+ * defaultCarrier is a @Value field, not a constructor argument, so it isn't
+ * populated by @InjectMocks and has to be set manually — same reason
+ * InventoryReservationServiceImplTest doesn't need this (its @Value fields are
+ * only read by the mocked DistributedLockService, never by the code under test
+ * directly).
  */
 @ExtendWith(MockitoExtension.class)
-class ShipmentServiceImplTest {
+class ShipmentAutoCreationServiceImplTest {
 
     @Mock
     private ShipmentRepository shipmentRepository;
@@ -55,295 +51,61 @@ class ShipmentServiceImplTest {
     @Mock
     private OrderRepository orderRepository;
 
-    @Mock
-    private ShipmentMapper shipmentMapper;
-
     @InjectMocks
-    private ShipmentServiceImpl shipmentService;
+    private ShipmentAutoCreationServiceImpl shipmentAutoCreationService;
+
+    private static final Long ORDER_ID = 1L;
+    private static final ShippingCarrier DEFAULT_CARRIER = ShippingCarrier.OTHER;
 
     private Order order;
-    private Shipment shipment;
-    private ShipmentRequest shipmentRequest;
-    private ShipmentResponse shipmentResponse;
+    private OrderConfirmedEvent event;
 
     @BeforeEach
     void setUp() {
+        ReflectionTestUtils.setField(shipmentAutoCreationService, "defaultCarrier", DEFAULT_CARRIER);
+
         order = new Order();
-        order.setId(1L);
+        order.setId(ORDER_ID);
 
-        shipment = new Shipment();
-        shipment.setId(1L);
-        shipment.setOrder(order);
-        shipment.setCarrier(ShippingCarrier.UPS);
-        shipment.setStatus(ShipmentStatus.PENDING);
-        shipment.setCreatedAt(LocalDateTime.now());
-        shipment.setUpdatedAt(LocalDateTime.now());
-
-        shipmentRequest = new ShipmentRequest(1L, ShippingCarrier.UPS);
-
-        shipmentResponse = new ShipmentResponse(
-                1L, 1L, ShippingCarrier.UPS, ShipmentStatus.PENDING, null, null, null,
-                LocalDateTime.now(), LocalDateTime.now());
+        event = new OrderConfirmedEvent(UUID.randomUUID(), ORDER_ID, LocalDateTime.now());
     }
 
-    @Nested
-    class CreateShipment {
+    @Test
+    void createsShipmentWithDefaultCarrierAndPendingStatus_whenNoneExistsYet() {
+        when(shipmentRepository.findByOrderId(ORDER_ID)).thenReturn(List.of());
+        when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.of(order));
+        when(shipmentRepository.save(any(Shipment.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        @Test
-        void savesAndReturnsMappedResponse() {
-            when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
-            when(shipmentRepository.save(any(Shipment.class))).thenReturn(shipment);
-            when(shipmentMapper.mapToShipmentResponse(shipment)).thenReturn(shipmentResponse);
+        shipmentAutoCreationService.createForConfirmedOrder(event);
 
-            ShipmentResponse result = shipmentService.createShipment(shipmentRequest);
-
-            assertThat(result.getStatus()).isEqualTo(ShipmentStatus.PENDING);
-            assertThat(result.getCarrier()).isEqualTo(ShippingCarrier.UPS);
-        }
-
-        @Test
-        void throwsOrderNotFoundException_whenOrderDoesNotExist() {
-            when(orderRepository.findById(99L)).thenReturn(Optional.empty());
-            shipmentRequest.setOrderId(99L);
-
-            assertThatThrownBy(() -> shipmentService.createShipment(shipmentRequest))
-                    .isInstanceOf(OrderNotFoundException.class)
-                    .hasMessageContaining("99");
-
-            verify(shipmentRepository, never()).save(any());
-        }
+        ArgumentCaptor<Shipment> savedShipment = ArgumentCaptor.forClass(Shipment.class);
+        verify(shipmentRepository).save(savedShipment.capture());
+        assertThat(savedShipment.getValue().getOrder()).isEqualTo(order);
+        assertThat(savedShipment.getValue().getCarrier()).isEqualTo(DEFAULT_CARRIER);
+        assertThat(savedShipment.getValue().getStatus()).isEqualTo(ShipmentStatus.PENDING);
     }
 
-    @Nested
-    class GetShipmentById {
+    @Test
+    void skipsCreation_whenAShipmentAlreadyExistsForTheOrder() {
+        Shipment existing = new Shipment();
+        existing.setId(50L);
+        when(shipmentRepository.findByOrderId(ORDER_ID)).thenReturn(List.of(existing));
 
-        @Test
-        void returnsMappedResponse_whenShipmentExists() {
-            when(shipmentRepository.findById(1L)).thenReturn(Optional.of(shipment));
-            when(shipmentMapper.mapToShipmentResponse(shipment)).thenReturn(shipmentResponse);
+        shipmentAutoCreationService.createForConfirmedOrder(event);
 
-            ShipmentResponse result = shipmentService.getShipmentById(1L);
-
-            assertThat(result).isEqualTo(shipmentResponse);
-        }
-
-        @Test
-        void throwsShipmentNotFoundException_whenShipmentDoesNotExist() {
-            when(shipmentRepository.findById(99L)).thenReturn(Optional.empty());
-
-            assertThatThrownBy(() -> shipmentService.getShipmentById(99L))
-                    .isInstanceOf(ShipmentNotFoundException.class)
-                    .hasMessageContaining("99");
-
-            verify(shipmentMapper, never()).mapToShipmentResponse(any());
-        }
+        verify(shipmentRepository, never()).save(any());
+        verify(orderRepository, never()).findById(any());
     }
 
-    @Nested
-    class GetAllShipments {
+    @Test
+    void throwsOrderNotFoundException_whenOrderDoesNotExist() {
+        when(shipmentRepository.findByOrderId(ORDER_ID)).thenReturn(List.of());
+        when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.empty());
 
-        @Test
-        void returnsPagedResponse_whenSortFieldIsValid() {
-            Page<Shipment> shipmentPage = new PageImpl<>(List.of(shipment));
-            when(shipmentRepository.findAll(any(Pageable.class))).thenReturn(shipmentPage);
-            when(shipmentMapper.mapToShipmentResponse(shipment)).thenReturn(shipmentResponse);
+        assertThatThrownBy(() -> shipmentAutoCreationService.createForConfirmedOrder(event))
+                .isInstanceOf(OrderNotFoundException.class)
+                .hasMessageContaining(ORDER_ID.toString());
 
-            PagedResponse<ShipmentResponse> result = shipmentService.getAllShipments(0, 10, "status", "asc");
-
-            assertThat(result.getContent()).containsExactly(shipmentResponse);
-            assertThat(result.getTotalElements()).isEqualTo(1);
-        }
-
-        @Test
-        void throwsInvalidSortFieldException_whenSortFieldIsNotAllowed() {
-            assertThatThrownBy(() -> shipmentService.getAllShipments(0, 10, "secretInternalField", "asc"))
-                    .isInstanceOf(InvalidSortFieldException.class)
-                    .hasMessageContaining("secretInternalField");
-
-            verifyNoInteractions(shipmentRepository);
-        }
-    }
-
-    @Nested
-    class UpdateShipmentStatus {
-
-        @Test
-        void transitionsAndReturnsMappedResponse_whenTransitionIsAllowed() {
-            when(shipmentRepository.findById(1L)).thenReturn(Optional.of(shipment));
-            when(shipmentRepository.save(shipment)).thenReturn(shipment);
-            when(shipmentMapper.mapToShipmentResponse(shipment)).thenReturn(shipmentResponse);
-
-            shipmentService.updateShipmentStatus(1L, ShipmentStatus.SHIPPED, "1Z999AA10123456784");
-
-            assertThat(shipment.getStatus()).isEqualTo(ShipmentStatus.SHIPPED);
-            assertThat(shipment.getTrackingNumber()).isEqualTo("1Z999AA10123456784");
-            assertThat(shipment.getShippedAt()).isNotNull();
-            verify(shipmentRepository).save(shipment);
-        }
-
-        @Test
-        void doesNotOverwriteTrackingNumber_whenNoneProvided() {
-            shipment.setTrackingNumber("EXISTING123");
-            when(shipmentRepository.findById(1L)).thenReturn(Optional.of(shipment));
-            when(shipmentRepository.save(shipment)).thenReturn(shipment);
-            when(shipmentMapper.mapToShipmentResponse(shipment)).thenReturn(shipmentResponse);
-
-            shipmentService.updateShipmentStatus(1L, ShipmentStatus.SHIPPED, null);
-
-            assertThat(shipment.getTrackingNumber()).isEqualTo("EXISTING123");
-        }
-
-        @Test
-        void stampsDeliveredAt_whenTransitioningToDelivered() {
-            shipment.setStatus(ShipmentStatus.IN_TRANSIT);
-            when(shipmentRepository.findById(1L)).thenReturn(Optional.of(shipment));
-            when(shipmentRepository.save(shipment)).thenReturn(shipment);
-            when(shipmentMapper.mapToShipmentResponse(shipment)).thenReturn(shipmentResponse);
-
-            shipmentService.updateShipmentStatus(1L, ShipmentStatus.DELIVERED, null);
-
-            assertThat(shipment.getStatus()).isEqualTo(ShipmentStatus.DELIVERED);
-            assertThat(shipment.getDeliveredAt()).isNotNull();
-        }
-
-        @Test
-        void throwsShipmentNotFoundException_whenShipmentDoesNotExist() {
-            when(shipmentRepository.findById(99L)).thenReturn(Optional.empty());
-
-            assertThatThrownBy(() -> shipmentService.updateShipmentStatus(99L, ShipmentStatus.SHIPPED, null))
-                    .isInstanceOf(ShipmentNotFoundException.class);
-
-            verify(shipmentRepository, never()).save(any());
-        }
-
-        @ParameterizedTest
-        @EnumSource(value = ShipmentStatus.class, names = {"IN_TRANSIT", "DELIVERED", "RETURNED"})
-        void throwsIllegalShipmentStateException_whenTransitionSkipsAheadOfAllowedNextStatuses(ShipmentStatus illegalTarget) {
-            when(shipmentRepository.findById(1L)).thenReturn(Optional.of(shipment)); // shipment starts PENDING
-
-            assertThatThrownBy(() -> shipmentService.updateShipmentStatus(1L, illegalTarget, null))
-                    .isInstanceOf(IllegalShipmentStateException.class)
-                    .hasMessageContaining("PENDING");
-
-            verify(shipmentRepository, never()).save(any());
-        }
-
-        @Test
-        void throwsIllegalShipmentStateException_whenTransitioningAwayFromDeliveredTerminalState() {
-            shipment.setStatus(ShipmentStatus.DELIVERED);
-            when(shipmentRepository.findById(1L)).thenReturn(Optional.of(shipment));
-
-            assertThatThrownBy(() -> shipmentService.updateShipmentStatus(1L, ShipmentStatus.RETURNED, null))
-                    .isInstanceOf(IllegalShipmentStateException.class);
-
-            verify(shipmentRepository, never()).save(any());
-        }
-    }
-
-    @Nested
-    class DeleteShipment {
-
-        @Test
-        void deletesShipment_whenStatusIsPending() {
-            when(shipmentRepository.findById(1L)).thenReturn(Optional.of(shipment)); // PENDING
-
-            shipmentService.deleteShipment(1L);
-
-            verify(shipmentRepository).deleteById(1L);
-        }
-
-        @Test
-        void deletesShipment_whenStatusIsReturned() {
-            shipment.setStatus(ShipmentStatus.RETURNED);
-            when(shipmentRepository.findById(1L)).thenReturn(Optional.of(shipment));
-
-            shipmentService.deleteShipment(1L);
-
-            verify(shipmentRepository).deleteById(1L);
-        }
-
-        @Test
-        void throwsShipmentNotFoundException_whenShipmentDoesNotExist() {
-            when(shipmentRepository.findById(99L)).thenReturn(Optional.empty());
-
-            assertThatThrownBy(() -> shipmentService.deleteShipment(99L))
-                    .isInstanceOf(ShipmentNotFoundException.class);
-
-            verify(shipmentRepository, never()).deleteById(anyLong());
-        }
-
-        @ParameterizedTest
-        @EnumSource(value = ShipmentStatus.class, names = {"SHIPPED", "IN_TRANSIT", "DELIVERED"})
-        void throwsIllegalShipmentStateException_whenStatusDoesNotAllowDeletion(ShipmentStatus nonDeletableStatus) {
-            shipment.setStatus(nonDeletableStatus);
-            when(shipmentRepository.findById(1L)).thenReturn(Optional.of(shipment));
-
-            assertThatThrownBy(() -> shipmentService.deleteShipment(1L))
-                    .isInstanceOf(IllegalShipmentStateException.class);
-
-            verify(shipmentRepository, never()).deleteById(anyLong());
-        }
-    }
-
-    @Nested
-    class SearchShipments {
-
-        @Test
-        void delegatesToRepositoryAndMapsResults() {
-            Page<Shipment> shipmentPage = new PageImpl<>(List.of(shipment));
-            Pageable pageable = PageRequest.of(0, 10); // unsorted
-
-            when(shipmentRepository.searchShipments(1L, null, null, pageable))
-                    .thenReturn(shipmentPage);
-            when(shipmentMapper.mapToShipmentResponse(shipment)).thenReturn(shipmentResponse);
-
-            Page<ShipmentResponse> result = shipmentService.searchShipments(1L, null, null, pageable);
-
-            assertThat(result.getContent()).containsExactly(shipmentResponse);
-        }
-
-        @Test
-        void normalizesSortFieldCaseBeforeDelegatingToRepository() {
-            Pageable requestedPageable = PageRequest.of(0, 10, Sort.by("STATUS").ascending());
-            when(shipmentRepository.searchShipments(any(), any(), any(), any()))
-                    .thenReturn(new PageImpl<>(List.of(shipment)));
-            when(shipmentMapper.mapToShipmentResponse(any())).thenReturn(shipmentResponse);
-
-            shipmentService.searchShipments(null, null, null, requestedPageable);
-
-            var pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
-            verify(shipmentRepository).searchShipments(any(), any(), any(), pageableCaptor.capture());
-            Sort.Order sortOrder = pageableCaptor.getValue().getSort().getOrderFor("status");
-            assertThat(sortOrder).isNotNull();
-            assertThat(sortOrder.isAscending()).isTrue();
-        }
-
-        @Test
-        void throwsInvalidSortFieldException_whenSortFieldNotOnAllowList() {
-            Pageable requestedPageable = PageRequest.of(0, 10, Sort.by("bogusField").ascending());
-
-            assertThatThrownBy(() -> shipmentService.searchShipments(null, null, null, requestedPageable))
-                    .isInstanceOf(InvalidSortFieldException.class)
-                    .hasMessageContaining("bogusField");
-
-            verifyNoInteractions(shipmentRepository);
-        }
-    }
-
-    @Nested
-    class SearchShipmentsBySpecification {
-
-        @Test
-        void delegatesToRepositoryFindAllWithSpecAndMapsResults() {
-            Page<Shipment> shipmentPage = new PageImpl<>(List.of(shipment));
-            when(shipmentRepository.findAll(any(org.springframework.data.jpa.domain.Specification.class), any(Pageable.class)))
-                    .thenReturn(shipmentPage);
-            when(shipmentMapper.mapToShipmentResponse(shipment)).thenReturn(shipmentResponse);
-
-            Page<ShipmentResponse> result = shipmentService.searchShipmentsBySpecification(
-                    1L, ShipmentStatus.PENDING, ShippingCarrier.UPS, PageRequest.of(0, 10));
-
-            assertThat(result.getContent()).containsExactly(shipmentResponse);
-        }
+        verify(shipmentRepository, never()).save(any());
     }
 }

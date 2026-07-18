@@ -12,6 +12,8 @@ public final class PaymentConstants {
             "Cannot transition payment id %d from status %s to %s";
     public static final String PAYMENT_NOT_DELETABLE_MESSAGE =
             "Payment id %d cannot be deleted while in status %s — only PENDING or FAILED payments can be deleted";
+    public static final String ORDER_NOT_AWAITING_PAYMENT_MESSAGE =
+            "Cannot create payment for order id %d — order is not awaiting payment (status: %s)";
 
     // ---- Bean Validation messages ----
     public static final String ORDER_ID_REQUIRED_MESSAGE = "Order ID must not be null";
