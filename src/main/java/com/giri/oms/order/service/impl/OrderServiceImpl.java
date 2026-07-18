@@ -5,6 +5,10 @@ import com.giri.oms.common.exception.InvalidSortFieldException;
 import com.giri.oms.customer.entity.Customer;
 import com.giri.oms.customer.exception.CustomerNotFoundException;
 import com.giri.oms.customer.repository.CustomerRepository;
+import com.giri.oms.messaging.event.EventType;
+import com.giri.oms.messaging.event.OrderCreatedEvent;
+import com.giri.oms.messaging.event.OrderCreatedEventFactory;
+import com.giri.oms.messaging.outbox.OutboxService;
 import com.giri.oms.order.constants.OrderConstants;
 import com.giri.oms.order.dto.OrderItemRequest;
 import com.giri.oms.order.dto.OrderItemResponse;
@@ -37,6 +41,7 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -48,6 +53,8 @@ public class OrderServiceImpl implements OrderService {
     private final CustomerRepository customerRepository;
     private final ProductRepository productRepository;
     private final OrderMapper orderMapper;
+    private final OutboxService outboxService;
+    private final OrderCreatedEventFactory orderCreatedEventFactory;
 
     private static final Set<String> ALLOWED_SORT_FIELDS =
             Set.of("id", "status", "totalAmount", "createdAt", "updatedAt");
@@ -98,8 +105,23 @@ public class OrderServiceImpl implements OrderService {
 
         Order savedOrder = orderRepository.save(order);
 
+        enqueueOrderCreatedEvent(savedOrder);
+
         log.info(OrderConstants.ORDER_CREATED_LOG, savedOrder.getId());
         return mapToOrderResponse(savedOrder);
+    }
+
+    private void enqueueOrderCreatedEvent(Order order) {
+        UUID eventId = UUID.randomUUID();
+        OrderCreatedEvent event = orderCreatedEventFactory.create(order, eventId);
+        outboxService.enqueue(
+                eventId,
+                orderCreatedEventFactory.aggregateType(),
+                orderCreatedEventFactory.aggregateId(order),
+                EventType.ORDER_CREATED,
+                orderCreatedEventFactory.topic(),
+                orderCreatedEventFactory.partitionKey(order),
+                event);
     }
 
     @Override
