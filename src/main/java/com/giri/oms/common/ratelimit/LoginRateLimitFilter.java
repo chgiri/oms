@@ -5,7 +5,6 @@ import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
 import io.github.bucket4j.BucketConfiguration;
 import io.github.bucket4j.ConsumptionProbe;
-import io.github.bucket4j.Refill;
 import io.github.bucket4j.distributed.proxy.ProxyManager;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -13,9 +12,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.NonNull;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.lang.NonNull;
 import org.springframework.web.filter.OncePerRequestFilter;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -61,8 +60,10 @@ public class LoginRateLimitFilter extends OncePerRequestFilter {
     }
 
     private BucketConfiguration bucketConfiguration() {
-        Refill refill = Refill.intervally(properties.refillTokens(), Duration.ofSeconds(properties.refillDurationSeconds()));
-        Bandwidth limit = Bandwidth.classic(properties.capacity(), refill);
+        Bandwidth limit = Bandwidth.builder()
+                .capacity(properties.capacity())
+                .refillIntervally(properties.refillTokens(), Duration.ofSeconds(properties.refillDurationSeconds()))
+                .build();
         return BucketConfiguration.builder().addLimit(limit).build();
     }
 

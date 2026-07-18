@@ -12,13 +12,17 @@ public interface CustomerMapper {
 
     CustomerResponse mapToCustomerResponse(Customer customer);
 
+    // "version" (from BaseEntity) is intentionally NOT mapped — it's an @Version
+    // column Hibernate manages itself; see InventoryMapper for the full rationale.
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "version", ignore = true)
     Customer mapToCustomer(CustomerRequest customerRequest);
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "version", ignore = true)
     void mapToCustomer(CustomerRequest customerRequest, @MappingTarget Customer customer);
 }

@@ -60,6 +60,22 @@ public class InventoryServiceImpl implements InventoryService {
     public InventoryResponse createInventory(InventoryRequest request) {
         log.debug("Creating inventory record for product id: {} at location: {}", request.getProductId(), request.getLocation());
 
+        // Same check-then-act shape updateInventory guards against with a lock: two
+        // concurrent creates for the same (product, location) pair can both pass
+        // existsByProductIdAndLocation before either one saves. The DB's unique
+        // constraint (uk_inventory_product_location) still stops the duplicate row, but
+        // without this lock the loser would surface as a raw DataIntegrityViolationException
+        // instead of the clean 409 a non-racing duplicate request gets. Locking on the
+        // (product, location) pair itself — rather than an inventory id, which doesn't
+        // exist yet — serializes concurrent creates targeting the same pair.
+        return distributedLockService.executeWithLock(
+                INVENTORY_LOCK_PREFIX + "create:" + request.getProductId() + ":" + request.getLocation(),
+                Duration.ofSeconds(lockWaitSeconds),
+                Duration.ofSeconds(lockLeaseSeconds),
+                () -> doCreateInventory(request));
+    }
+
+    private InventoryResponse doCreateInventory(InventoryRequest request) {
         Product product = getExistingProduct(request.getProductId());
 
         if (inventoryRepository.existsByProductIdAndLocation(request.getProductId(), request.getLocation())) {

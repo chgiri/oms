@@ -199,6 +199,19 @@ public class GlobalExceptionHandler {
                 ErrorCode.OPTIMISTIC_LOCK_CONFLICT.formatMessage(), request);
     }
 
+    // Safety net for check-then-act uniqueness races that a request-level lock didn't
+    // (or couldn't) fully close — e.g. two concurrent creates for the same natural key,
+    // or an update moving a record onto a key another in-flight request is also
+    // targeting. Without this, the DB's unique constraint still prevents the bad write,
+    // but the loser would fall through to the generic Exception handler below as an
+    // opaque 500 instead of a clean, correctly-coded 409.
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(
+            org.springframework.dao.DataIntegrityViolationException ex, HttpServletRequest request) {
+        log.warn("Data integrity violation — path: {}, message: {}", request.getRequestURI(), ex.getMessage());
+        return build(ErrorCode.RESOURCE_CONFLICT, ErrorCode.RESOURCE_CONFLICT.formatMessage(), request);
+    }
+
     // Catch-all safety net — anything not handled above lands here as a 500,
     // instead of leaking a raw stack trace to the client.
     @ExceptionHandler(Exception.class)

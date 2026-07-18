@@ -12,13 +12,17 @@ public interface ProductMapper {
 
     ProductResponse mapToProductResponse(Product product);
 
+    // "version" (from BaseEntity) is intentionally NOT mapped — it's an @Version
+    // column Hibernate manages itself; see InventoryMapper for the full rationale.
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "version", ignore = true)
     Product mapToProduct(ProductRequest productRequest);
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "version", ignore = true)
     void mapToProduct(ProductRequest productRequest, @MappingTarget Product product);
 }

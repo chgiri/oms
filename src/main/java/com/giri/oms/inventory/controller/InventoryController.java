@@ -58,7 +58,8 @@ public class InventoryController {
                                     }
                                     """)))
     })
-    @ApiErrorCodes({ErrorCode.PRODUCT_NOT_FOUND, ErrorCode.INVENTORY_ALREADY_EXISTS})
+    @ApiErrorCodes({ErrorCode.PRODUCT_NOT_FOUND, ErrorCode.INVENTORY_ALREADY_EXISTS,
+            ErrorCode.LOCK_ACQUISITION_FAILED, ErrorCode.RESOURCE_CONFLICT})
     public ResponseEntity<InventoryResponse> createInventory(@Valid @RequestBody InventoryRequest inventoryRequest) {
         log.info("POST /api/inventory — creating inventory for product id: {} at location: {}",
                 inventoryRequest.getProductId(), inventoryRequest.getLocation());
@@ -113,7 +114,7 @@ public class InventoryController {
                     + "All fields are re-validated as on create. Moving the record to a (product, location) "
                     + "pair already used by another record returns a 409.")
     @ApiErrorCodes({ErrorCode.INVENTORY_NOT_FOUND, ErrorCode.PRODUCT_NOT_FOUND, ErrorCode.INVENTORY_ALREADY_EXISTS,
-            ErrorCode.LOCK_ACQUISITION_FAILED})
+            ErrorCode.LOCK_ACQUISITION_FAILED, ErrorCode.RESOURCE_CONFLICT})
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Inventory record updated")
     })

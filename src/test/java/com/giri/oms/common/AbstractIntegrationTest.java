@@ -4,8 +4,8 @@ import org.junit.jupiter.api.Tag;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.kafka.KafkaContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
 /**
@@ -30,12 +30,12 @@ import org.testcontainers.utility.DockerImageName;
 @Tag("integration")
 public abstract class AbstractIntegrationTest {
 
-    static final PostgreSQLContainer<?> POSTGRES;
+    static final PostgreSQLContainer POSTGRES;
     static final GenericContainer<?> REDIS;
     public static final KafkaContainer KAFKA;
 
     static {
-        POSTGRES = new PostgreSQLContainer<>(DockerImageName.parse("postgres:16-alpine"));
+        POSTGRES = new PostgreSQLContainer(DockerImageName.parse("postgres:16-alpine"));
         POSTGRES.start();
 
         // Redisson (distributed locks, rate limiting) connects eagerly at application

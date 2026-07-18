@@ -64,6 +64,13 @@ public enum ErrorCode {
             "This record was modified by someone else in the meantime — please refresh and try again."),
     RATE_LIMIT_EXCEEDED("E", "CM", "104", HttpStatus.TOO_MANY_REQUESTS,
             "Too many login attempts — please try again in %d seconds"),
+    // Catch-all for a DB uniqueness-constraint violation that reaches the handler as a
+    // raw DataIntegrityViolationException instead of a domain-specific *AlreadyExists
+    // exception — i.e. a check-then-act race (an "exists?" check followed by a save())
+    // that a request-level lock didn't (or couldn't) fully close. Deliberately generic
+    // since the violated constraint could belong to any table; see GlobalExceptionHandler.
+    RESOURCE_CONFLICT("E", "CM", "105", HttpStatus.CONFLICT,
+            "This request conflicts with an existing record — please check for a duplicate and try again."),
     INTERNAL_ERROR("E", "CM", "500", HttpStatus.INTERNAL_SERVER_ERROR,
             "An unexpected error occurred. Please try again later."),
 
