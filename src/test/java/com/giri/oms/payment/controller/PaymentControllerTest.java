@@ -77,7 +77,7 @@ class PaymentControllerTest {
         void returns201AndBody_whenRequestIsValid() throws Exception {
             when(paymentService.createPayment(any())).thenReturn(paymentResponse);
 
-            mockMvc.perform(post("/api/payments")
+            mockMvc.perform(post("/api/v1/payments")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(validRequest)))
                     .andExpect(status().isCreated())
@@ -91,7 +91,7 @@ class PaymentControllerTest {
         void returns400_whenOrderIdIsMissing() throws Exception {
             validRequest.setOrderId(null);
 
-            mockMvc.perform(post("/api/payments")
+            mockMvc.perform(post("/api/v1/payments")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(validRequest)))
                     .andExpect(status().isBadRequest())
@@ -102,7 +102,7 @@ class PaymentControllerTest {
         void returns400_whenAmountIsMissing() throws Exception {
             validRequest.setAmount(null);
 
-            mockMvc.perform(post("/api/payments")
+            mockMvc.perform(post("/api/v1/payments")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(validRequest)))
                     .andExpect(status().isBadRequest())
@@ -113,7 +113,7 @@ class PaymentControllerTest {
         void returns400_whenAmountIsNotPositive() throws Exception {
             validRequest.setAmount(BigDecimal.ZERO);
 
-            mockMvc.perform(post("/api/payments")
+            mockMvc.perform(post("/api/v1/payments")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(validRequest)))
                     .andExpect(status().isBadRequest());
@@ -123,7 +123,7 @@ class PaymentControllerTest {
         void returns400_whenMethodIsMissing() throws Exception {
             validRequest.setMethod(null);
 
-            mockMvc.perform(post("/api/payments")
+            mockMvc.perform(post("/api/v1/payments")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(validRequest)))
                     .andExpect(status().isBadRequest())
@@ -134,7 +134,7 @@ class PaymentControllerTest {
         void returns404_whenOrderDoesNotExist() throws Exception {
             when(paymentService.createPayment(any())).thenThrow(new OrderNotFoundException(99L));
 
-            mockMvc.perform(post("/api/payments")
+            mockMvc.perform(post("/api/v1/payments")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(validRequest)))
                     .andExpect(status().isNotFound());
@@ -148,7 +148,7 @@ class PaymentControllerTest {
         void returns200AndBody_whenPaymentExists() throws Exception {
             when(paymentService.getPaymentById(1L)).thenReturn(paymentResponse);
 
-            mockMvc.perform(get("/api/payments/{id}", 1L))
+            mockMvc.perform(get("/api/v1/payments/{id}", 1L))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.orderId").value(1));
         }
@@ -157,7 +157,7 @@ class PaymentControllerTest {
         void returns404_whenPaymentDoesNotExist() throws Exception {
             when(paymentService.getPaymentById(99L)).thenThrow(new PaymentNotFoundException(99L));
 
-            mockMvc.perform(get("/api/payments/{id}", 99L))
+            mockMvc.perform(get("/api/v1/payments/{id}", 99L))
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.status").value(404))
                     .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("99")));
@@ -173,7 +173,7 @@ class PaymentControllerTest {
                     List.of(paymentResponse), 0, 10, 1, 1, true);
             when(paymentService.getAllPayments(0, 10, "id", "asc")).thenReturn(paged);
 
-            mockMvc.perform(get("/api/payments"))
+            mockMvc.perform(get("/api/v1/payments"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.content[0].orderId").value(1))
                     .andExpect(jsonPath("$.totalElements").value(1));
@@ -192,7 +192,7 @@ class PaymentControllerTest {
             when(paymentService.updatePaymentStatus(eq(1L), eq(PaymentStatus.COMPLETED), eq("txn_9f8c3d2a")))
                     .thenReturn(completedResponse);
 
-            mockMvc.perform(patch("/api/payments/{id}/status", 1L)
+            mockMvc.perform(patch("/api/v1/payments/{id}/status", 1L)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isOk())
@@ -202,7 +202,7 @@ class PaymentControllerTest {
 
         @Test
         void returns400_whenStatusIsMissing() throws Exception {
-            mockMvc.perform(patch("/api/payments/{id}/status", 1L)
+            mockMvc.perform(patch("/api/v1/payments/{id}/status", 1L)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("{}"))
                     .andExpect(status().isBadRequest());
@@ -213,7 +213,7 @@ class PaymentControllerTest {
             PaymentStatusUpdateRequest request = new PaymentStatusUpdateRequest(PaymentStatus.COMPLETED, null);
             when(paymentService.updatePaymentStatus(eq(99L), any(), any())).thenThrow(new PaymentNotFoundException(99L));
 
-            mockMvc.perform(patch("/api/payments/{id}/status", 99L)
+            mockMvc.perform(patch("/api/v1/payments/{id}/status", 99L)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isNotFound());
@@ -225,7 +225,7 @@ class PaymentControllerTest {
             when(paymentService.updatePaymentStatus(eq(1L), eq(PaymentStatus.REFUNDED), any()))
                     .thenThrow(new IllegalPaymentStateException("Cannot transition payment id 1 from status PENDING to REFUNDED"));
 
-            mockMvc.perform(patch("/api/payments/{id}/status", 1L)
+            mockMvc.perform(patch("/api/v1/payments/{id}/status", 1L)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isConflict());
@@ -237,7 +237,7 @@ class PaymentControllerTest {
 
         @Test
         void returns204_whenPaymentIsDeleted() throws Exception {
-            mockMvc.perform(delete("/api/payments/{id}", 1L))
+            mockMvc.perform(delete("/api/v1/payments/{id}", 1L))
                     .andExpect(status().isNoContent());
         }
 
@@ -246,7 +246,7 @@ class PaymentControllerTest {
             org.mockito.Mockito.doThrow(new PaymentNotFoundException(99L))
                     .when(paymentService).deletePayment(99L);
 
-            mockMvc.perform(delete("/api/payments/{id}", 99L))
+            mockMvc.perform(delete("/api/v1/payments/{id}", 99L))
                     .andExpect(status().isNotFound());
         }
 
@@ -255,7 +255,7 @@ class PaymentControllerTest {
             org.mockito.Mockito.doThrow(new IllegalPaymentStateException("Payment id 1 cannot be deleted while in status COMPLETED"))
                     .when(paymentService).deletePayment(1L);
 
-            mockMvc.perform(delete("/api/payments/{id}", 1L))
+            mockMvc.perform(delete("/api/v1/payments/{id}", 1L))
                     .andExpect(status().isConflict());
         }
     }
@@ -269,7 +269,7 @@ class PaymentControllerTest {
             when(paymentService.searchPayments(eq(1L), any(), any(), any(), any(), any()))
                     .thenReturn(page);
 
-            mockMvc.perform(get("/api/payments/search").param("orderId", "1"))
+            mockMvc.perform(get("/api/v1/payments/search").param("orderId", "1"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.content[0].orderId").value(1));
         }
@@ -280,7 +280,7 @@ class PaymentControllerTest {
             when(paymentService.searchPayments(any(), eq(PaymentStatus.PENDING), any(), any(), any(), any()))
                     .thenReturn(page);
 
-            mockMvc.perform(get("/api/payments/search").param("status", "PENDING"))
+            mockMvc.perform(get("/api/v1/payments/search").param("status", "PENDING"))
                     .andExpect(status().isOk());
         }
 
@@ -290,7 +290,7 @@ class PaymentControllerTest {
             when(paymentService.searchPaymentsBySpecification(eq(1L), any(), any(), any(), any(), any()))
                     .thenReturn(page);
 
-            mockMvc.perform(get("/api/payments/search/advanced").param("orderId", "1"))
+            mockMvc.perform(get("/api/v1/payments/search/advanced").param("orderId", "1"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.content[0].orderId").value(1));
         }

@@ -78,7 +78,7 @@ class InventoryControllerTest {
         void returns201AndBody_whenRequestIsValid() throws Exception {
             when(inventoryService.createInventory(any())).thenReturn(inventoryResponse);
 
-            mockMvc.perform(post("/api/inventory")
+            mockMvc.perform(post("/api/v1/inventory")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(validRequest)))
                     .andExpect(status().isCreated())
@@ -91,7 +91,7 @@ class InventoryControllerTest {
         void returns400_whenProductIdIsMissing() throws Exception {
             validRequest.setProductId(null);
 
-            mockMvc.perform(post("/api/inventory")
+            mockMvc.perform(post("/api/v1/inventory")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(validRequest)))
                     .andExpect(status().isBadRequest())
@@ -102,7 +102,7 @@ class InventoryControllerTest {
         void returns400_whenLocationIsBlank() throws Exception {
             validRequest.setLocation("");
 
-            mockMvc.perform(post("/api/inventory")
+            mockMvc.perform(post("/api/v1/inventory")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(validRequest)))
                     .andExpect(status().isBadRequest())
@@ -113,7 +113,7 @@ class InventoryControllerTest {
         void returns400_whenQuantityAvailableIsNegative() throws Exception {
             validRequest.setQuantityAvailable(-5);
 
-            mockMvc.perform(post("/api/inventory")
+            mockMvc.perform(post("/api/v1/inventory")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(validRequest)))
                     .andExpect(status().isBadRequest())
@@ -124,7 +124,7 @@ class InventoryControllerTest {
         void returns404_whenProductDoesNotExist() throws Exception {
             when(inventoryService.createInventory(any())).thenThrow(new ProductNotFoundException(99L));
 
-            mockMvc.perform(post("/api/inventory")
+            mockMvc.perform(post("/api/v1/inventory")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(validRequest)))
                     .andExpect(status().isNotFound());
@@ -135,7 +135,7 @@ class InventoryControllerTest {
             when(inventoryService.createInventory(any()))
                     .thenThrow(new InventoryAlreadyExistsException(1L, "WH-EAST-01"));
 
-            mockMvc.perform(post("/api/inventory")
+            mockMvc.perform(post("/api/v1/inventory")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(validRequest)))
                     .andExpect(status().isConflict());
@@ -149,7 +149,7 @@ class InventoryControllerTest {
         void returns200AndBody_whenInventoryExists() throws Exception {
             when(inventoryService.getInventoryById(1L)).thenReturn(inventoryResponse);
 
-            mockMvc.perform(get("/api/inventory/{id}", 1L))
+            mockMvc.perform(get("/api/v1/inventory/{id}", 1L))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.location").value("WH-EAST-01"));
         }
@@ -158,7 +158,7 @@ class InventoryControllerTest {
         void returns404_whenInventoryDoesNotExist() throws Exception {
             when(inventoryService.getInventoryById(99L)).thenThrow(new InventoryNotFoundException(99L));
 
-            mockMvc.perform(get("/api/inventory/{id}", 99L))
+            mockMvc.perform(get("/api/v1/inventory/{id}", 99L))
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.status").value(404))
                     .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("99")));
@@ -174,7 +174,7 @@ class InventoryControllerTest {
                     List.of(inventoryResponse), 0, 10, 1, 1, true);
             when(inventoryService.getAllInventory(0, 10, "id", "asc")).thenReturn(paged);
 
-            mockMvc.perform(get("/api/inventory"))
+            mockMvc.perform(get("/api/v1/inventory"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.content[0].location").value("WH-EAST-01"))
                     .andExpect(jsonPath("$.totalElements").value(1));
@@ -188,7 +188,7 @@ class InventoryControllerTest {
         void returns200_whenRequestIsValid() throws Exception {
             when(inventoryService.updateInventory(eq(1L), any())).thenReturn(inventoryResponse);
 
-            mockMvc.perform(put("/api/inventory/{id}", 1L)
+            mockMvc.perform(put("/api/v1/inventory/{id}", 1L)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(validRequest)))
                     .andExpect(status().isOk())
@@ -199,7 +199,7 @@ class InventoryControllerTest {
         void returns404_whenInventoryDoesNotExist() throws Exception {
             when(inventoryService.updateInventory(eq(99L), any())).thenThrow(new InventoryNotFoundException(99L));
 
-            mockMvc.perform(put("/api/inventory/{id}", 99L)
+            mockMvc.perform(put("/api/v1/inventory/{id}", 99L)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(validRequest)))
                     .andExpect(status().isNotFound());
@@ -210,7 +210,7 @@ class InventoryControllerTest {
             when(inventoryService.updateInventory(eq(1L), any()))
                     .thenThrow(new InventoryAlreadyExistsException(1L, "WH-WEST-02"));
 
-            mockMvc.perform(put("/api/inventory/{id}", 1L)
+            mockMvc.perform(put("/api/v1/inventory/{id}", 1L)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(validRequest)))
                     .andExpect(status().isConflict());
@@ -220,7 +220,7 @@ class InventoryControllerTest {
         void returns400_whenRequestFailsValidation() throws Exception {
             validRequest.setLocation(null);
 
-            mockMvc.perform(put("/api/inventory/{id}", 1L)
+            mockMvc.perform(put("/api/v1/inventory/{id}", 1L)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(validRequest)))
                     .andExpect(status().isBadRequest());
@@ -232,7 +232,7 @@ class InventoryControllerTest {
 
         @Test
         void returns204_whenInventoryIsDeleted() throws Exception {
-            mockMvc.perform(delete("/api/inventory/{id}", 1L))
+            mockMvc.perform(delete("/api/v1/inventory/{id}", 1L))
                     .andExpect(status().isNoContent());
         }
 
@@ -241,7 +241,7 @@ class InventoryControllerTest {
             org.mockito.Mockito.doThrow(new InventoryNotFoundException(99L))
                     .when(inventoryService).deleteInventory(99L);
 
-            mockMvc.perform(delete("/api/inventory/{id}", 99L))
+            mockMvc.perform(delete("/api/v1/inventory/{id}", 99L))
                     .andExpect(status().isNotFound());
         }
     }
@@ -255,7 +255,7 @@ class InventoryControllerTest {
             when(inventoryService.searchInventory(eq(1L), any(), anyBoolean(), any()))
                     .thenReturn(page);
 
-            mockMvc.perform(get("/api/inventory/search").param("productId", "1"))
+            mockMvc.perform(get("/api/v1/inventory/search").param("productId", "1"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.content[0].location").value("WH-EAST-01"));
         }
@@ -266,7 +266,7 @@ class InventoryControllerTest {
             when(inventoryService.searchInventory(any(), any(), eq(true), any()))
                     .thenReturn(page);
 
-            mockMvc.perform(get("/api/inventory/search").param("lowStockOnly", "true"))
+            mockMvc.perform(get("/api/v1/inventory/search").param("lowStockOnly", "true"))
                     .andExpect(status().isOk());
         }
 
@@ -276,7 +276,7 @@ class InventoryControllerTest {
             when(inventoryService.searchInventoryBySpecification(eq(1L), any(), anyBoolean(), any()))
                     .thenReturn(page);
 
-            mockMvc.perform(get("/api/inventory/search/advanced").param("productId", "1"))
+            mockMvc.perform(get("/api/v1/inventory/search/advanced").param("productId", "1"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.content[0].location").value("WH-EAST-01"));
         }

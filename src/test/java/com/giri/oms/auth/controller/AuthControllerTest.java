@@ -68,7 +68,7 @@ class AuthControllerTest {
             UserResponse response = new UserResponse(1L, "jane.doe", "jane.doe@example.com", Role.STAFF, true, LocalDateTime.now());
             when(authService.register(any())).thenReturn(response);
 
-            mockMvc.perform(post("/api/auth/register")
+            mockMvc.perform(post("/api/v1/auth/register")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(registerRequest)))
                     .andExpect(status().isCreated())
@@ -80,7 +80,7 @@ class AuthControllerTest {
         void returns400_whenPasswordTooShort() throws Exception {
             registerRequest.setPassword("short");
 
-            mockMvc.perform(post("/api/auth/register")
+            mockMvc.perform(post("/api/v1/auth/register")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(registerRequest)))
                     .andExpect(status().isBadRequest())
@@ -91,7 +91,7 @@ class AuthControllerTest {
         void returns400_whenEmailIsInvalid() throws Exception {
             registerRequest.setEmail("not-an-email");
 
-            mockMvc.perform(post("/api/auth/register")
+            mockMvc.perform(post("/api/v1/auth/register")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(registerRequest)))
                     .andExpect(status().isBadRequest())
@@ -102,7 +102,7 @@ class AuthControllerTest {
         void returns400_whenRoleIsMissing() throws Exception {
             registerRequest.setRole(null);
 
-            mockMvc.perform(post("/api/auth/register")
+            mockMvc.perform(post("/api/v1/auth/register")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(registerRequest)))
                     .andExpect(status().isBadRequest())
@@ -113,7 +113,7 @@ class AuthControllerTest {
         void returns409_whenUsernameAlreadyTaken() throws Exception {
             when(authService.register(any())).thenThrow(new UsernameAlreadyExistsException("jane.doe"));
 
-            mockMvc.perform(post("/api/auth/register")
+            mockMvc.perform(post("/api/v1/auth/register")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(registerRequest)))
                     .andExpect(status().isConflict());
@@ -123,7 +123,7 @@ class AuthControllerTest {
         void returns409_whenEmailAlreadyTaken() throws Exception {
             when(authService.register(any())).thenThrow(new EmailAlreadyExistsException("jane.doe@example.com"));
 
-            mockMvc.perform(post("/api/auth/register")
+            mockMvc.perform(post("/api/v1/auth/register")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(registerRequest)))
                     .andExpect(status().isConflict());
@@ -138,7 +138,7 @@ class AuthControllerTest {
             AuthResponse response = new AuthResponse("signed.jwt.token", "Bearer", 86_400_000L, "jane.doe", "STAFF");
             when(authService.login(any())).thenReturn(response);
 
-            mockMvc.perform(post("/api/auth/login")
+            mockMvc.perform(post("/api/v1/auth/login")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(loginRequest)))
                     .andExpect(status().isOk())
@@ -150,7 +150,7 @@ class AuthControllerTest {
         void returns401_whenCredentialsAreInvalid() throws Exception {
             when(authService.login(any())).thenThrow(new BadCredentialsException("Bad credentials"));
 
-            mockMvc.perform(post("/api/auth/login")
+            mockMvc.perform(post("/api/v1/auth/login")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(loginRequest)))
                     .andExpect(status().isUnauthorized());
@@ -160,7 +160,7 @@ class AuthControllerTest {
         void returns400_whenUsernameIsBlank() throws Exception {
             loginRequest.setUsername("");
 
-            mockMvc.perform(post("/api/auth/login")
+            mockMvc.perform(post("/api/v1/auth/login")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(loginRequest)))
                     .andExpect(status().isBadRequest())

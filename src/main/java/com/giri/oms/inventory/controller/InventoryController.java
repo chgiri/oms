@@ -28,7 +28,7 @@ import org.springframework.web.bind.annotation.*;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/inventory")
+@RequestMapping("/inventory")
 @RequiredArgsConstructor
 @Tag(name = "Inventory", description = "Per-product, per-warehouse stock management")
 public class InventoryController {

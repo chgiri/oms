@@ -31,7 +31,7 @@ import org.springframework.web.bind.annotation.*;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/shipments")
+@RequestMapping("/shipments")
 @RequiredArgsConstructor
 @Tag(name = "Shipment", description = "Shipment creation, carrier tracking, and delivery status")
 public class ShipmentController {

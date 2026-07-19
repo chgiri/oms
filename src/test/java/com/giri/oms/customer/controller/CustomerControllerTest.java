@@ -84,7 +84,7 @@ class CustomerControllerTest {
         void returns201AndBody_whenRequestIsValid() throws Exception {
             when(customerService.createCustomer(any())).thenReturn(customerResponse);
 
-            mockMvc.perform(post("/api/customers")
+            mockMvc.perform(post("/api/v1/customers")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(validRequest)))
                     .andExpect(status().isCreated())
@@ -97,7 +97,7 @@ class CustomerControllerTest {
         void returns400_whenFirstNameIsBlank() throws Exception {
             validRequest.setFirstName("");
 
-            mockMvc.perform(post("/api/customers")
+            mockMvc.perform(post("/api/v1/customers")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(validRequest)))
                     .andExpect(status().isBadRequest())
@@ -108,7 +108,7 @@ class CustomerControllerTest {
         void returns400_whenEmailIsMalformed() throws Exception {
             validRequest.setEmail("not-an-email");
 
-            mockMvc.perform(post("/api/customers")
+            mockMvc.perform(post("/api/v1/customers")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(validRequest)))
                     .andExpect(status().isBadRequest())
@@ -119,7 +119,7 @@ class CustomerControllerTest {
         void returns400_whenStatusIsMissing() throws Exception {
             validRequest.setStatus(null);
 
-            mockMvc.perform(post("/api/customers")
+            mockMvc.perform(post("/api/v1/customers")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(validRequest)))
                     .andExpect(status().isBadRequest())
@@ -130,7 +130,7 @@ class CustomerControllerTest {
         void returns400_whenPhoneIsMalformed() throws Exception {
             validRequest.setPhone("abc-not-a-phone");
 
-            mockMvc.perform(post("/api/customers")
+            mockMvc.perform(post("/api/v1/customers")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(validRequest)))
                     .andExpect(status().isBadRequest())
@@ -144,7 +144,7 @@ class CustomerControllerTest {
             validRequest.setPhone("");
             when(customerService.createCustomer(any())).thenReturn(customerResponse);
 
-            mockMvc.perform(post("/api/customers")
+            mockMvc.perform(post("/api/v1/customers")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(validRequest)))
                     .andExpect(status().isCreated());
@@ -155,7 +155,7 @@ class CustomerControllerTest {
             when(customerService.createCustomer(any()))
                     .thenThrow(new CustomerEmailAlreadyExistsException(validRequest.getEmail()));
 
-            mockMvc.perform(post("/api/customers")
+            mockMvc.perform(post("/api/v1/customers")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(validRequest)))
                     .andExpect(status().isConflict());
@@ -169,7 +169,7 @@ class CustomerControllerTest {
         void returns200AndBody_whenCustomerExists() throws Exception {
             when(customerService.getCustomerById(1L)).thenReturn(customerResponse);
 
-            mockMvc.perform(get("/api/customers/{id}", 1L))
+            mockMvc.perform(get("/api/v1/customers/{id}", 1L))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.lastName").value("Lovelace"));
         }
@@ -178,7 +178,7 @@ class CustomerControllerTest {
         void returns404_whenCustomerDoesNotExist() throws Exception {
             when(customerService.getCustomerById(99L)).thenThrow(new CustomerNotFoundException(99L));
 
-            mockMvc.perform(get("/api/customers/{id}", 99L))
+            mockMvc.perform(get("/api/v1/customers/{id}", 99L))
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.status").value(404))
                     .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("99")));
@@ -194,7 +194,7 @@ class CustomerControllerTest {
                     List.of(customerResponse), 0, 10, 1, 1, true);
             when(customerService.getAllCustomers(0, 10, "id", "asc")).thenReturn(paged);
 
-            mockMvc.perform(get("/api/customers"))
+            mockMvc.perform(get("/api/v1/customers"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.content[0].lastName").value("Lovelace"))
                     .andExpect(jsonPath("$.totalElements").value(1));
@@ -208,7 +208,7 @@ class CustomerControllerTest {
         void returns200_whenRequestIsValid() throws Exception {
             when(customerService.updateCustomer(eq(1L), any())).thenReturn(customerResponse);
 
-            mockMvc.perform(put("/api/customers/{id}", 1L)
+            mockMvc.perform(put("/api/v1/customers/{id}", 1L)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(validRequest)))
                     .andExpect(status().isOk())
@@ -219,7 +219,7 @@ class CustomerControllerTest {
         void returns404_whenCustomerDoesNotExist() throws Exception {
             when(customerService.updateCustomer(eq(99L), any())).thenThrow(new CustomerNotFoundException(99L));
 
-            mockMvc.perform(put("/api/customers/{id}", 99L)
+            mockMvc.perform(put("/api/v1/customers/{id}", 99L)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(validRequest)))
                     .andExpect(status().isNotFound());
@@ -230,7 +230,7 @@ class CustomerControllerTest {
             when(customerService.updateCustomer(eq(1L), any()))
                     .thenThrow(new CustomerEmailAlreadyExistsException("taken@example.com"));
 
-            mockMvc.perform(put("/api/customers/{id}", 1L)
+            mockMvc.perform(put("/api/v1/customers/{id}", 1L)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(validRequest)))
                     .andExpect(status().isConflict());
@@ -240,7 +240,7 @@ class CustomerControllerTest {
         void returns400_whenRequestFailsValidation() throws Exception {
             validRequest.setFirstName(null);
 
-            mockMvc.perform(put("/api/customers/{id}", 1L)
+            mockMvc.perform(put("/api/v1/customers/{id}", 1L)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(validRequest)))
                     .andExpect(status().isBadRequest());
@@ -252,7 +252,7 @@ class CustomerControllerTest {
 
         @Test
         void returns204_whenCustomerIsDeleted() throws Exception {
-            mockMvc.perform(delete("/api/customers/{id}", 1L))
+            mockMvc.perform(delete("/api/v1/customers/{id}", 1L))
                     .andExpect(status().isNoContent());
         }
 
@@ -261,7 +261,7 @@ class CustomerControllerTest {
             org.mockito.Mockito.doThrow(new CustomerNotFoundException(99L))
                     .when(customerService).deleteCustomer(99L);
 
-            mockMvc.perform(delete("/api/customers/{id}", 99L))
+            mockMvc.perform(delete("/api/v1/customers/{id}", 99L))
                     .andExpect(status().isNotFound());
         }
     }
@@ -275,7 +275,7 @@ class CustomerControllerTest {
             when(customerService.searchCustomers(eq("ada"), any(), any(), any()))
                     .thenReturn(page);
 
-            mockMvc.perform(get("/api/customers/search").param("name", "ada"))
+            mockMvc.perform(get("/api/v1/customers/search").param("name", "ada"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.content[0].lastName").value("Lovelace"));
         }
@@ -286,7 +286,7 @@ class CustomerControllerTest {
             when(customerService.searchCustomers(any(), any(), eq(CustomerStatus.ACTIVE), any()))
                     .thenReturn(page);
 
-            mockMvc.perform(get("/api/customers/search").param("status", "ACTIVE"))
+            mockMvc.perform(get("/api/v1/customers/search").param("status", "ACTIVE"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.content[0].status").value("ACTIVE"));
         }
@@ -297,7 +297,7 @@ class CustomerControllerTest {
             when(customerService.searchCustomersBySpecification(eq("ada"), any(), any(), any()))
                     .thenReturn(page);
 
-            mockMvc.perform(get("/api/customers/search/advanced").param("name", "ada"))
+            mockMvc.perform(get("/api/v1/customers/search/advanced").param("name", "ada"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.content[0].lastName").value("Lovelace"));
         }

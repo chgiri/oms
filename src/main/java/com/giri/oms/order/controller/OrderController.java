@@ -32,7 +32,7 @@ import java.math.BigDecimal;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/orders")
+@RequestMapping("/orders")
 @RequiredArgsConstructor
 @Tag(name = "Order", description = "Order placement, status tracking, and fulfillment")
 public class OrderController {

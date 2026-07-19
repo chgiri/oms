@@ -76,7 +76,7 @@ class ShipmentControllerTest {
         void returns201AndBody_whenRequestIsValid() throws Exception {
             when(shipmentService.createShipment(any())).thenReturn(shipmentResponse);
 
-            mockMvc.perform(post("/api/shipments")
+            mockMvc.perform(post("/api/v1/shipments")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(validRequest)))
                     .andExpect(status().isCreated())
@@ -90,7 +90,7 @@ class ShipmentControllerTest {
         void returns400_whenOrderIdIsMissing() throws Exception {
             validRequest.setOrderId(null);
 
-            mockMvc.perform(post("/api/shipments")
+            mockMvc.perform(post("/api/v1/shipments")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(validRequest)))
                     .andExpect(status().isBadRequest())
@@ -101,7 +101,7 @@ class ShipmentControllerTest {
         void returns400_whenCarrierIsMissing() throws Exception {
             validRequest.setCarrier(null);
 
-            mockMvc.perform(post("/api/shipments")
+            mockMvc.perform(post("/api/v1/shipments")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(validRequest)))
                     .andExpect(status().isBadRequest())
@@ -112,7 +112,7 @@ class ShipmentControllerTest {
         void returns404_whenOrderDoesNotExist() throws Exception {
             when(shipmentService.createShipment(any())).thenThrow(new OrderNotFoundException(99L));
 
-            mockMvc.perform(post("/api/shipments")
+            mockMvc.perform(post("/api/v1/shipments")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(validRequest)))
                     .andExpect(status().isNotFound());
@@ -126,7 +126,7 @@ class ShipmentControllerTest {
         void returns200AndBody_whenShipmentExists() throws Exception {
             when(shipmentService.getShipmentById(1L)).thenReturn(shipmentResponse);
 
-            mockMvc.perform(get("/api/shipments/{id}", 1L))
+            mockMvc.perform(get("/api/v1/shipments/{id}", 1L))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.orderId").value(1));
         }
@@ -135,7 +135,7 @@ class ShipmentControllerTest {
         void returns404_whenShipmentDoesNotExist() throws Exception {
             when(shipmentService.getShipmentById(99L)).thenThrow(new ShipmentNotFoundException(99L));
 
-            mockMvc.perform(get("/api/shipments/{id}", 99L))
+            mockMvc.perform(get("/api/v1/shipments/{id}", 99L))
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.status").value(404))
                     .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("99")));
@@ -151,7 +151,7 @@ class ShipmentControllerTest {
                     List.of(shipmentResponse), 0, 10, 1, 1, true);
             when(shipmentService.getAllShipments(0, 10, "id", "asc")).thenReturn(paged);
 
-            mockMvc.perform(get("/api/shipments"))
+            mockMvc.perform(get("/api/v1/shipments"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.content[0].orderId").value(1))
                     .andExpect(jsonPath("$.totalElements").value(1));
@@ -170,7 +170,7 @@ class ShipmentControllerTest {
             when(shipmentService.updateShipmentStatus(eq(1L), eq(ShipmentStatus.SHIPPED), eq("1Z999AA10123456784")))
                     .thenReturn(shippedResponse);
 
-            mockMvc.perform(patch("/api/shipments/{id}/status", 1L)
+            mockMvc.perform(patch("/api/v1/shipments/{id}/status", 1L)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isOk())
@@ -180,7 +180,7 @@ class ShipmentControllerTest {
 
         @Test
         void returns400_whenStatusIsMissing() throws Exception {
-            mockMvc.perform(patch("/api/shipments/{id}/status", 1L)
+            mockMvc.perform(patch("/api/v1/shipments/{id}/status", 1L)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("{}"))
                     .andExpect(status().isBadRequest());
@@ -191,7 +191,7 @@ class ShipmentControllerTest {
             ShipmentStatusUpdateRequest request = new ShipmentStatusUpdateRequest(ShipmentStatus.SHIPPED, null);
             when(shipmentService.updateShipmentStatus(eq(99L), any(), any())).thenThrow(new ShipmentNotFoundException(99L));
 
-            mockMvc.perform(patch("/api/shipments/{id}/status", 99L)
+            mockMvc.perform(patch("/api/v1/shipments/{id}/status", 99L)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isNotFound());
@@ -203,7 +203,7 @@ class ShipmentControllerTest {
             when(shipmentService.updateShipmentStatus(eq(1L), eq(ShipmentStatus.DELIVERED), any()))
                     .thenThrow(new IllegalShipmentStateException("Cannot transition shipment id 1 from status PENDING to DELIVERED"));
 
-            mockMvc.perform(patch("/api/shipments/{id}/status", 1L)
+            mockMvc.perform(patch("/api/v1/shipments/{id}/status", 1L)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isConflict());
@@ -215,7 +215,7 @@ class ShipmentControllerTest {
 
         @Test
         void returns204_whenShipmentIsDeleted() throws Exception {
-            mockMvc.perform(delete("/api/shipments/{id}", 1L))
+            mockMvc.perform(delete("/api/v1/shipments/{id}", 1L))
                     .andExpect(status().isNoContent());
         }
 
@@ -224,7 +224,7 @@ class ShipmentControllerTest {
             org.mockito.Mockito.doThrow(new ShipmentNotFoundException(99L))
                     .when(shipmentService).deleteShipment(99L);
 
-            mockMvc.perform(delete("/api/shipments/{id}", 99L))
+            mockMvc.perform(delete("/api/v1/shipments/{id}", 99L))
                     .andExpect(status().isNotFound());
         }
 
@@ -233,7 +233,7 @@ class ShipmentControllerTest {
             org.mockito.Mockito.doThrow(new IllegalShipmentStateException("Shipment id 1 cannot be deleted while in status SHIPPED"))
                     .when(shipmentService).deleteShipment(1L);
 
-            mockMvc.perform(delete("/api/shipments/{id}", 1L))
+            mockMvc.perform(delete("/api/v1/shipments/{id}", 1L))
                     .andExpect(status().isConflict());
         }
     }
@@ -247,7 +247,7 @@ class ShipmentControllerTest {
             when(shipmentService.searchShipments(eq(1L), eq(ShipmentStatus.PENDING), any(), any()))
                     .thenReturn(page);
 
-            mockMvc.perform(get("/api/shipments/search")
+            mockMvc.perform(get("/api/v1/shipments/search")
                             .param("orderId", "1")
                             .param("status", "PENDING"))
                     .andExpect(status().isOk())
@@ -260,7 +260,7 @@ class ShipmentControllerTest {
             when(shipmentService.searchShipmentsBySpecification(eq(1L), eq(ShipmentStatus.PENDING), any(), any()))
                     .thenReturn(page);
 
-            mockMvc.perform(get("/api/shipments/search/advanced")
+            mockMvc.perform(get("/api/v1/shipments/search/advanced")
                             .param("orderId", "1")
                             .param("status", "PENDING"))
                     .andExpect(status().isOk())

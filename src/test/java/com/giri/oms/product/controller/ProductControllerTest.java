@@ -75,7 +75,7 @@ class ProductControllerTest {
         void returns201AndBody_whenRequestIsValid() throws Exception {
             when(productService.createProduct(any())).thenReturn(productResponse);
 
-            mockMvc.perform(post("/api/products")
+            mockMvc.perform(post("/api/v1/products")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(validRequest)))
                     .andExpect(status().isCreated())
@@ -87,7 +87,7 @@ class ProductControllerTest {
         void returns400_whenNameIsBlank() throws Exception {
             validRequest.setName("");
 
-            mockMvc.perform(post("/api/products")
+            mockMvc.perform(post("/api/v1/products")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(validRequest)))
                     .andExpect(status().isBadRequest())
@@ -98,7 +98,7 @@ class ProductControllerTest {
         void returns400_whenPriceIsNegative() throws Exception {
             validRequest.setPrice(new BigDecimal("-5.00"));
 
-            mockMvc.perform(post("/api/products")
+            mockMvc.perform(post("/api/v1/products")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(validRequest)))
                     .andExpect(status().isBadRequest())
@@ -113,7 +113,7 @@ class ProductControllerTest {
         void returns200AndBody_whenProductExists() throws Exception {
             when(productService.getProductById(1L)).thenReturn(productResponse);
 
-            mockMvc.perform(get("/api/products/{id}", 1L))
+            mockMvc.perform(get("/api/v1/products/{id}", 1L))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.name").value("Wireless Mouse"));
         }
@@ -122,7 +122,7 @@ class ProductControllerTest {
         void returns404_whenProductDoesNotExist() throws Exception {
             when(productService.getProductById(99L)).thenThrow(new ProductNotFoundException(99L));
 
-            mockMvc.perform(get("/api/products/{id}", 99L))
+            mockMvc.perform(get("/api/v1/products/{id}", 99L))
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.status").value(404))
                     .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("99")));
@@ -138,7 +138,7 @@ class ProductControllerTest {
                     List.of(productResponse), 0, 10, 1, 1, true);
             when(productService.getAllProducts(0, 10, "id", "asc")).thenReturn(paged);
 
-            mockMvc.perform(get("/api/products"))
+            mockMvc.perform(get("/api/v1/products"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.content[0].name").value("Wireless Mouse"))
                     .andExpect(jsonPath("$.totalElements").value(1));
@@ -152,7 +152,7 @@ class ProductControllerTest {
         void returns200_whenRequestIsValid() throws Exception {
             when(productService.updateProduct(eq(1L), any())).thenReturn(productResponse);
 
-            mockMvc.perform(put("/api/products/{id}", 1L)
+            mockMvc.perform(put("/api/v1/products/{id}", 1L)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(validRequest)))
                     .andExpect(status().isOk())
@@ -163,7 +163,7 @@ class ProductControllerTest {
         void returns404_whenProductDoesNotExist() throws Exception {
             when(productService.updateProduct(eq(99L), any())).thenThrow(new ProductNotFoundException(99L));
 
-            mockMvc.perform(put("/api/products/{id}", 99L)
+            mockMvc.perform(put("/api/v1/products/{id}", 99L)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(validRequest)))
                     .andExpect(status().isNotFound());
@@ -173,7 +173,7 @@ class ProductControllerTest {
         void returns400_whenRequestFailsValidation() throws Exception {
             validRequest.setName(null);
 
-            mockMvc.perform(put("/api/products/{id}", 1L)
+            mockMvc.perform(put("/api/v1/products/{id}", 1L)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(validRequest)))
                     .andExpect(status().isBadRequest());
@@ -185,7 +185,7 @@ class ProductControllerTest {
 
         @Test
         void returns204_whenProductIsDeleted() throws Exception {
-            mockMvc.perform(delete("/api/products/{id}", 1L))
+            mockMvc.perform(delete("/api/v1/products/{id}", 1L))
                     .andExpect(status().isNoContent());
         }
 
@@ -194,7 +194,7 @@ class ProductControllerTest {
             org.mockito.Mockito.doThrow(new ProductNotFoundException(99L))
                     .when(productService).deleteProduct(99L);
 
-            mockMvc.perform(delete("/api/products/{id}", 99L))
+            mockMvc.perform(delete("/api/v1/products/{id}", 99L))
                     .andExpect(status().isNotFound());
         }
     }
@@ -208,7 +208,7 @@ class ProductControllerTest {
             when(productService.searchProducts(eq("mouse"), any(), any(), any()))
                     .thenReturn(page);
 
-            mockMvc.perform(get("/api/products/search").param("name", "mouse"))
+            mockMvc.perform(get("/api/v1/products/search").param("name", "mouse"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.content[0].name").value("Wireless Mouse"));
         }

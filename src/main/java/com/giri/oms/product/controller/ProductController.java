@@ -30,7 +30,7 @@ import java.math.BigDecimal;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/products")
+@RequestMapping("/products")
 @RequiredArgsConstructor
 @Tag(name = "Products", description = "Product catalog management")
 public class ProductController {

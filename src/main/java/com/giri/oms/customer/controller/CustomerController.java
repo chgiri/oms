@@ -29,7 +29,7 @@ import org.springframework.web.bind.annotation.*;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/customers")
+@RequestMapping("/customers")
 @RequiredArgsConstructor
 @Tag(name = "Customers", description = "Customer management")
 public class CustomerController {

@@ -1,5 +1,6 @@
 package com.giri.oms.common.ratelimit;
 
+import com.giri.oms.common.config.WebConfig;
 import io.github.bucket4j.distributed.proxy.ProxyManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
@@ -22,7 +23,7 @@ public class RateLimitFilterRegistration {
     public FilterRegistrationBean<LoginRateLimitFilter> loginRateLimitFilterRegistration() {
         FilterRegistrationBean<LoginRateLimitFilter> registration = new FilterRegistrationBean<>(
                 new LoginRateLimitFilter(rateLimitProxyManager, rateLimitProperties, objectMapper, clock));
-        registration.addUrlPatterns("/api/auth/login");
+        registration.addUrlPatterns(WebConfig.API_PREFIX + "/auth/login");
         registration.setOrder(1); // run before Spring Security's filter chain
         return registration;
     }

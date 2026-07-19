@@ -1,6 +1,7 @@
 package com.giri.oms.security;
 
 import com.giri.oms.auth.service.impl.UserDetailsServiceImpl;
+import com.giri.oms.common.config.WebConfig;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -54,7 +55,7 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults()) // picks up the CorsConfigurationSource bean (see CorsConfig)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/login").permitAll()
+                        .requestMatchers(WebConfig.API_PREFIX + "/auth/login").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                         .requestMatchers(PUBLIC_DOC_PATHS).permitAll()
                         .anyRequest().authenticated()

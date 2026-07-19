@@ -82,7 +82,7 @@ class OrderControllerTest {
         void returns201AndBody_whenRequestIsValid() throws Exception {
             when(orderService.createOrder(any())).thenReturn(orderResponse);
 
-            mockMvc.perform(post("/api/orders")
+            mockMvc.perform(post("/api/v1/orders")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(validRequest)))
                     .andExpect(status().isCreated())
@@ -96,7 +96,7 @@ class OrderControllerTest {
         void returns400_whenCustomerIdIsMissing() throws Exception {
             validRequest.setCustomerId(null);
 
-            mockMvc.perform(post("/api/orders")
+            mockMvc.perform(post("/api/v1/orders")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(validRequest)))
                     .andExpect(status().isBadRequest())
@@ -107,7 +107,7 @@ class OrderControllerTest {
         void returns400_whenItemsListIsEmpty() throws Exception {
             validRequest.setItems(List.of());
 
-            mockMvc.perform(post("/api/orders")
+            mockMvc.perform(post("/api/v1/orders")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(validRequest)))
                     .andExpect(status().isBadRequest())
@@ -118,7 +118,7 @@ class OrderControllerTest {
         void returns400_whenQuantityIsNotPositive() throws Exception {
             validRequest.setItems(List.of(new OrderItemRequest(1L, 0)));
 
-            mockMvc.perform(post("/api/orders")
+            mockMvc.perform(post("/api/v1/orders")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(validRequest)))
                     .andExpect(status().isBadRequest());
@@ -128,7 +128,7 @@ class OrderControllerTest {
         void returns404_whenCustomerDoesNotExist() throws Exception {
             when(orderService.createOrder(any())).thenThrow(new CustomerNotFoundException(99L));
 
-            mockMvc.perform(post("/api/orders")
+            mockMvc.perform(post("/api/v1/orders")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(validRequest)))
                     .andExpect(status().isNotFound());
@@ -138,7 +138,7 @@ class OrderControllerTest {
         void returns404_whenAnItemsProductDoesNotExist() throws Exception {
             when(orderService.createOrder(any())).thenThrow(new ProductNotFoundException(99L));
 
-            mockMvc.perform(post("/api/orders")
+            mockMvc.perform(post("/api/v1/orders")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(validRequest)))
                     .andExpect(status().isNotFound());
@@ -152,7 +152,7 @@ class OrderControllerTest {
         void returns200AndBody_whenOrderExists() throws Exception {
             when(orderService.getOrderById(1L)).thenReturn(orderResponse);
 
-            mockMvc.perform(get("/api/orders/{id}", 1L))
+            mockMvc.perform(get("/api/v1/orders/{id}", 1L))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.customerName").value("Ada Lovelace"));
         }
@@ -161,7 +161,7 @@ class OrderControllerTest {
         void returns404_whenOrderDoesNotExist() throws Exception {
             when(orderService.getOrderById(99L)).thenThrow(new OrderNotFoundException(99L));
 
-            mockMvc.perform(get("/api/orders/{id}", 99L))
+            mockMvc.perform(get("/api/v1/orders/{id}", 99L))
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.status").value(404))
                     .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("99")));
@@ -177,7 +177,7 @@ class OrderControllerTest {
                     List.of(orderResponse), 0, 10, 1, 1, true);
             when(orderService.getAllOrders(0, 10, "id", "asc")).thenReturn(paged);
 
-            mockMvc.perform(get("/api/orders"))
+            mockMvc.perform(get("/api/v1/orders"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.content[0].customerName").value("Ada Lovelace"))
                     .andExpect(jsonPath("$.totalElements").value(1));
@@ -195,7 +195,7 @@ class OrderControllerTest {
                     orderResponse.getItems(), LocalDateTime.now(), LocalDateTime.now());
             when(orderService.updateOrderStatus(eq(1L), eq(OrderStatus.CONFIRMED))).thenReturn(confirmedResponse);
 
-            mockMvc.perform(patch("/api/orders/{id}/status", 1L)
+            mockMvc.perform(patch("/api/v1/orders/{id}/status", 1L)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isOk())
@@ -204,7 +204,7 @@ class OrderControllerTest {
 
         @Test
         void returns400_whenStatusIsMissing() throws Exception {
-            mockMvc.perform(patch("/api/orders/{id}/status", 1L)
+            mockMvc.perform(patch("/api/v1/orders/{id}/status", 1L)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("{}"))
                     .andExpect(status().isBadRequest());
@@ -215,7 +215,7 @@ class OrderControllerTest {
             OrderStatusUpdateRequest request = new OrderStatusUpdateRequest(OrderStatus.CONFIRMED);
             when(orderService.updateOrderStatus(eq(99L), any())).thenThrow(new OrderNotFoundException(99L));
 
-            mockMvc.perform(patch("/api/orders/{id}/status", 99L)
+            mockMvc.perform(patch("/api/v1/orders/{id}/status", 99L)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isNotFound());
@@ -227,7 +227,7 @@ class OrderControllerTest {
             when(orderService.updateOrderStatus(eq(1L), eq(OrderStatus.DELIVERED)))
                     .thenThrow(new IllegalOrderStateException("Cannot transition order id 1 from status PENDING to DELIVERED"));
 
-            mockMvc.perform(patch("/api/orders/{id}/status", 1L)
+            mockMvc.perform(patch("/api/v1/orders/{id}/status", 1L)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isConflict());
@@ -239,7 +239,7 @@ class OrderControllerTest {
 
         @Test
         void returns204_whenOrderIsDeleted() throws Exception {
-            mockMvc.perform(delete("/api/orders/{id}", 1L))
+            mockMvc.perform(delete("/api/v1/orders/{id}", 1L))
                     .andExpect(status().isNoContent());
         }
 
@@ -248,7 +248,7 @@ class OrderControllerTest {
             org.mockito.Mockito.doThrow(new OrderNotFoundException(99L))
                     .when(orderService).deleteOrder(99L);
 
-            mockMvc.perform(delete("/api/orders/{id}", 99L))
+            mockMvc.perform(delete("/api/v1/orders/{id}", 99L))
                     .andExpect(status().isNotFound());
         }
 
@@ -257,7 +257,7 @@ class OrderControllerTest {
             org.mockito.Mockito.doThrow(new IllegalOrderStateException("Order id 1 cannot be deleted while in status SHIPPED"))
                     .when(orderService).deleteOrder(1L);
 
-            mockMvc.perform(delete("/api/orders/{id}", 1L))
+            mockMvc.perform(delete("/api/v1/orders/{id}", 1L))
                     .andExpect(status().isConflict());
         }
     }
@@ -271,7 +271,7 @@ class OrderControllerTest {
             when(orderService.searchOrders(eq(1L), any(), any(), any(), any()))
                     .thenReturn(page);
 
-            mockMvc.perform(get("/api/orders/search").param("customerId", "1"))
+            mockMvc.perform(get("/api/v1/orders/search").param("customerId", "1"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.content[0].customerName").value("Ada Lovelace"));
         }
@@ -282,7 +282,7 @@ class OrderControllerTest {
             when(orderService.searchOrders(any(), eq(OrderStatus.PENDING), any(), any(), any()))
                     .thenReturn(page);
 
-            mockMvc.perform(get("/api/orders/search").param("status", "PENDING"))
+            mockMvc.perform(get("/api/v1/orders/search").param("status", "PENDING"))
                     .andExpect(status().isOk());
         }
 
@@ -292,7 +292,7 @@ class OrderControllerTest {
             when(orderService.searchOrdersBySpecification(eq(1L), any(), any(), any(), any()))
                     .thenReturn(page);
 
-            mockMvc.perform(get("/api/orders/search/advanced").param("customerId", "1"))
+            mockMvc.perform(get("/api/v1/orders/search/advanced").param("customerId", "1"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.content[0].customerName").value("Ada Lovelace"));
         }

@@ -33,7 +33,7 @@ import java.math.BigDecimal;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/payments")
+@RequestMapping("/payments")
 @RequiredArgsConstructor
 @Tag(name = "Payment", description = "Payment recording, status tracking, and refunds")
 public class PaymentController {

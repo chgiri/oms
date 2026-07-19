@@ -136,7 +136,7 @@ public class ErrorCodeOperationCustomizer implements OperationCustomizer {
         value.put("error", status.getReasonPhrase());
         value.put("errorCode", code.code());
         value.put("message", code.sampleMessage());
-        value.put("path", "/api/...");
+        value.put("path", "/api/v1/...");
 
         return new Example()
                 .summary(code.code() + " — " + code.name())
