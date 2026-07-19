@@ -16,21 +16,21 @@ import java.time.LocalDateTime;
 @Schema(description = "User account details returned by the API — never includes the password")
 public class UserResponse {
 
-    @Schema(description = "Unique user ID", example = "1")
+    @Schema(description = "Unique user ID", example = "1", requiredMode = Schema.RequiredMode.REQUIRED)
     private Long id;
 
-    @Schema(description = "Login username", example = "jane.doe")
+    @Schema(description = "Login username", example = "jane.doe", requiredMode = Schema.RequiredMode.REQUIRED)
     private String username;
 
-    @Schema(description = "Email address", example = "jane.doe@example.com")
+    @Schema(description = "Email address", example = "jane.doe@example.com", requiredMode = Schema.RequiredMode.REQUIRED)
     private String email;
 
-    @Schema(description = "Assigned role", example = "STAFF")
+    @Schema(description = "Assigned role", example = "STAFF", requiredMode = Schema.RequiredMode.REQUIRED)
     private Role role;
 
-    @Schema(description = "Whether the account is active", example = "true")
+    @Schema(description = "Whether the account is active", example = "true", requiredMode = Schema.RequiredMode.REQUIRED)
     private boolean enabled;
 
-    @Schema(description = "Timestamp the account was created", example = "2026-07-01T10:15:30")
+    @Schema(description = "Timestamp the account was created", example = "2026-07-01T10:15:30", requiredMode = Schema.RequiredMode.REQUIRED)
     private LocalDateTime createdAt;
 }

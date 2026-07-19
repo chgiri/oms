@@ -23,19 +23,32 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  *       this predicate (e.g. by checking for a marker annotation or the specific
  *       class), not just writing {@code "/api/v2/..."} into its mapping.</li>
  * </ul>
- * Paths that must stay unversioned — health checks, the OpenAPI/Swagger UI itself —
- * are plain {@code @Controller}/framework-registered endpoints, not
- * {@code @RestController}s in this codebase, so the predicate below already excludes
- * them without an explicit exception list. If that ever changes, exclude them here
- * explicitly rather than relying on this side effect.
+ * Paths that must stay unversioned — health checks, the JWKS document — are plain
+ * {@code @Controller}/framework-registered endpoints in this codebase (see
+ * {@link com.giri.oms.security.JwksController}), so they're never matched by the
+ * predicate below regardless of package.
+ * <p>
+ * springdoc-openapi's own endpoints (serving {@code /v3/api-docs} and
+ * {@code /v3/api-docs/swagger-config}) are a different case: they're
+ * {@code @RestController}-annotated third-party classes the project doesn't own, so
+ * an annotation-only predicate matches them too — silently prefixing them to
+ * {@code /api/v1/v3/api-docs/**}, which then no longer matches
+ * {@link com.giri.oms.security.SecurityConfig}'s public-paths allowlist for the
+ * unprefixed {@code /v3/api-docs/**} and starts requiring a bearer token. The
+ * predicate below is scoped to this app's own base package for exactly this reason —
+ * matching on {@code @RestController} alone is not sufficient once any third-party
+ * auto-configured controller can carry that annotation too.
  */
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
 
     public static final String API_PREFIX = "/api/v1";
+    private static final String APP_BASE_PACKAGE = "com.giri.oms";
 
     @Override
     public void configurePathMatch(PathMatchConfigurer configurer) {
-        configurer.addPathPrefix(API_PREFIX, c -> c.isAnnotationPresent(RestController.class));
+        configurer.addPathPrefix(API_PREFIX, c ->
+                c.isAnnotationPresent(RestController.class)
+                        && c.getPackageName().startsWith(APP_BASE_PACKAGE));
     }
 }

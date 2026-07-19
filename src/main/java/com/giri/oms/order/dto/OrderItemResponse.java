@@ -15,21 +15,22 @@ import java.math.BigDecimal;
 @Schema(description = "A single line item within an order response")
 public class OrderItemResponse {
 
-    @Schema(description = "Unique order item ID", example = "1")
+    @Schema(description = "Unique order item ID", example = "1", requiredMode = Schema.RequiredMode.REQUIRED)
     private Long id;
 
-    @Schema(description = "ID of the ordered product", example = "1")
+    @Schema(description = "ID of the ordered product", example = "1", requiredMode = Schema.RequiredMode.REQUIRED)
     private Long productId;
 
-    @Schema(description = "Name of the ordered product (convenience field, avoids a second lookup)", example = "Wireless Mouse")
+    @Schema(description = "Name of the ordered product (convenience field, avoids a second lookup)", example = "Wireless Mouse",
+            requiredMode = Schema.RequiredMode.REQUIRED)
     private String productName;
 
-    @Schema(description = "Number of units ordered", example = "3")
+    @Schema(description = "Number of units ordered", example = "3", requiredMode = Schema.RequiredMode.REQUIRED)
     private int quantity;
 
-    @Schema(description = "Unit price snapshotted at order time", example = "25.99")
+    @Schema(description = "Unit price snapshotted at order time", example = "25.99", requiredMode = Schema.RequiredMode.REQUIRED)
     private BigDecimal unitPrice;
 
-    @Schema(description = "quantity * unitPrice for this line item", example = "77.97")
+    @Schema(description = "quantity * unitPrice for this line item", example = "77.97", requiredMode = Schema.RequiredMode.REQUIRED)
     private BigDecimal subtotal;
 }
