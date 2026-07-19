@@ -18,6 +18,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Component;
 import org.springframework.web.method.HandlerMethod;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -44,6 +45,12 @@ import java.util.stream.Collectors;
 public class ErrorCodeOperationCustomizer implements OperationCustomizer {
 
     private static final String ERROR_RESPONSE_SCHEMA_REF = "#/components/schemas/ErrorResponse";
+
+    private final Clock clock;
+
+    public ErrorCodeOperationCustomizer(Clock clock) {
+        this.clock = clock;
+    }
 
     @Override
     public Operation customize(Operation operation, HandlerMethod handlerMethod) {
@@ -124,7 +131,7 @@ public class ErrorCodeOperationCustomizer implements OperationCustomizer {
 
     private Example buildExample(ErrorCode code, HttpStatus status) {
         Map<String, Object> value = new LinkedHashMap<>();
-        value.put("timestamp", LocalDateTime.now().withNano(0).toString());
+        value.put("timestamp", LocalDateTime.now(clock).withNano(0).toString());
         value.put("status", status.value());
         value.put("error", status.getReasonPhrase());
         value.put("errorCode", code.code());

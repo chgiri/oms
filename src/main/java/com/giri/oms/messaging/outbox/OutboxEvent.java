@@ -9,8 +9,8 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.hibernate.annotations.CreationTimestamp;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -63,7 +63,11 @@ public class OutboxEvent {
     @Column(name = "last_error", columnDefinition = "TEXT")
     private String lastError;
 
-    @CreationTimestamp
+    // Set explicitly in pending() from the injected Clock, rather than via
+    // Hibernate's @CreationTimestamp — that annotation reads its own internal
+    // clock (not this app's Clock bean), which made this field unswappable in
+    // tests. This keeps every timestamp on this entity flowing through the
+    // same clock.
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -78,7 +82,8 @@ public class OutboxEvent {
             String topic,
             String partitionKey,
             String payload,
-            String correlationId) {
+            String correlationId,
+            Clock clock) {
         OutboxEvent event = new OutboxEvent();
         event.id = id;
         event.aggregateType = aggregateType;
@@ -90,12 +95,13 @@ public class OutboxEvent {
         event.correlationId = correlationId;
         event.status = OutboxEventStatus.PENDING;
         event.retryCount = 0;
+        event.createdAt = LocalDateTime.now(clock);
         return event;
     }
 
-    public void markPublished() {
+    public void markPublished(Clock clock) {
         this.status = OutboxEventStatus.PUBLISHED;
-        this.publishedAt = LocalDateTime.now();
+        this.publishedAt = LocalDateTime.now(clock);
         this.lastError = null;
     }
 

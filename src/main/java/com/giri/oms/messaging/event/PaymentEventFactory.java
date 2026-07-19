@@ -4,6 +4,7 @@ import com.giri.oms.messaging.config.KafkaAppProperties;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -21,18 +22,20 @@ public class PaymentEventFactory {
     private static final String ORDER_AGGREGATE_TYPE = "Order";
 
     private final KafkaAppProperties kafkaAppProperties;
+    private final Clock clock;
 
-    public PaymentEventFactory(KafkaAppProperties kafkaAppProperties) {
+    public PaymentEventFactory(KafkaAppProperties kafkaAppProperties, Clock clock) {
         this.kafkaAppProperties = kafkaAppProperties;
+        this.clock = clock;
     }
 
     public PaymentConfirmedEvent confirmed(
             Long orderId, Long paymentId, UUID eventId, BigDecimal amount, String transactionReference) {
-        return new PaymentConfirmedEvent(eventId, orderId, paymentId, amount, transactionReference, LocalDateTime.now());
+        return new PaymentConfirmedEvent(eventId, orderId, paymentId, amount, transactionReference, LocalDateTime.now(clock));
     }
 
     public PaymentFailedEvent failed(Long orderId, Long paymentId, UUID eventId) {
-        return new PaymentFailedEvent(eventId, orderId, paymentId, LocalDateTime.now());
+        return new PaymentFailedEvent(eventId, orderId, paymentId, LocalDateTime.now(clock));
     }
 
     public String aggregateType() {

@@ -13,6 +13,7 @@ import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.time.Clock;
 import java.time.LocalDateTime;
 
 /**
@@ -27,6 +28,7 @@ import java.time.LocalDateTime;
 public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
 
     private final JsonMapper objectMapper;
+    private final Clock clock;
 
     @Override
     public void commence(HttpServletRequest request, HttpServletResponse response,
@@ -34,7 +36,7 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
         log.warn("Unauthenticated request rejected — path: {}, reason: {}", request.getRequestURI(), authException.getMessage());
 
         ErrorResponse errorResponse = new ErrorResponse(
-                LocalDateTime.now(),
+                LocalDateTime.now(clock),
                 HttpStatus.UNAUTHORIZED.value(),
                 HttpStatus.UNAUTHORIZED.getReasonPhrase(),
                 com.giri.oms.common.exception.ErrorCode.UNAUTHENTICATED.code(),

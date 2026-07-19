@@ -5,6 +5,7 @@ import com.giri.oms.order.entity.Order;
 import com.giri.oms.order.entity.OrderItem;
 import org.springframework.stereotype.Component;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -15,9 +16,11 @@ public class OrderCreatedEventFactory {
     private static final String ORDER_AGGREGATE_TYPE = "Order";
 
     private final KafkaAppProperties kafkaAppProperties;
+    private final Clock clock;
 
-    public OrderCreatedEventFactory(KafkaAppProperties kafkaAppProperties) {
+    public OrderCreatedEventFactory(KafkaAppProperties kafkaAppProperties, Clock clock) {
         this.kafkaAppProperties = kafkaAppProperties;
+        this.clock = clock;
     }
 
     public OrderCreatedEvent create(Order order, UUID eventId) {
@@ -32,7 +35,7 @@ public class OrderCreatedEventFactory {
                 order.getStatus().name(),
                 order.getTotalAmount(),
                 items,
-                LocalDateTime.now());
+                LocalDateTime.now(clock));
     }
 
     public String aggregateType() {

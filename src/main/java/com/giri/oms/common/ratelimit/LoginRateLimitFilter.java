@@ -19,6 +19,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
 
@@ -36,6 +37,7 @@ public class LoginRateLimitFilter extends OncePerRequestFilter {
     private final ProxyManager<String> proxyManager;
     private final RateLimitProperties properties;
     private final JsonMapper objectMapper;
+    private final Clock clock;
 
     private static final String BUCKET_KEY_PREFIX = "ratelimit:login:";
 
@@ -73,7 +75,7 @@ public class LoginRateLimitFilter extends OncePerRequestFilter {
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
 
         ErrorResponse errorResponse = new ErrorResponse(
-                LocalDateTime.now(),
+                LocalDateTime.now(clock),
                 HttpStatus.TOO_MANY_REQUESTS.value(),
                 HttpStatus.TOO_MANY_REQUESTS.getReasonPhrase(),
                 com.giri.oms.common.exception.ErrorCode.RATE_LIMIT_EXCEEDED.code(),

@@ -13,6 +13,7 @@ import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.time.Clock;
 import java.time.LocalDateTime;
 
 /**
@@ -27,6 +28,7 @@ import java.time.LocalDateTime;
 public class JwtAccessDeniedHandler implements AccessDeniedHandler {
 
     private final JsonMapper objectMapper;
+    private final Clock clock;
 
     @Override
     public void handle(HttpServletRequest request, HttpServletResponse response,
@@ -34,7 +36,7 @@ public class JwtAccessDeniedHandler implements AccessDeniedHandler {
         log.warn("Access denied — path: {}, reason: {}", request.getRequestURI(), accessDeniedException.getMessage());
 
         ErrorResponse errorResponse = new ErrorResponse(
-                LocalDateTime.now(),
+                LocalDateTime.now(clock),
                 HttpStatus.FORBIDDEN.value(),
                 HttpStatus.FORBIDDEN.getReasonPhrase(),
                 com.giri.oms.common.exception.ErrorCode.ACCESS_DENIED.code(),

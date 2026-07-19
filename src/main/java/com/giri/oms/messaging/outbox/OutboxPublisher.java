@@ -12,6 +12,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -27,6 +28,7 @@ public class OutboxPublisher {
     private final OutboxEventRepository outboxEventRepository;
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final KafkaAppProperties kafkaAppProperties;
+    private final Clock clock;
 
     @Scheduled(fixedDelayString = "${app.kafka.outbox.poll-interval-ms}")
     public void publishPendingEvents() {
@@ -65,7 +67,7 @@ public class OutboxPublisher {
 
             kafkaTemplate.send(record).get(SEND_TIMEOUT_SECONDS, TimeUnit.SECONDS);
 
-            event.markPublished();
+            event.markPublished(clock);
             outboxEventRepository.save(event);
             log.info("Published outbox event id={} type={} topic={}", event.getId(), event.getEventType(), event.getTopic());
         } catch (InterruptedException ex) {

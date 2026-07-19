@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.time.Clock;
 import java.util.UUID;
 
 import static com.giri.oms.common.correlation.CorrelationIdConstants.MDC_KEY;
@@ -20,6 +21,7 @@ public class OutboxService {
 
     private final OutboxEventRepository outboxEventRepository;
     private final JsonMapper objectMapper;
+    private final Clock clock;
 
     @Transactional
     public UUID enqueue(
@@ -48,7 +50,8 @@ public class OutboxService {
                 topic,
                 partitionKey,
                 serializedPayload,
-                correlationId);
+                correlationId,
+                clock);
 
         outboxEventRepository.save(outboxEvent);
         log.debug("Enqueued outbox event id={} type={} aggregate={}/{}", eventId, eventType, aggregateType, aggregateId);

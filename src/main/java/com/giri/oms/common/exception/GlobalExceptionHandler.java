@@ -15,6 +15,7 @@ import com.giri.oms.product.exception.ProductNotFoundException;
 import com.giri.oms.shipment.exception.IllegalShipmentStateException;
 import com.giri.oms.shipment.exception.ShipmentNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -26,6 +27,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -42,7 +44,10 @@ import java.util.Map;
  */
 @Slf4j
 @RestControllerAdvice
+@RequiredArgsConstructor
 public class GlobalExceptionHandler {
+
+    private final Clock clock;
 
     @ExceptionHandler(ProductNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleProductNotFound(ProductNotFoundException ex, HttpServletRequest request) {
@@ -161,7 +166,7 @@ public class GlobalExceptionHandler {
 
         HttpStatus status = ErrorCode.VALIDATION_FAILED.httpStatus();
         Map<String, Object> response = new LinkedHashMap<>();
-        response.put("timestamp", LocalDateTime.now());
+        response.put("timestamp", LocalDateTime.now(clock));
         response.put("status", status.value());
         response.put("error", "Validation Failed");
         response.put("errorCode", ErrorCode.VALIDATION_FAILED.code());
@@ -228,7 +233,7 @@ public class GlobalExceptionHandler {
     private ResponseEntity<ErrorResponse> build(ErrorCode errorCode, String message, HttpServletRequest request) {
         HttpStatus status = errorCode.httpStatus();
         ErrorResponse response = new ErrorResponse(
-                LocalDateTime.now(),
+                LocalDateTime.now(clock),
                 status.value(),
                 status.getReasonPhrase(),
                 errorCode.code(),

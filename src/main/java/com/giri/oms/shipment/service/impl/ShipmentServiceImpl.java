@@ -26,6 +26,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.EnumMap;
 import java.util.EnumSet;
@@ -42,6 +43,7 @@ public class ShipmentServiceImpl implements ShipmentService {
     private final ShipmentRepository shipmentRepository;
     private final OrderRepository orderRepository;
     private final ShipmentMapper shipmentMapper;
+    private final Clock clock;
 
     private static final Set<String> ALLOWED_SORT_FIELDS =
             Set.of("id", "status", "carrier", "shippedAt", "deliveredAt", "createdAt", "updatedAt");
@@ -158,10 +160,10 @@ public class ShipmentServiceImpl implements ShipmentService {
             shipment.setTrackingNumber(trackingNumber);
         }
         if (newStatus == ShipmentStatus.SHIPPED && shipment.getShippedAt() == null) {
-            shipment.setShippedAt(LocalDateTime.now());
+            shipment.setShippedAt(LocalDateTime.now(clock));
         }
         if (newStatus == ShipmentStatus.DELIVERED) {
-            shipment.setDeliveredAt(LocalDateTime.now());
+            shipment.setDeliveredAt(LocalDateTime.now(clock));
         }
 
         Shipment updatedShipment = shipmentRepository.save(shipment);
