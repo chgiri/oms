@@ -14,7 +14,9 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import com.giri.oms.common.config.ClockConfig;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -35,6 +37,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * ADMIN-only-on-/register, and JWT validation behavior is covered end-to-end by
  * SecurityIntegrationTest instead, against the real filter chain.
  */
+@Import(ClockConfig.class) // ClockConfig isn't auto-detected by the @WebMvcTest slice scan; GlobalExceptionHandler needs a Clock bean
 @WebMvcTest(AuthController.class)
 @AutoConfigureMockMvc(addFilters = false)
 class AuthControllerTest {

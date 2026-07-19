@@ -19,6 +19,16 @@ import java.time.LocalDateTime;
 @MappedSuperclass
 public class BaseEntity {
 
+    // KNOWN GAP (deferred): unlike OutboxEvent.createdAt/publishedAt, these two
+    // still come from Hibernate's own internal clock via @CreationTimestamp/
+    // @UpdateTimestamp, not the app's injected Clock bean (see ClockConfig).
+    // That makes them unswappable in tests. Fixing this properly needs a
+    // custom Hibernate generator backed by a statically-held Clock (Hibernate
+    // instantiates generators via reflection, not Spring DI, so the bean can't
+    // be constructor-injected directly) — bigger blast radius than OutboxEvent
+    // since every BaseEntity subclass (Customer, AppUser, Shipment, Order,
+    // OrderItem, Payment, Inventory, InventoryReservation, Product) is affected.
+    // Left as-is for now; revisit in a dedicated pass.
     @Column(name = "created_at", nullable = false, updatable = false)
     @CreationTimestamp
     private LocalDateTime createdAt;

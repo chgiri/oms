@@ -16,7 +16,9 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import com.giri.oms.common.config.ClockConfig;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -34,11 +36,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * @WebMvcTest loads only the web layer (this controller + @ControllerAdvice
- * classes, auto-detected — no explicit @Import needed) — the service is
+ * classes, auto-detected) plus an explicit @Import(ClockConfig.class) —
+ * that one isn't part of the slice's auto-detected stereotypes but
+ * GlobalExceptionHandler needs it — the service is
  * mocked, so this verifies HTTP status codes, JSON shape, Bean Validation
  * triggering, and exception-handler wiring, without touching the DB or
  * business logic.
  */
+@Import(ClockConfig.class) // ClockConfig isn't auto-detected by the @WebMvcTest slice scan; GlobalExceptionHandler needs a Clock bean
 @WebMvcTest(ShipmentController.class)
 @AutoConfigureMockMvc(addFilters = false) // security is tested separately (see SecurityIntegrationTest) - this slice only exercises controller/validation/exception-handling logic
 class ShipmentControllerTest {
