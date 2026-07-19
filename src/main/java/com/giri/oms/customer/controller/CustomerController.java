@@ -1,5 +1,7 @@
 package com.giri.oms.customer.controller;
 
+import static com.giri.oms.common.config.WebConfig.API_PREFIX;
+
 import com.giri.oms.common.dto.PagedResponse;
 import com.giri.oms.common.exception.ErrorCode;
 import com.giri.oms.common.openapi.ApiErrorCodes;
@@ -65,7 +67,7 @@ public class CustomerController {
     })
     @ApiErrorCodes({ErrorCode.CUSTOMER_EMAIL_ALREADY_EXISTS})
     public ResponseEntity<CustomerResponse> createCustomer(@Valid @RequestBody CustomerRequest customerRequest) {
-        log.info("POST /api/customers — creating customer: {}", customerRequest.getEmail());
+        log.info("POST " + API_PREFIX + "/customers — creating customer: {}", customerRequest.getEmail());
         CustomerResponse savedCustomer = customerService.createCustomer(customerRequest);
         return new ResponseEntity<>(savedCustomer, HttpStatus.CREATED);
     }
@@ -80,7 +82,7 @@ public class CustomerController {
     public ResponseEntity<CustomerResponse> getCustomerById(
             @Parameter(description = "ID of the customer to fetch", example = "1")
             @PathVariable("id") Long customerId) {
-        log.debug("GET /api/customers/{} — fetching customer", customerId);
+        log.debug("GET " + API_PREFIX + "/customers/{} — fetching customer", customerId);
         CustomerResponse customerResponse = customerService.getCustomerById(customerId);
         return ResponseEntity.ok(customerResponse);
     }
@@ -104,7 +106,7 @@ public class CustomerController {
             @Parameter(description = "Sort direction", schema = @Schema(allowableValues = {"asc", "desc"}))
             @RequestParam(value = "sortDir", defaultValue = "asc") String sortDir) {
 
-        log.debug("GET /api/customers — fetching all customers");
+        log.debug("GET " + API_PREFIX + "/customers — fetching all customers");
         PagedResponse<CustomerResponse> response = customerService.getAllCustomers(pageNo, pageSize, sortBy, sortDir);
         return ResponseEntity.ok(response);
     }
@@ -124,7 +126,7 @@ public class CustomerController {
             @PathVariable("id") Long id,
             @Valid @RequestBody CustomerRequest customerRequest) {
 
-        log.info("PUT /api/customers/{} — updating customer", id);
+        log.info("PUT " + API_PREFIX + "/customers/{} — updating customer", id);
         CustomerResponse updatedCustomer = customerService.updateCustomer(id, customerRequest);
         return ResponseEntity.ok(updatedCustomer);
     }
@@ -140,7 +142,7 @@ public class CustomerController {
     public ResponseEntity<Void> deleteCustomer(
             @Parameter(description = "ID of the customer to delete", example = "1")
             @PathVariable("id") Long customerId) {
-        log.info("DELETE /api/customers/{} — deleting customer", customerId);
+        log.info("DELETE " + API_PREFIX + "/customers/{} — deleting customer", customerId);
 
         customerService.deleteCustomer(customerId);
         return ResponseEntity.noContent().build();
@@ -161,7 +163,7 @@ public class CustomerController {
             @RequestParam(required = false) CustomerStatus status,
             @PageableDefault(size = 10, sort = "firstName") Pageable pageable
     ) {
-        log.debug("GET /api/customers/search — name={}, email={}, status={}, page={}, size={}",
+        log.debug("GET " + API_PREFIX + "/customers/search — name={}, email={}, status={}, page={}, size={}",
                 name, email, status, pageable.getPageNumber(), pageable.getPageSize());
 
         Page<CustomerResponse> results = customerService.searchCustomers(name, email, status, pageable);
@@ -185,7 +187,7 @@ public class CustomerController {
         Page<CustomerResponse> results = customerService.searchCustomersBySpecification(
                 name, email, status, pageable);
 
-        log.debug("GET /api/customers/search/advanced — name={}, email={}, status={}, page={}, size={}",
+        log.debug("GET " + API_PREFIX + "/customers/search/advanced — name={}, email={}, status={}, page={}, size={}",
                 name, email, status, pageable.getPageNumber(), pageable.getPageSize());
 
         return ResponseEntity.ok(results);

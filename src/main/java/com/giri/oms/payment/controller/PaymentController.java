@@ -1,5 +1,7 @@
 package com.giri.oms.payment.controller;
 
+import static com.giri.oms.common.config.WebConfig.API_PREFIX;
+
 import com.giri.oms.common.dto.PagedResponse;
 import com.giri.oms.common.exception.ErrorCode;
 import com.giri.oms.common.openapi.ApiErrorCodes;
@@ -64,7 +66,7 @@ public class PaymentController {
     })
     @ApiErrorCodes({ErrorCode.ORDER_NOT_FOUND, ErrorCode.ILLEGAL_ORDER_STATE})
     public ResponseEntity<PaymentResponse> createPayment(@Valid @RequestBody PaymentRequest paymentRequest) {
-        log.info("POST /api/payments — creating payment for order id: {}", paymentRequest.getOrderId());
+        log.info("POST " + API_PREFIX + "/payments — creating payment for order id: {}", paymentRequest.getOrderId());
         PaymentResponse savedPayment = paymentService.createPayment(paymentRequest);
         return new ResponseEntity<>(savedPayment, HttpStatus.CREATED);
     }
@@ -79,7 +81,7 @@ public class PaymentController {
     public ResponseEntity<PaymentResponse> getPaymentById(
             @Parameter(description = "ID of the payment to fetch", example = "1")
             @PathVariable("id") Long paymentId) {
-        log.debug("GET /api/payments/{} — fetching payment", paymentId);
+        log.debug("GET " + API_PREFIX + "/payments/{} — fetching payment", paymentId);
         PaymentResponse paymentResponse = paymentService.getPaymentById(paymentId);
         return ResponseEntity.ok(paymentResponse);
     }
@@ -103,7 +105,7 @@ public class PaymentController {
             @Parameter(description = "Sort direction", schema = @Schema(allowableValues = {"asc", "desc"}))
             @RequestParam(value = "sortDir", defaultValue = "asc") String sortDir) {
 
-        log.debug("GET /api/payments — fetching all payments");
+        log.debug("GET " + API_PREFIX + "/payments — fetching all payments");
         PagedResponse<PaymentResponse> response = paymentService.getAllPayments(pageNo, pageSize, sortBy, sortDir);
         return ResponseEntity.ok(response);
     }
@@ -126,7 +128,7 @@ public class PaymentController {
             @PathVariable("id") Long id,
             @Valid @RequestBody PaymentStatusUpdateRequest statusUpdateRequest) {
 
-        log.info("PATCH /api/payments/{}/status — transitioning to {}", id, statusUpdateRequest.getStatus());
+        log.info("PATCH " + API_PREFIX + "/payments/{}/status — transitioning to {}", id, statusUpdateRequest.getStatus());
         PaymentResponse updatedPayment = paymentService.updatePaymentStatus(
                 id, statusUpdateRequest.getStatus(), statusUpdateRequest.getTransactionReference());
         return ResponseEntity.ok(updatedPayment);
@@ -145,7 +147,7 @@ public class PaymentController {
     public ResponseEntity<Void> deletePayment(
             @Parameter(description = "ID of the payment to delete", example = "1")
             @PathVariable("id") Long paymentId) {
-        log.info("DELETE /api/payments/{} — deleting payment", paymentId);
+        log.info("DELETE " + API_PREFIX + "/payments/{} — deleting payment", paymentId);
 
         paymentService.deletePayment(paymentId);
         return ResponseEntity.noContent().build();
@@ -170,7 +172,7 @@ public class PaymentController {
             @RequestParam(required = false) BigDecimal maxAmount,
             @PageableDefault(size = 10, sort = "id") Pageable pageable
     ) {
-        log.debug("GET /api/payments/search — orderId={}, status={}, method={}, minAmount={}, maxAmount={}, page={}, size={}",
+        log.debug("GET " + API_PREFIX + "/payments/search — orderId={}, status={}, method={}, minAmount={}, maxAmount={}, page={}, size={}",
                 orderId, status, method, minAmount, maxAmount, pageable.getPageNumber(), pageable.getPageSize());
 
         Page<PaymentResponse> results = paymentService.searchPayments(orderId, status, method, minAmount, maxAmount, pageable);
@@ -195,7 +197,7 @@ public class PaymentController {
             @RequestParam(required = false) BigDecimal maxAmount,
             @PageableDefault(size = 10, sort = "id") Pageable pageable
     ) {
-        log.debug("GET /api/payments/search/advanced — orderId={}, status={}, method={}, minAmount={}, maxAmount={}, page={}, size={}",
+        log.debug("GET " + API_PREFIX + "/payments/search/advanced — orderId={}, status={}, method={}, minAmount={}, maxAmount={}, page={}, size={}",
                 orderId, status, method, minAmount, maxAmount, pageable.getPageNumber(), pageable.getPageSize());
 
         Page<PaymentResponse> results = paymentService.searchPaymentsBySpecification(orderId, status, method, minAmount, maxAmount, pageable);

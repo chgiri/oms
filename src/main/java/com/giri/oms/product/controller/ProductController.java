@@ -1,5 +1,7 @@
 package com.giri.oms.product.controller;
 
+import static com.giri.oms.common.config.WebConfig.API_PREFIX;
+
 import com.giri.oms.common.dto.PagedResponse;
 import com.giri.oms.common.exception.ErrorCode;
 import com.giri.oms.common.openapi.ApiErrorCodes;
@@ -56,7 +58,7 @@ public class ProductController {
                                     """)))
     })
     public ResponseEntity<ProductResponse> createProduct(@Valid @RequestBody ProductRequest productRequest) {
-        log.info("POST /api/products — creating product: {}", productRequest.getName());
+        log.info("POST " + API_PREFIX + "/products — creating product: {}", productRequest.getName());
         ProductResponse savedProduct = productService.createProduct(productRequest);
         return new ResponseEntity<>(savedProduct, HttpStatus.CREATED);
     }
@@ -71,7 +73,7 @@ public class ProductController {
     public ResponseEntity<ProductResponse> getProductById(
             @Parameter(description = "ID of the product to fetch", example = "1")
             @PathVariable("id") Long productId) {
-        log.debug("GET /api/products/{} — fetching product", productId);
+        log.debug("GET " + API_PREFIX + "/products/{} — fetching product", productId);
         ProductResponse productResponse = productService.getProductById(productId);
         return ResponseEntity.ok(productResponse);
     }
@@ -95,7 +97,7 @@ public class ProductController {
             @Parameter(description = "Sort direction", schema = @Schema(allowableValues = {"asc", "desc"}))
             @RequestParam(value = "sortDir", defaultValue = "asc") String sortDir) {
 
-        log.debug("GET /api/products — fetching all products");
+        log.debug("GET " + API_PREFIX + "/products — fetching all products");
         PagedResponse<ProductResponse> response = productService.getAllProducts(pageNo, pageSize, sortBy, sortDir);
         return ResponseEntity.ok(response);
     }
@@ -113,7 +115,7 @@ public class ProductController {
             @PathVariable("id") Long id,
             @Valid @RequestBody ProductRequest productRequest) {
 
-        log.info("PUT /api/products/{} — updating product", id);
+        log.info("PUT " + API_PREFIX + "/products/{} — updating product", id);
         ProductResponse updatedProduct = productService.updateProduct(id, productRequest);
         return ResponseEntity.ok(updatedProduct);
     }
@@ -129,7 +131,7 @@ public class ProductController {
     public ResponseEntity<Void> deleteProduct(
             @Parameter(description = "ID of the product to delete", example = "1")
             @PathVariable("id") Long productId) {
-        log.info("DELETE /api/products/{} — deleting product", productId);
+        log.info("DELETE " + API_PREFIX + "/products/{} — deleting product", productId);
 
         productService.deleteProduct(productId);
         return ResponseEntity.noContent().build();
@@ -151,7 +153,7 @@ public class ProductController {
             @PageableDefault(size = 10, sort ="name") Pageable pageable
     ) {
 
-        log.debug("GET /api/products/search — name={}, minPrice={}, maxPrice={}, page={}, size={}",
+        log.debug("GET " + API_PREFIX + "/products/search — name={}, minPrice={}, maxPrice={}, page={}, size={}",
                 name, minPrice, maxPrice, pageable.getPageNumber(), pageable.getPageSize());
 
         Page<ProductResponse> results = productService.searchProducts(name, minPrice, maxPrice, pageable);
@@ -174,7 +176,7 @@ public class ProductController {
     ) {
         Page<ProductResponse> results = productService.searchProductsBySpecification(name, minPrice, maxPrice, pageable);
 
-        log.debug("GET /api/products/search/advanced — name={}, minPrice={}, maxPrice={}, page={}, size={}",
+        log.debug("GET " + API_PREFIX + "/products/search/advanced — name={}, minPrice={}, maxPrice={}, page={}, size={}",
                 name, minPrice, maxPrice, pageable.getPageNumber(), pageable.getPageSize());
 
         return ResponseEntity.ok(results);

@@ -1,5 +1,7 @@
 package com.giri.oms.inventory.controller;
 
+import static com.giri.oms.common.config.WebConfig.API_PREFIX;
+
 import com.giri.oms.common.dto.PagedResponse;
 import com.giri.oms.common.exception.ErrorCode;
 import com.giri.oms.common.openapi.ApiErrorCodes;
@@ -61,7 +63,7 @@ public class InventoryController {
     @ApiErrorCodes({ErrorCode.PRODUCT_NOT_FOUND, ErrorCode.INVENTORY_ALREADY_EXISTS,
             ErrorCode.LOCK_ACQUISITION_FAILED, ErrorCode.RESOURCE_CONFLICT})
     public ResponseEntity<InventoryResponse> createInventory(@Valid @RequestBody InventoryRequest inventoryRequest) {
-        log.info("POST /api/inventory — creating inventory for product id: {} at location: {}",
+        log.info("POST " + API_PREFIX + "/inventory — creating inventory for product id: {} at location: {}",
                 inventoryRequest.getProductId(), inventoryRequest.getLocation());
         InventoryResponse savedInventory = inventoryService.createInventory(inventoryRequest);
         return new ResponseEntity<>(savedInventory, HttpStatus.CREATED);
@@ -77,7 +79,7 @@ public class InventoryController {
     public ResponseEntity<InventoryResponse> getInventoryById(
             @Parameter(description = "ID of the inventory record to fetch", example = "1")
             @PathVariable("id") Long inventoryId) {
-        log.debug("GET /api/inventory/{} — fetching inventory record", inventoryId);
+        log.debug("GET " + API_PREFIX + "/inventory/{} — fetching inventory record", inventoryId);
         InventoryResponse inventoryResponse = inventoryService.getInventoryById(inventoryId);
         return ResponseEntity.ok(inventoryResponse);
     }
@@ -102,7 +104,7 @@ public class InventoryController {
             @Parameter(description = "Sort direction", schema = @Schema(allowableValues = {"asc", "desc"}))
             @RequestParam(value = "sortDir", defaultValue = "asc") String sortDir) {
 
-        log.debug("GET /api/inventory — fetching all inventory records");
+        log.debug("GET " + API_PREFIX + "/inventory — fetching all inventory records");
         PagedResponse<InventoryResponse> response = inventoryService.getAllInventory(pageNo, pageSize, sortBy, sortDir);
         return ResponseEntity.ok(response);
     }
@@ -123,7 +125,7 @@ public class InventoryController {
             @PathVariable("id") Long id,
             @Valid @RequestBody InventoryRequest inventoryRequest) {
 
-        log.info("PUT /api/inventory/{} — updating inventory record", id);
+        log.info("PUT " + API_PREFIX + "/inventory/{} — updating inventory record", id);
         InventoryResponse updatedInventory = inventoryService.updateInventory(id, inventoryRequest);
         return ResponseEntity.ok(updatedInventory);
     }
@@ -139,7 +141,7 @@ public class InventoryController {
     public ResponseEntity<Void> deleteInventory(
             @Parameter(description = "ID of the inventory record to delete", example = "1")
             @PathVariable("id") Long inventoryId) {
-        log.info("DELETE /api/inventory/{} — deleting inventory record", inventoryId);
+        log.info("DELETE " + API_PREFIX + "/inventory/{} — deleting inventory record", inventoryId);
 
         inventoryService.deleteInventory(inventoryId);
         return ResponseEntity.noContent().build();
@@ -161,7 +163,7 @@ public class InventoryController {
             @RequestParam(defaultValue = "false") boolean lowStockOnly,
             @PageableDefault(size = 10, sort = "location") Pageable pageable
     ) {
-        log.debug("GET /api/inventory/search — productId={}, location={}, lowStockOnly={}, page={}, size={}",
+        log.debug("GET " + API_PREFIX + "/inventory/search — productId={}, location={}, lowStockOnly={}, page={}, size={}",
                 productId, location, lowStockOnly, pageable.getPageNumber(), pageable.getPageSize());
 
         Page<InventoryResponse> results = inventoryService.searchInventory(productId, location, lowStockOnly, pageable);
@@ -182,7 +184,7 @@ public class InventoryController {
             @RequestParam(defaultValue = "false") boolean lowStockOnly,
             @PageableDefault(size = 10, sort = "location") Pageable pageable
     ) {
-        log.debug("GET /api/inventory/search/advanced — productId={}, location={}, lowStockOnly={}, page={}, size={}",
+        log.debug("GET " + API_PREFIX + "/inventory/search/advanced — productId={}, location={}, lowStockOnly={}, page={}, size={}",
                 productId, location, lowStockOnly, pageable.getPageNumber(), pageable.getPageSize());
 
         Page<InventoryResponse> results = inventoryService.searchInventoryBySpecification(productId, location, lowStockOnly, pageable);

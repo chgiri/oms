@@ -56,6 +56,7 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(WebConfig.API_PREFIX + "/auth/login").permitAll()
+                        .requestMatchers("/.well-known/jwks.json").permitAll() // public key must be fetchable without a token
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                         .requestMatchers(PUBLIC_DOC_PATHS).permitAll()
                         .anyRequest().authenticated()

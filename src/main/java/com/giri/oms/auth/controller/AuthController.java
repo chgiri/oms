@@ -1,5 +1,7 @@
 package com.giri.oms.auth.controller;
 
+import static com.giri.oms.common.config.WebConfig.API_PREFIX;
+
 import com.giri.oms.auth.dto.AuthResponse;
 import com.giri.oms.auth.dto.LoginRequest;
 import com.giri.oms.auth.dto.RegisterRequest;
@@ -59,7 +61,7 @@ public class AuthController {
     })
     @ApiErrorCodes({ErrorCode.USERNAME_ALREADY_EXISTS, ErrorCode.EMAIL_ALREADY_EXISTS})
     public ResponseEntity<UserResponse> register(@Valid @RequestBody RegisterRequest request) {
-        log.info("POST /api/auth/register — registering user: {}", request.getUsername());
+        log.info("POST " + API_PREFIX + "/auth/register — registering user: {}", request.getUsername());
         UserResponse response = authService.register(request);
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
@@ -74,7 +76,7 @@ public class AuthController {
             @ApiResponse(responseCode = "200", description = "Login successful")
     })
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
-        log.info("POST /api/auth/login — login attempt for: {}", request.getUsername());
+        log.info("POST " + API_PREFIX + "/auth/login — login attempt for: {}", request.getUsername());
         AuthResponse response = authService.login(request);
         return ResponseEntity.ok(response);
     }
@@ -93,7 +95,7 @@ public class AuthController {
         String token = authorizationHeader.startsWith("Bearer ")
                 ? authorizationHeader.substring("Bearer ".length())
                 : authorizationHeader;
-        log.info("POST /api/auth/logout");
+        log.info("POST " + API_PREFIX + "/auth/logout");
         authService.logout(token);
         return ResponseEntity.noContent().build();
     }

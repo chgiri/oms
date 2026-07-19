@@ -1,5 +1,7 @@
 package com.giri.oms.order.controller;
 
+import static com.giri.oms.common.config.WebConfig.API_PREFIX;
+
 import com.giri.oms.common.dto.PagedResponse;
 import com.giri.oms.common.exception.ErrorCode;
 import com.giri.oms.common.openapi.ApiErrorCodes;
@@ -74,7 +76,7 @@ public class OrderController {
     })
     @ApiErrorCodes({ErrorCode.CUSTOMER_NOT_FOUND, ErrorCode.PRODUCT_NOT_FOUND})
     public ResponseEntity<OrderResponse> createOrder(@Valid @RequestBody OrderRequest orderRequest) {
-        log.info("POST /api/orders — creating order for customer id: {}", orderRequest.getCustomerId());
+        log.info("POST " + API_PREFIX + "/orders — creating order for customer id: {}", orderRequest.getCustomerId());
         OrderResponse savedOrder = orderService.createOrder(orderRequest);
         return new ResponseEntity<>(savedOrder, HttpStatus.CREATED);
     }
@@ -89,7 +91,7 @@ public class OrderController {
     public ResponseEntity<OrderResponse> getOrderById(
             @Parameter(description = "ID of the order to fetch", example = "1")
             @PathVariable("id") Long orderId) {
-        log.debug("GET /api/orders/{} — fetching order", orderId);
+        log.debug("GET " + API_PREFIX + "/orders/{} — fetching order", orderId);
         OrderResponse orderResponse = orderService.getOrderById(orderId);
         return ResponseEntity.ok(orderResponse);
     }
@@ -113,7 +115,7 @@ public class OrderController {
             @Parameter(description = "Sort direction", schema = @Schema(allowableValues = {"asc", "desc"}))
             @RequestParam(value = "sortDir", defaultValue = "asc") String sortDir) {
 
-        log.debug("GET /api/orders — fetching all orders");
+        log.debug("GET " + API_PREFIX + "/orders — fetching all orders");
         PagedResponse<OrderResponse> response = orderService.getAllOrders(pageNo, pageSize, sortBy, sortDir);
         return ResponseEntity.ok(response);
     }
@@ -133,7 +135,7 @@ public class OrderController {
             @PathVariable("id") Long id,
             @Valid @RequestBody OrderStatusUpdateRequest statusUpdateRequest) {
 
-        log.info("PATCH /api/orders/{}/status — transitioning to {}", id, statusUpdateRequest.getStatus());
+        log.info("PATCH " + API_PREFIX + "/orders/{}/status — transitioning to {}", id, statusUpdateRequest.getStatus());
         OrderResponse updatedOrder = orderService.updateOrderStatus(id, statusUpdateRequest.getStatus());
         return ResponseEntity.ok(updatedOrder);
     }
@@ -151,7 +153,7 @@ public class OrderController {
     public ResponseEntity<Void> deleteOrder(
             @Parameter(description = "ID of the order to delete", example = "1")
             @PathVariable("id") Long orderId) {
-        log.info("DELETE /api/orders/{} — deleting order", orderId);
+        log.info("DELETE " + API_PREFIX + "/orders/{} — deleting order", orderId);
 
         orderService.deleteOrder(orderId);
         return ResponseEntity.noContent().build();
@@ -174,7 +176,7 @@ public class OrderController {
             @RequestParam(required = false) BigDecimal maxTotal,
             @PageableDefault(size = 10, sort = "id") Pageable pageable
     ) {
-        log.debug("GET /api/orders/search — customerId={}, status={}, minTotal={}, maxTotal={}, page={}, size={}",
+        log.debug("GET " + API_PREFIX + "/orders/search — customerId={}, status={}, minTotal={}, maxTotal={}, page={}, size={}",
                 customerId, status, minTotal, maxTotal, pageable.getPageNumber(), pageable.getPageSize());
 
         Page<OrderResponse> results = orderService.searchOrders(customerId, status, minTotal, maxTotal, pageable);
@@ -197,7 +199,7 @@ public class OrderController {
             @RequestParam(required = false) BigDecimal maxTotal,
             @PageableDefault(size = 10, sort = "id") Pageable pageable
     ) {
-        log.debug("GET /api/orders/search/advanced — customerId={}, status={}, minTotal={}, maxTotal={}, page={}, size={}",
+        log.debug("GET " + API_PREFIX + "/orders/search/advanced — customerId={}, status={}, minTotal={}, maxTotal={}, page={}, size={}",
                 customerId, status, minTotal, maxTotal, pageable.getPageNumber(), pageable.getPageSize());
 
         Page<OrderResponse> results = orderService.searchOrdersBySpecification(customerId, status, minTotal, maxTotal, pageable);

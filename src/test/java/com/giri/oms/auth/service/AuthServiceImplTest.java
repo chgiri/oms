@@ -65,7 +65,7 @@ class AuthServiceImplTest {
         // Constructed manually rather than via @InjectMocks — JwtProperties is a
         // plain record (not mockable/injectable the way interfaces are), so it's
         // simplest to just pass a real instance through the constructor directly.
-        JwtProperties jwtProperties = new JwtProperties("dGVzdC1zZWNyZXQ=", 86_400_000L);
+        JwtProperties jwtProperties = new JwtProperties("unused-in-this-test", "unused-in-this-test", "test-key", 86_400_000L);
         authService = new AuthServiceImpl(userRepository, userMapper, passwordEncoder, authenticationManager, jwtService, jwtProperties, tokenBlacklistService);
 
         registerRequest = new RegisterRequest("jane.doe", "S3curePass!", "jane.doe@example.com", Role.STAFF);

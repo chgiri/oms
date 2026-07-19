@@ -1,5 +1,7 @@
 package com.giri.oms.shipment.controller;
 
+import static com.giri.oms.common.config.WebConfig.API_PREFIX;
+
 import com.giri.oms.common.dto.PagedResponse;
 import com.giri.oms.common.exception.ErrorCode;
 import com.giri.oms.common.openapi.ApiErrorCodes;
@@ -63,7 +65,7 @@ public class ShipmentController {
     })
     @ApiErrorCodes({ErrorCode.ORDER_NOT_FOUND})
     public ResponseEntity<ShipmentResponse> createShipment(@Valid @RequestBody ShipmentRequest shipmentRequest) {
-        log.info("POST /api/shipments — creating shipment for order id: {}", shipmentRequest.getOrderId());
+        log.info("POST " + API_PREFIX + "/shipments — creating shipment for order id: {}", shipmentRequest.getOrderId());
         ShipmentResponse savedShipment = shipmentService.createShipment(shipmentRequest);
         return new ResponseEntity<>(savedShipment, HttpStatus.CREATED);
     }
@@ -78,7 +80,7 @@ public class ShipmentController {
     public ResponseEntity<ShipmentResponse> getShipmentById(
             @Parameter(description = "ID of the shipment to fetch", example = "1")
             @PathVariable("id") Long shipmentId) {
-        log.debug("GET /api/shipments/{} — fetching shipment", shipmentId);
+        log.debug("GET " + API_PREFIX + "/shipments/{} — fetching shipment", shipmentId);
         ShipmentResponse shipmentResponse = shipmentService.getShipmentById(shipmentId);
         return ResponseEntity.ok(shipmentResponse);
     }
@@ -102,7 +104,7 @@ public class ShipmentController {
             @Parameter(description = "Sort direction", schema = @Schema(allowableValues = {"asc", "desc"}))
             @RequestParam(value = "sortDir", defaultValue = "asc") String sortDir) {
 
-        log.debug("GET /api/shipments — fetching all shipments");
+        log.debug("GET " + API_PREFIX + "/shipments — fetching all shipments");
         PagedResponse<ShipmentResponse> response = shipmentService.getAllShipments(pageNo, pageSize, sortBy, sortDir);
         return ResponseEntity.ok(response);
     }
@@ -126,7 +128,7 @@ public class ShipmentController {
             @PathVariable("id") Long id,
             @Valid @RequestBody ShipmentStatusUpdateRequest statusUpdateRequest) {
 
-        log.info("PATCH /api/shipments/{}/status — transitioning to {}", id, statusUpdateRequest.getStatus());
+        log.info("PATCH " + API_PREFIX + "/shipments/{}/status — transitioning to {}", id, statusUpdateRequest.getStatus());
         ShipmentResponse updatedShipment = shipmentService.updateShipmentStatus(
                 id, statusUpdateRequest.getStatus(), statusUpdateRequest.getTrackingNumber());
         return ResponseEntity.ok(updatedShipment);
@@ -145,7 +147,7 @@ public class ShipmentController {
     public ResponseEntity<Void> deleteShipment(
             @Parameter(description = "ID of the shipment to delete", example = "1")
             @PathVariable("id") Long shipmentId) {
-        log.info("DELETE /api/shipments/{} — deleting shipment", shipmentId);
+        log.info("DELETE " + API_PREFIX + "/shipments/{} — deleting shipment", shipmentId);
 
         shipmentService.deleteShipment(shipmentId);
         return ResponseEntity.noContent().build();
@@ -166,7 +168,7 @@ public class ShipmentController {
             @RequestParam(required = false) ShippingCarrier carrier,
             @PageableDefault(size = 10, sort = "id") Pageable pageable
     ) {
-        log.debug("GET /api/shipments/search — orderId={}, status={}, carrier={}, page={}, size={}",
+        log.debug("GET " + API_PREFIX + "/shipments/search — orderId={}, status={}, carrier={}, page={}, size={}",
                 orderId, status, carrier, pageable.getPageNumber(), pageable.getPageSize());
 
         Page<ShipmentResponse> results = shipmentService.searchShipments(orderId, status, carrier, pageable);
@@ -187,7 +189,7 @@ public class ShipmentController {
             @RequestParam(required = false) ShippingCarrier carrier,
             @PageableDefault(size = 10, sort = "id") Pageable pageable
     ) {
-        log.debug("GET /api/shipments/search/advanced — orderId={}, status={}, carrier={}, page={}, size={}",
+        log.debug("GET " + API_PREFIX + "/shipments/search/advanced — orderId={}, status={}, carrier={}, page={}, size={}",
                 orderId, status, carrier, pageable.getPageNumber(), pageable.getPageSize());
 
         Page<ShipmentResponse> results = shipmentService.searchShipmentsBySpecification(orderId, status, carrier, pageable);
