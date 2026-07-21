@@ -11,6 +11,7 @@ import org.springframework.data.redis.serializer.GenericJacksonJsonRedisSerializ
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 import org.springframework.data.redis.support.collections.RedisProperties;
+import tools.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
 
 import java.time.Duration;
 
@@ -35,8 +36,23 @@ public class CacheConfig {
 
     @Bean
     public RedisCacheManagerBuilderCustomizer redisCacheManagerBuilderCustomizer() {
+        // GenericJacksonJsonRedisSerializer, unlike the deprecated GenericJackson2JsonRedisSerializer
+        // it replaces, does NOT enable default typing out of the box. Without it, cached values are
+        // written as plain JSON with no "@class" hint, so on read-back Spring's cache abstraction
+        // (which only knows the value as Object) gets a generic LinkedHashMap instead of the real
+        // DTO — surfacing as a ClassCastException at the call site (see e.g. InventoryServiceImpl
+        // #getInventoryById). Enabling default typing, scoped to our own package rather than via
+        // enableUnsafeDefaultTyping(), restores type-safe round-tripping without accepting arbitrary
+        // classes from the cache payload.
+        BasicPolymorphicTypeValidator typeValidator = BasicPolymorphicTypeValidator.builder()
+                .allowIfSubType("com.giri.oms.")
+                .build();
+
         RedisSerializationContext.SerializationPair<Object> valueSerializer =
-                RedisSerializationContext.SerializationPair.fromSerializer(GenericJacksonJsonRedisSerializer.builder().build());
+                RedisSerializationContext.SerializationPair.fromSerializer(
+                        GenericJacksonJsonRedisSerializer.builder()
+                                .enableDefaultTyping(typeValidator)
+                                .build());
 
         RedisCacheConfiguration base = RedisCacheConfiguration.defaultCacheConfig()
                 .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
