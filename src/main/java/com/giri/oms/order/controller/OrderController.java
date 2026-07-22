@@ -124,7 +124,8 @@ public class OrderController {
     @PatchMapping("{id}/status")
     @Operation(summary = "Transition an order's status",
             description = "Moves the order to a new status. Allowed transitions: "
-                    + "PENDING → CONFIRMED or CANCELLED; CONFIRMED → SHIPPED or CANCELLED; SHIPPED → DELIVERED. "
+                    + "PENDING → AWAITING_PAYMENT or CANCELLED; AWAITING_PAYMENT → CONFIRMED or CANCELLED; "
+                    + "CONFIRMED → SHIPPED or CANCELLED; SHIPPED → DELIVERED. "
                     + "DELIVERED and CANCELLED are terminal — any other transition returns a 409.")
     @ApiErrorCodes({ErrorCode.ORDER_NOT_FOUND, ErrorCode.ILLEGAL_ORDER_STATE})
     @ApiResponses({
