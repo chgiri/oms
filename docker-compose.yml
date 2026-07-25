@@ -101,6 +101,12 @@ services:
         APP_VERSION: ${APP_VERSION:-local}
     container_name: oms-app
     restart: unless-stopped
+    # Must stay comfortably above spring.lifecycle.timeout-per-shutdown-phase /
+    # task.scheduling.shutdown.await-termination-period (both 30s — see
+    # application.properties) — Docker sends SIGKILL once this elapses after
+    # SIGTERM, regardless of whether the app's own graceful shutdown has
+    # finished. Too short here silently defeats that config entirely.
+    stop_grace_period: 45s
     ports:
       - "8080:8080"
     environment:
