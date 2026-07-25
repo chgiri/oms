@@ -1,0 +1,38 @@
+# Auto-registers Loki as a Grafana datasource, the same sidecar mechanism
+# as 10-grafana-dashboard.yaml uses for the dashboard itself — except
+# Grafana's *datasource* sidecar (grafana-sc-datasources) is OFF by default
+# in kube-prometheus-stack, unlike the dashboard one. Enable it explicitly:
+#
+#   helm upgrade monitoring prometheus-community/kube-prometheus-stack \
+#     --reuse-values \
+#     --set grafana.sidecar.datasources.enabled=true
+#
+# This assumes Loki is installed via the loki-stack chart with its own
+# Grafana disabled (kube-prometheus-stack's Grafana is the one already in
+# use — see k8s/README.md's Grafana section):
+#
+#   helm repo add grafana https://grafana.github.io/helm-charts
+#   helm install loki grafana/loki-stack --set grafana.enabled=false
+#
+# That installs a Loki Service reachable in-cluster at http://loki:3100
+# (release name "loki" — check `kubectl get svc` and adjust the url below
+# if you installed it under a different release name) plus a Promtail
+# DaemonSet that ships every pod's stdout/stderr, no further config needed
+# on the OMS side.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: oms-grafana-loki-datasource
+  labels:
+    app.kubernetes.io/name: oms
+    grafana_datasource: "1"
+data:
+  loki-datasource.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Loki
+        type: loki
+        uid: loki
+        access: proxy
+        url: http://loki:3100
+        editable: true

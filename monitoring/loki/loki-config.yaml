@@ -1,0 +1,41 @@
+# Single-binary, filesystem-backed Loki — deliberately minimal, matching
+# the local-dev scope of the rest of monitoring/ (see prometheus.yml's
+# comment for the same reasoning). Not meant as a production config: no
+# object storage, no replication, no auth.
+auth_enabled: false
+
+server:
+  http_listen_port: 3100
+  grpc_listen_port: 9096
+
+common:
+  path_prefix: /loki
+  storage:
+    filesystem:
+      chunks_directory: /loki/chunks
+      rules_directory: /loki/rules
+  replication_factor: 1
+  ring:
+    kvstore:
+      store: inmemory
+
+schema_config:
+  configs:
+    - from: 2020-10-24
+      store: boltdb-shipper
+      object_store: filesystem
+      schema: v11
+      index:
+        prefix: index_
+        period: 24h
+
+# 7 days is plenty for local dev and keeps the oms-loki-data volume from
+# growing unbounded — raise this (and move to real object storage) before
+# treating this config as anything other than local/dev.
+limits_config:
+  retention_period: 168h
+
+compactor:
+  working_directory: /loki/compactor
+  retention_enabled: true
+  delete_request_store: filesystem

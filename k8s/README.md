@@ -25,6 +25,7 @@ outbox queue depth instead.
 | `08-pdb.yaml` | PodDisruptionBudgets for both roles |
 | `09-podmonitor.yaml` | Optional — Prometheus Operator scrape config for both roles (not in `kustomization.yaml` by default; see below) |
 | `10-grafana-dashboard.yaml` | Optional — ConfigMap that auto-imports the OMS Overview dashboard into Grafana via kube-prometheus-stack's sidecar (not in `kustomization.yaml` by default; see below) |
+| `11-grafana-loki-datasource.yaml` | Optional — ConfigMap that auto-registers Loki as a Grafana datasource, same sidecar mechanism (not in `kustomization.yaml` by default; see below) |
 | `kustomization.yaml` | Ties it all together; `kustomize edit set image` to point at your build |
 
 ## Prerequisites
@@ -143,6 +144,51 @@ top of that file) rather than editing the two independently.
 If your cluster's Grafana sidecar only watches its own release namespace
 (`sidecar.dashboards.searchNamespace`), apply `10-grafana-dashboard.yaml`
 into that namespace, or set `searchNamespace: ALL` in your Helm values.
+
+### Logs (Loki)
+
+Same reasoning as Grafana above: rather than hand-rolling Loki's
+`StatefulSet`/object-storage config and a Promtail `DaemonSet` by hand, use
+the [loki-stack](https://github.com/grafana/helm-charts/tree/main/charts/loki-stack)
+chart, with its bundled Grafana turned off since kube-prometheus-stack's is
+already in use:
+
+```bash
+helm repo add grafana https://grafana.github.io/helm-charts
+helm repo update
+helm install loki grafana/loki-stack --set grafana.enabled=false
+```
+
+This deploys Loki plus a Promtail `DaemonSet` that ships every pod's
+stdout/stderr cluster-wide — no annotations or sidecars needed on the OMS
+Deployments themselves, unlike metrics. Then, since kube-prometheus-stack's
+Grafana datasource sidecar is off by default (unlike its dashboard
+sidecar):
+
+```bash
+helm upgrade monitoring prometheus-community/kube-prometheus-stack \
+  --reuse-values \
+  --set grafana.sidecar.datasources.enabled=true
+
+kubectl apply -f 11-grafana-loki-datasource.yaml
+```
+
+and Loki shows up as a Grafana datasource, with "Recent app logs" already
+working against `{container=~"oms-app.*"}` — Loki's default Kubernetes
+pipeline labels every pod's logs by pod/namespace/container regardless of
+any app-specific config.
+
+**"Log volume by level" will likely come up empty**, though: that panel
+groups by the `level` label, which only exists because
+`monitoring/promtail/promtail-config.yaml` adds a custom regex stage that
+parses `logging.pattern.console`'s exact format (see that file's
+comments). loki-stack's default Promtail `DaemonSet` doesn't include that
+stage — you'd need to pass it in via the chart's `promtail.config` Helm
+value (the same regex/match/labels stages, adjusted for
+`kubernetes_sd_configs` discovery instead of `docker_sd_configs`) to get
+it working in-cluster too. Not wired up here since it's cluster-specific
+enough (namespace, label selectors) to need tuning to your actual
+deployment rather than a one-size-fits-all default.
 
 ## What this doesn't change
 

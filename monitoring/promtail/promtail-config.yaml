@@ -1,0 +1,58 @@
+# Discovers every container on the local Docker daemon (docker_sd_configs)
+# rather than listing them by name — so it keeps working across
+# `--scale app-worker=N` and needs no changes when other services are
+# added. The `docker: {}` stage first unwraps Docker's own JSON log
+# envelope (timestamp + stream + the app's actual log line) — required for
+# every container, not just oms's — then a second stage parses the OMS log
+# line format specifically (logging.pattern.console in
+# application.properties) for the oms-app*/oms-app-worker* containers only;
+# other containers' logs (postgres, kafka, redis) still land in Loki, just
+# without that structured parsing, since their line formats aren't ours to
+# assume.
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: docker
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+    relabel_configs:
+      # Container names come through as "/oms-app" (leading slash) —
+      # strip it so the label matches what you'd type in `docker ps`.
+      - source_labels: [__meta_docker_container_name]
+        regex: "/(.*)"
+        target_label: container
+      - source_labels: [__meta_docker_container_log_stream]
+        target_label: stream
+    pipeline_stages:
+      - docker: {}
+      - match:
+          # Covers both the fixed-name `app` container and app-worker's
+          # scaled instances (oms-app-worker-1, oms-app-worker-2, ...) —
+          # see docker-compose.yml's comment on why app-worker has no
+          # static container_name.
+          selector: '{container=~"oms-app.*"}'
+          stages:
+            - regex:
+                # Mirrors logging.pattern.console exactly:
+                # %d{yyyy-MM-dd HH:mm:ss} [%thread] [%X{correlationId:-}] %-5level %logger{36} - %msg%n
+                expression: '^(?P<timestamp>\S+ \S+) \[(?P<thread>[^\]]*)\] \[(?P<correlation_id>[^\]]*)\] (?P<level>\w+)\s+(?P<logger>\S+) - (?P<message>.*)$'
+            - labels:
+                # level is low-cardinality (INFO/DEBUG/WARN/ERROR) so it's
+                # safe as a Loki label. correlation_id is deliberately NOT
+                # promoted to a label — same reasoning as OutboxMetrics.java
+                # skipping a per-error-message Prometheus tag: it's
+                # effectively unbounded, one value per request, and would
+                # blow up Loki's index. It's still fully searchable — just
+                # as plain text via a LogQL line filter, e.g.
+                # {container="oms-app"} |= "<correlation-id>", not as a
+                # label.
+                level:

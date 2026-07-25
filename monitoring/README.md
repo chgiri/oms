@@ -13,6 +13,8 @@
 | `grafana/provisioning/datasources/datasource.yml` | Auto-registers Prometheus as Grafana's datasource on startup |
 | `grafana/provisioning/dashboards/dashboards.yml` | Tells Grafana to load every dashboard JSON in `grafana/dashboards/` |
 | `grafana/dashboards/oms-overview.json` | The dashboard itself — see below |
+| `loki/loki-config.yaml` | Loki server config — filesystem storage, single binary, local-dev only |
+| `promtail/promtail-config.yaml` | Discovers every Docker container and ships its logs to Loki; parses the app's log line format for `oms-app*`/`oms-app-worker*` containers specifically |
 
 ## Using it
 
@@ -26,6 +28,39 @@ docker compose up -d
 - **Prometheus**: http://localhost:9090 — useful for ad hoc PromQL, or to
   check *Status → Targets* if a panel in Grafana looks empty (confirms
   `app`/`app-worker` are actually being scraped and up).
+- **Loki**: http://localhost:3100 — no real UI of its own; query it through
+  Grafana (Explore, or the Logs panels on the dashboard) or `logcli`. Every
+  container's stdout/stderr lands here via Promtail, not just the app's.
+
+## Logs (Loki)
+
+Promtail discovers every container on the local Docker daemon and ships
+its logs to Loki — you don't need to add a new service to this list for
+its logs to show up. Two ways to look at them:
+
+- **Grafana → Explore**, datasource "Loki", e.g.:
+  ```
+  {container="oms-app"}
+  {container=~"oms-app.*"} |= "ERROR"
+  {container=~"oms-app.*"} |= "<a specific correlation id>"
+  {container="oms-postgres"}
+  ```
+- **The dashboard's Logs row** — "Recent app logs" (raw tail, filterable
+  via the panel's own query box) and "Log volume by level" (a quick eyeball
+  for whether ERROR/WARN volume just spiked).
+
+Only `oms-app*`/`oms-app-worker*` containers get the `level` label (from
+`logging.pattern.console` in `application.properties`, parsed by the
+`match`/`regex`/`labels` stages in `promtail/promtail-config.yaml`) —
+other containers' logs are still in Loki and searchable by `container=`,
+just without that extra structure, since their line formats aren't ours to
+assume.
+
+`correlation_id` is parsed out too but deliberately **not** a Loki label —
+same cardinality reasoning as `OutboxMetrics.java` skipping a
+per-error-message Prometheus tag. It's still fully searchable as plain
+text with `|= "<the id>"`, just not something you filter on as a label
+in the UI's label dropdown.
 
 ## OMS Overview dashboard
 
@@ -42,6 +77,8 @@ Covers what's already instrumented in the app (see
   pending depth, publish rate (success vs failed), publish duration p95.
 - **JVM & DB pool — by role** — heap used/max, process CPU, GC pause rate,
   HikariCP active/idle/pending connections.
+- **Logs** — log volume by level and a live tail, both scoped to
+  `oms-app*`/`oms-app-worker*` containers (see the Logs section above).
 
 The Kafka consumer lag panels rely on the Kafka client's built-in
 Micrometer metrics binder (auto-registered by spring-kafka once a
@@ -87,6 +124,14 @@ reachable. To point this stack at an app you're running from IntelliJ:
 `host.docker.internal` resolves out of the box on Docker Desktop
 (Mac/Windows); on Linux, `extra_hosts: host-gateway` on the `prometheus`
 service in `docker-compose.yml` is what makes it resolve there too.
+
+**Metrics work this way; logs don't, by default.** Promtail discovers
+containers via the Docker socket (`docker_sd_configs`), so an app running
+directly in IntelliJ — not a container — never shows up in Loki. Its
+console output is just wherever IntelliJ's Run window sends it. If you
+want those logs in Grafana too, the practical option is running the app in
+Docker instead (`docker compose up -d app`) rather than trying to get
+Promtail to tail a non-container process.
 
 ## Editing the dashboard
 

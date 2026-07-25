@@ -16,6 +16,7 @@ resources:
   - 08-pdb.yaml
   # - 09-podmonitor.yaml          # requires Prometheus Operator CRDs — uncomment if you run it
   # - 10-grafana-dashboard.yaml   # requires kube-prometheus-stack's Grafana sidecar — uncomment if you run it
+  # - 11-grafana-loki-datasource.yaml   # requires Loki installed + Grafana's datasource sidecar enabled — uncomment if you run it
 
 # Convenience for CI: `kustomize edit set image oms=your-registry/oms:$GIT_SHA`
 # rewrites the image on both Deployments in one shot, same tag on both,

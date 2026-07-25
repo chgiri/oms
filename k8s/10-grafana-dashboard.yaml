@@ -986,6 +986,110 @@ data:
               "mode": "multi"
             }
           }
+        },
+        {
+          "id": 22,
+          "title": "Logs",
+          "type": "row",
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 56
+          },
+          "collapsed": false,
+          "panels": []
+        },
+        {
+          "id": 23,
+          "title": "Log volume by level",
+          "type": "timeseries",
+          "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 0,
+            "y": 57
+          },
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "loki",
+                "uid": "loki"
+              },
+              "expr": "sum by (level) (count_over_time({container=~\"oms-app.*\"}[$__interval]))",
+              "legendFormat": "{{level}}",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": {
+                "drawStyle": "line",
+                "fillOpacity": 15,
+                "stacking": {
+                  "mode": "normal"
+                },
+                "pointSize": 4
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom"
+            },
+            "tooltip": {
+              "mode": "multi"
+            }
+          },
+          "description": "Only populated for the oms-app*/oms-app-worker* containers \u2014 see the match/regex stage in monitoring/promtail/promtail-config.yaml that extracts the \"level\" label from the app's log line format."
+        },
+        {
+          "id": 24,
+          "title": "Recent app logs",
+          "type": "logs",
+          "gridPos": {
+            "h": 8,
+            "w": 16,
+            "x": 8,
+            "y": 57
+          },
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "loki",
+                "uid": "loki"
+              },
+              "expr": "{container=~\"oms-app.*\"}",
+              "legendFormat": "",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": []
+          },
+          "options": {
+            "showTime": true,
+            "showLabels": false,
+            "showCommonLabels": false,
+            "wrapLogMessage": true,
+            "prettifyLogMessage": false,
+            "enableLogDetails": true,
+            "dedupStrategy": "none",
+            "sortOrder": "Descending"
+          },
+          "description": "LogQL \u2014 try {container=~\"oms-app.*\"} |= \"ERROR\", or filter to one request with |= \"<correlation-id>\" (correlation_id is parsed but deliberately not a label; see promtail-config.yaml)."
         }
       ],
       "templating": {

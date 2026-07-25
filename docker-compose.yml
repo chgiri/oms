@@ -247,6 +247,42 @@ services:
     networks:
       - oms-network
 
+  # Filesystem-backed, single-binary — see monitoring/loki/loki-config.yaml
+  # for why this is local-dev-only, not a production storage backend.
+  loki:
+    image: grafana/loki:2.9.9
+    container_name: oms-loki
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./monitoring/loki/loki-config.yaml:/etc/loki/local-config.yaml:ro
+      - oms-loki-data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - oms-network
+
+  # Ships every container's stdout/stderr to Loki — see
+  # monitoring/promtail/promtail-config.yaml. Needs the Docker socket
+  # (read-only) to discover containers, and the host's docker log directory
+  # to actually read them; both are standard for Promtail's docker_sd
+  # pattern and work the same on Docker Desktop (Mac/Windows) as on Linux —
+  # Docker Desktop resolves this bind mount against its own VM, not your
+  # host filesystem, so there's nothing extra to configure there either.
+  promtail:
+    image: grafana/promtail:2.9.9
+    container_name: oms-promtail
+    restart: unless-stopped
+    volumes:
+      - ./monitoring/promtail/promtail-config.yaml:/etc/promtail/config.yaml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    command: -config.file=/etc/promtail/config.yaml
+    depends_on:
+      - loki
+    networks:
+      - oms-network
+
   # Datasource + the OMS Overview dashboard are auto-provisioned from
   # monitoring/grafana/provisioning/ on startup — nothing to click through
   # manually. Default login is admin / ${GRAFANA_ADMIN_PASSWORD:-admin}; set
@@ -269,6 +305,7 @@ services:
       - oms-grafana-data:/var/lib/grafana
     depends_on:
       - prometheus
+      - loki
     networks:
       - oms-network
 
@@ -281,3 +318,4 @@ volumes:
   oms-postgres-data:
   oms-prometheus-data:
   oms-grafana-data:
+  oms-loki-data:
