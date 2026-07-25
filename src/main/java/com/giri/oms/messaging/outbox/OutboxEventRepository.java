@@ -15,6 +15,15 @@ public interface OutboxEventRepository extends JpaRepository<OutboxEvent, UUID> 
     boolean existsByStatus(OutboxEventStatus status);
 
     /**
+     * Backs the {@code outbox.events.pending} gauge in {@link OutboxMetrics}.
+     * Same shape as the {@code status = 'PENDING'} query the KEDA
+     * ScaledObject runs directly against Postgres (see
+     * k8s/07-scaledobject-worker.yaml) — this is the in-app,
+     * Prometheus-visible view of the same number.
+     */
+    long countByStatus(OutboxEventStatus status);
+
+    /**
      * Claims up to {@code limit} PENDING rows for this instance to publish,
      * oldest first. This is what makes running more than one instance of this
      * app safe: {@code FOR UPDATE} takes a row lock on every row selected, and

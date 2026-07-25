@@ -1,0 +1,24 @@
+# Optional — only applies if you run Prometheus Operator (i.e. the
+# monitoring.coreos.com/v1 CRDs are installed). If you're using plain
+# Prometheus with annotation-based discovery instead, the
+# prometheus.io/scrape annotations already on both Deployments' pod
+# templates cover it and this file isn't needed.
+#
+# PodMonitor rather than ServiceMonitor because the worker Deployment has no
+# Service (see 06-deployment-worker.yaml) for a ServiceMonitor to attach
+# to — PodMonitor selects pods directly by label, so one definition covers
+# both web and worker.
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: oms
+  labels:
+    app.kubernetes.io/name: oms
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: oms
+  podMetricsEndpoints:
+    - port: metrics   # matches the "metrics" containerPort (8081) on both Deployments
+      path: /actuator/prometheus
+      interval: 30s

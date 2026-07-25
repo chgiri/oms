@@ -35,6 +35,10 @@ spec:
       labels:
         app.kubernetes.io/name: oms
         app.kubernetes.io/component: worker
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8081"
+        prometheus.io/path: "/actuator/prometheus"
     spec:
       terminationGracePeriodSeconds: 45
       containers:
@@ -44,6 +48,12 @@ spec:
           ports:
             - name: http
               containerPort: 8080
+            # Same management port as oms-web (see the comment there) —
+            # nothing routes it externally here either, since this
+            # Deployment has no Service at all. Prometheus reaches it by
+            # scraping the pod directly.
+            - name: metrics
+              containerPort: 8081
           envFrom:
             - configMapRef:
                 name: oms-config
@@ -55,7 +65,7 @@ spec:
           startupProbe:
             httpGet:
               path: /actuator/health/readiness
-              port: http
+              port: metrics
             periodSeconds: 5
             failureThreshold: 18
           # No readinessProbe gating traffic here on purpose — there's no
@@ -65,7 +75,7 @@ spec:
           livenessProbe:
             httpGet:
               path: /actuator/health/liveness
-              port: http
+              port: metrics
             periodSeconds: 15
             timeoutSeconds: 5
             failureThreshold: 3

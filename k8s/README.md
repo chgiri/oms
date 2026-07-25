@@ -23,6 +23,7 @@ outbox queue depth instead.
 | `06-deployment-worker.yaml` | `APP_PROCESS_ROLE=worker` — consumers + outbox poller, no Service |
 | `07-scaledobject-worker.yaml` | KEDA: scales worker on Kafka consumer lag + outbox depth |
 | `08-pdb.yaml` | PodDisruptionBudgets for both roles |
+| `09-podmonitor.yaml` | Optional — Prometheus Operator scrape config for both roles (not in `kustomization.yaml` by default; see below) |
 | `kustomization.yaml` | Ties it all together; `kustomize edit set image` to point at your build |
 
 ## Prerequisites
@@ -74,6 +75,35 @@ kubectl apply -k .
   instance's `OutboxService.enqueue()` calls just write `PENDING` rows and
   rely on *some* worker being up to flush them; at zero workers those rows
   would sit indefinitely instead of just until the next scale-up.
+
+## Metrics
+
+Both Deployments expose a second container port, `metrics` (8081) —
+`management.server.port` in `application.properties`. **All** actuator
+endpoints live there, not just `/actuator/prometheus`: health and info moved
+too, which is why the probes on both Deployments target `metrics`, not
+`http`. That port is never part of `03-service-web.yaml` and never
+referenced by `04-ingress.yaml`, so it's unreachable from outside the
+cluster regardless of the `permitAll` rule `SecurityConfig` adds for
+`/actuator/prometheus` — only something inside the cluster network (a
+Prometheus pod) can reach it.
+
+Two ways to scrape it, pick whichever matches your Prometheus setup:
+
+- **Prometheus Operator**: apply `09-podmonitor.yaml` (add it to
+  `kustomization.yaml`'s `resources`, or `kubectl apply -f` it separately —
+  it's commented out by default since it needs the
+  `monitoring.coreos.com/v1` CRDs installed, which not every cluster has).
+- **Plain Prometheus** with `kubernetes_sd_configs` pod discovery: already
+  covered by the `prometheus.io/scrape`, `prometheus.io/port`,
+  `prometheus.io/path` annotations on both pod templates — nothing further
+  to apply.
+
+Every metric carries a `role` tag (`web` or `worker`, mirroring
+`APP_PROCESS_ROLE`) and an `application` tag — see
+`management.metrics.tags.*` in `application.properties` — so a single
+Grafana dashboard or Prometheus query can split web from worker even though
+both scrape targets come from the same image.
 
 ## What this doesn't change
 

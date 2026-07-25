@@ -109,6 +109,14 @@ services:
     stop_grace_period: 45s
     ports:
       - "8080:8080"
+      # management.server.port in application.properties — actuator
+      # (health, info, and now prometheus) lives here, not on 8080. Published
+      # to the host so a local Prometheus (or just `curl`/a browser) can
+      # reach http://localhost:8081/actuator/prometheus without exec-ing
+      # into the container; not something a real deployment would do (see
+      # k8s/, where this port is deliberately never routed through the
+      # Ingress) — this is a local-dev convenience only.
+      - "8081:8081"
     environment:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
       DB_HOST: postgres
@@ -139,7 +147,8 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:8080/actuator/health"]
+      # Port 8081, not 8080 — see the management.server.port comment above.
+      test: ["CMD", "curl", "--fail", "http://localhost:8081/actuator/health"]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -203,7 +212,9 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:8080/actuator/health"]
+      # Port 8081, not 8080 — see the management.server.port comment on
+      # `app`'s ports: block above; same reasoning applies here.
+      test: ["CMD", "curl", "--fail", "http://localhost:8081/actuator/health"]
       interval: 15s
       timeout: 5s
       retries: 5

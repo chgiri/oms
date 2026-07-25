@@ -54,6 +54,14 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-actuator</artifactId>
 		</dependency>
+		<!-- Exposes /actuator/prometheus. micrometer-core itself (JVM, system, HTTP
+		     server request metrics) already comes transitively from the actuator
+		     starter above — this is only the registry/exposition-format piece. -->
+		<dependency>
+			<groupId>io.micrometer</groupId>
+			<artifactId>micrometer-registry-prometheus</artifactId>
+			<scope>runtime</scope>
+		</dependency>
 
 		<!-- Redis: connection factory (Lettuce), used by the Spring Cache abstraction
 		     below and by anything reaching for RedisTemplate/StringRedisTemplate directly. -->

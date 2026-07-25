@@ -2,18 +2,24 @@
 # most clusters already run. This is the "or CPU" half of "HPA on request
 # rate or CPU."
 #
-# Request-rate-based scaling (the other half) is a valid alternative but
-# needs more plumbing this repo doesn't have yet: the app doesn't currently
-# expose Prometheus metrics (no micrometer-registry-prometheus dependency,
-# and management.endpoints.web.exposure.include is just health,info — see
-# application.properties). To switch to request-rate:
-#   1. Add micrometer-registry-prometheus and include "prometheus" in
-#      management.endpoints.web.exposure.include.
-#   2. Either run Prometheus + prometheus-adapter and target a
-#      `http_server_requests_seconds_count` rate via a custom/external
-#      metric HPA, or use KEDA's Prometheus scaler / http-add-on instead of
-#      this HPA object.
-# CPU is the pragmatic default until that's in place.
+# Request-rate-based scaling (the other half) is now a real option, not just
+# a future one: /actuator/prometheus is exposed (see
+# management.server.port / management.endpoints.web.exposure.include in
+# application.properties, scraped via 09-podmonitor.yaml or the
+# prometheus.io/* pod annotations on 02-deployment-web.yaml), and
+# http.server.requests carries a percentile histogram
+# (management.metrics.distribution.percentiles-histogram.http.server.requests=true)
+# — the data this would query already exists. Switching is an infra choice
+# from here, not an app change:
+#   - Run prometheus-adapter and target a `http_server_requests_seconds_count`
+#     rate via a custom/external metric on this HPA object, or
+#   - Replace this HPA with a KEDA ScaledObject using KEDA's Prometheus
+#     scaler (same pattern as 07-scaledobject-worker.yaml's kafka/postgresql
+#     triggers, just pointed at a PromQL query instead).
+# CPU stays the pragmatic default here since it needs nothing beyond
+# metrics-server; request-rate is documented as the upgrade path, not
+# implemented, since it also requires a decision about target RPS/latency
+# this repo can't make for you.
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:

@@ -14,6 +14,7 @@ resources:
   - 06-deployment-worker.yaml
   - 07-scaledobject-worker.yaml   # requires KEDA CRDs installed in-cluster
   - 08-pdb.yaml
+  # - 09-podmonitor.yaml          # requires Prometheus Operator CRDs — uncomment if you run it
 
 # Convenience for CI: `kustomize edit set image oms=your-registry/oms:$GIT_SHA`
 # rewrites the image on both Deployments in one shot, same tag on both,

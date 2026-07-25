@@ -38,6 +38,7 @@ public class OutboxPublisher {
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final KafkaAppProperties kafkaAppProperties;
     private final Clock clock;
+    private final OutboxMetrics outboxMetrics;
 
     /**
      * {@code @Transactional} here isn't incidental — it's what makes
@@ -87,6 +88,7 @@ public class OutboxPublisher {
     }
 
     private void doPublish(OutboxEvent event) {
+        long startNanos = System.nanoTime();
         try {
             ProducerRecord<String, String> record = new ProducerRecord<>(
                     event.getTopic(), null, event.getPartitionKey(), event.getPayload());
@@ -99,15 +101,18 @@ public class OutboxPublisher {
 
             event.markPublished(clock);
             outboxEventRepository.save(event);
+            outboxMetrics.recordPublished(System.nanoTime() - startNanos);
             log.info("Published outbox event id={} type={} topic={}", event.getId(), event.getEventType(), event.getTopic());
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
             event.recordFailure("Interrupted while publishing to Kafka");
             outboxEventRepository.save(event);
+            outboxMetrics.recordFailed();
             log.warn("Interrupted while publishing outbox event id={}", event.getId());
         } catch (ExecutionException | TimeoutException ex) {
             event.recordFailure(ex.getMessage());
             outboxEventRepository.save(event);
+            outboxMetrics.recordFailed();
             log.warn("Failed to publish outbox event id={} type={}: {}", event.getId(), event.getEventType(), ex.getMessage());
         }
     }

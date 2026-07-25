@@ -30,6 +30,13 @@ spec:
       labels:
         app.kubernetes.io/name: oms
         app.kubernetes.io/component: web
+      annotations:
+        # For a plain (non-Operator) Prometheus using annotation-based pod
+        # discovery. If you run Prometheus Operator instead, use
+        # 09-podmonitor.yaml and these are redundant but harmless.
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8081"
+        prometheus.io/path: "/actuator/prometheus"
     spec:
       # Matches stop_grace_period: 45s in docker-compose.yml — must stay
       # comfortably above spring.lifecycle.timeout-per-shutdown-phase /
@@ -46,6 +53,14 @@ spec:
           ports:
             - name: http
               containerPort: 8080
+            # management.server.port in application.properties — actuator
+            # (health, info, prometheus) lives here, not on 8080. Not part of
+            # 03-service-web.yaml's port list and not referenced by
+            # 04-ingress.yaml, so nothing external can ever reach it through
+            # the Ingress; only reachable in-cluster (Prometheus scraping the
+            # pod directly, or the probes below hitting localhost).
+            - name: metrics
+              containerPort: 8081
           envFrom:
             - configMapRef:
                 name: oms-config
@@ -63,24 +78,26 @@ spec:
           # var every pod gets) because management.health.readiness-state
           # and .liveness-state are both already on in application.properties
           # — no extra app config needed here. Both paths are permitAll in
-          # SecurityConfig (/actuator/health/**).
+          # SecurityConfig (/actuator/health/**). Port is "metrics" (8081),
+          # not "http" (8080) — management.server.port moved health there
+          # along with everything else actuator.
           startupProbe:
             httpGet:
               path: /actuator/health/readiness
-              port: http
+              port: metrics
             periodSeconds: 5
             failureThreshold: 18   # ~90s ceiling for a cold start (DB migrations, JVM warmup)
           readinessProbe:
             httpGet:
               path: /actuator/health/readiness
-              port: http
+              port: metrics
             periodSeconds: 10
             timeoutSeconds: 5
             failureThreshold: 3
           livenessProbe:
             httpGet:
               path: /actuator/health/liveness
-              port: http
+              port: metrics
             periodSeconds: 15
             timeoutSeconds: 5
             failureThreshold: 3

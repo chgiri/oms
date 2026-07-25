@@ -53,12 +53,14 @@ LABEL org.opencontainers.image.version=$APP_VERSION
 ENV APP_GIT_SHA=$GIT_SHA
 ENV APP_VERSION=$APP_VERSION
 
-EXPOSE 8080
+EXPOSE 8080 8081
 
 # Hits the one endpoint SecurityConfig leaves unauthenticated for exactly
 # this purpose (see /actuator/health permitAll + management.endpoint.health
-# config in application.properties).
+# config in application.properties). Port 8081, not 8080: management.server.port
+# in application.properties moves *all* actuator endpoints — health included,
+# not just the new /actuator/prometheus — off the main app port.
 HEALTHCHECK --interval=15s --timeout=5s --start-period=45s --retries=5 \
-    CMD curl --fail http://localhost:8080/actuator/health || exit 1
+    CMD curl --fail http://localhost:8081/actuator/health || exit 1
 
 ENTRYPOINT ["java", "-jar", "app.jar"]
