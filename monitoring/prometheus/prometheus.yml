@@ -1,0 +1,32 @@
+# Local-dev Prometheus config for the docker-compose stack. This is the
+# plain-Prometheus analog of k8s/09-podmonitor.yaml — same target (each
+# instance's /actuator/prometheus on the metrics port), different discovery
+# mechanism because there's no Prometheus Operator here.
+#
+# `app` uses a static target: it has a fixed container_name and a single
+# instance in compose. `app-worker` deliberately does NOT have a
+# container_name (see docker-compose.yml) specifically so it can be scaled
+# with `docker compose up -d --scale app-worker=3` — a static target would
+# only ever see one of those replicas. dns_sd_configs re-resolves the
+# service name on every refresh_interval and expands it to one target per
+# container Docker's embedded DNS returns, so scaling the worker is picked
+# up automatically without touching this file.
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: oms-web
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["app:8081"]
+        labels:
+          compose_service: app
+
+  - job_name: oms-worker
+    metrics_path: /actuator/prometheus
+    dns_sd_configs:
+      - names: ["app-worker"]
+        type: A
+        port: 8081
+        refresh_interval: 15s

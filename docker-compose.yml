@@ -222,6 +222,48 @@ services:
     networks:
       - oms-network
 
+  # Scrapes app + app-worker's /actuator/prometheus (see
+  # monitoring/prometheus/prometheus.yml) — the local-dev, plain-Prometheus
+  # equivalent of k8s/09-podmonitor.yaml. Not on `depends_on` for `app`/
+  # `app-worker`: scraping is pull-based and fine with targets not being up
+  # yet, so there's no startup-ordering requirement in either direction.
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    container_name: oms-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - oms-prometheus-data:/prometheus
+    networks:
+      - oms-network
+
+  # Datasource + the OMS Overview dashboard are auto-provisioned from
+  # monitoring/grafana/provisioning/ on startup — nothing to click through
+  # manually. Default login is admin / ${GRAFANA_ADMIN_PASSWORD:-admin}; set
+  # a real value in .env before exposing this beyond localhost.
+  grafana:
+    image: grafana/grafana:11.3.1
+    container_name: oms-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      # First-run-only defaults are fine for local dev; this just silences
+      # the "change your password" prompt nagging on every login.
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - oms-grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - oms-network
+
 networks:
   oms-network:
     driver: bridge
@@ -229,3 +271,5 @@ networks:
 volumes:
   oms-redis-data:
   oms-postgres-data:
+  oms-prometheus-data:
+  oms-grafana-data:

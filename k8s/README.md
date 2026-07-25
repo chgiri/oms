@@ -24,6 +24,7 @@ outbox queue depth instead.
 | `07-scaledobject-worker.yaml` | KEDA: scales worker on Kafka consumer lag + outbox depth |
 | `08-pdb.yaml` | PodDisruptionBudgets for both roles |
 | `09-podmonitor.yaml` | Optional — Prometheus Operator scrape config for both roles (not in `kustomization.yaml` by default; see below) |
+| `10-grafana-dashboard.yaml` | Optional — ConfigMap that auto-imports the OMS Overview dashboard into Grafana via kube-prometheus-stack's sidecar (not in `kustomization.yaml` by default; see below) |
 | `kustomization.yaml` | Ties it all together; `kustomize edit set image` to point at your build |
 
 ## Prerequisites
@@ -104,6 +105,44 @@ Every metric carries a `role` tag (`web` or `worker`, mirroring
 `management.metrics.tags.*` in `application.properties` — so a single
 Grafana dashboard or Prometheus query can split web from worker even though
 both scrape targets come from the same image.
+
+### Grafana
+
+No Grafana manifests are hand-rolled here on purpose — once you're already
+depending on Prometheus Operator CRDs for `09-podmonitor.yaml`, the
+standard way to get Prometheus *and* Grafana together is the
+[kube-prometheus-stack](https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack)
+Helm chart, rather than assembling your own Grafana `Deployment`/`Service`/
+`PersistentVolumeClaim`/RBAC by hand:
+
+```bash
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update
+helm install monitoring prometheus-community/kube-prometheus-stack
+```
+
+That gives you Prometheus, Alertmanager, and Grafana with sane defaults,
+including a dashboard sidecar that watches for ConfigMaps labeled
+`grafana_dashboard: "1"` and loads them into Grafana automatically — which
+is what `10-grafana-dashboard.yaml` is. Once the chart and
+`09-podmonitor.yaml` are both applied:
+
+```bash
+kubectl apply -f 09-podmonitor.yaml
+kubectl apply -f 10-grafana-dashboard.yaml
+```
+
+the **OMS Overview** dashboard (web/worker split, HTTP latency, Kafka
+consumer lag, outbox depth, JVM, DB pool) shows up in Grafana with no
+further clicking. It's the same dashboard JSON
+`monitoring/grafana/dashboards/oms-overview.json` provisions into the local
+docker-compose Grafana — edit that file and re-run
+`k8s/10-grafana-dashboard.yaml`'s generation step (see the comment at the
+top of that file) rather than editing the two independently.
+
+If your cluster's Grafana sidecar only watches its own release namespace
+(`sidecar.dashboards.searchNamespace`), apply `10-grafana-dashboard.yaml`
+into that namespace, or set `searchNamespace: ALL` in your Helm values.
 
 ## What this doesn't change
 

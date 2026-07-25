@@ -1,0 +1,16 @@
+# Auto-provisions the Prometheus datasource on Grafana startup — no manual
+# "Add data source" click-through needed. `uid: prometheus` is fixed
+# deliberately: dashboards/oms-overview.json references this exact uid, so
+# don't rename it without updating every panel's `datasource` block there.
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    uid: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: true
+    jsonData:
+      timeInterval: 15s
