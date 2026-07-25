@@ -12,6 +12,8 @@ public interface OutboxEventRepository extends JpaRepository<OutboxEvent, UUID> 
 
     List<OutboxEvent> findByStatusOrderByCreatedAtAsc(OutboxEventStatus status, Pageable pageable);
 
+    boolean existsByStatus(OutboxEventStatus status);
+
     /**
      * Claims up to {@code limit} PENDING rows for this instance to publish,
      * oldest first. This is what makes running more than one instance of this

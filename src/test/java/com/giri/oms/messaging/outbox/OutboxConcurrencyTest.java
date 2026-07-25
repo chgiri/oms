@@ -90,10 +90,16 @@ class OutboxConcurrencyTest extends AbstractIntegrationTest {
             outboxEventRepository.save(event);
         }
 
-        // batchSize (app.kafka.outbox.batch-size, default 100) comfortably
-        // covers all EVENT_COUNT rows in a single poll, so — unprotected —
-        // both threads below would each fetch the full pending set and each
-        // publish it, i.e. every event sent to Kafka twice.
+        // batchSize (app.kafka.outbox.batch-size) may be smaller than
+        // EVENT_COUNT, so a single call per thread wouldn't necessarily drain
+        // the whole queue between them — that would leave events genuinely
+        // PENDING (correctly so) rather than exercising the concurrency
+        // guarantee this test is actually after. Each thread instead behaves
+        // like a real long-running instance: keep polling until nothing
+        // PENDING is left. Whatever the batch size, both threads still race
+        // over the same pending rows on every round, which is what
+        // FOR UPDATE SKIP LOCKED has to get right regardless of how many
+        // rounds it takes.
         ExecutorService executor = Executors.newFixedThreadPool(2);
         CountDownLatch startLatch = new CountDownLatch(1);
         AtomicInteger failures = new AtomicInteger();
@@ -101,7 +107,11 @@ class OutboxConcurrencyTest extends AbstractIntegrationTest {
         Runnable poll = () -> {
             try {
                 startLatch.await();
-                outboxPublisher.publishPendingEvents();
+                long deadline = System.currentTimeMillis() + 20_000;
+                while (System.currentTimeMillis() < deadline
+                        && outboxEventRepository.existsByStatus(OutboxEventStatus.PENDING)) {
+                    outboxPublisher.publishPendingEvents();
+                }
             } catch (Exception ex) {
                 failures.incrementAndGet();
             }
