@@ -7,6 +7,7 @@ import com.giri.oms.shipment.service.ShipmentAutoCreationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
@@ -17,9 +18,14 @@ import tools.jackson.databind.json.JsonMapper;
  * Runs in its own consumer group on the shared order-events topic (see the
  * topic-strategy note on OrderSagaEventConsumer) — a third independent
  * subscriber alongside the inventory and order-saga groups.
+ *
+ * <p>Guarded by app.process.role (see application.properties) — only active
+ * on a "worker" process, or on any process at all if the property is unset.
+ * Set app.process.role=web on an instance to keep it API-only.
  */
 @Slf4j
 @Component
+@ConditionalOnProperty(name = "app.process.role", havingValue = "worker", matchIfMissing = true)
 @RequiredArgsConstructor
 public class OrderConfirmedShipmentConsumer {
 

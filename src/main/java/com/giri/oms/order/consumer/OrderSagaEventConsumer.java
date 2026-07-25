@@ -12,6 +12,7 @@ import com.giri.oms.order.service.OrderService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
@@ -46,9 +47,14 @@ import tools.jackson.databind.json.JsonMapper;
  * finds the order has already left the state the transition was conditioned
  * on, IllegalOrderStateException is caught below, and the message is logged
  * and dropped rather than treated as a failure.
+ *
+ * <p>Guarded by app.process.role (see application.properties) — only active
+ * on a "worker" process, or on any process at all if the property is unset.
+ * Set app.process.role=web on an instance to keep it API-only.
  */
 @Slf4j
 @Component
+@ConditionalOnProperty(name = "app.process.role", havingValue = "worker", matchIfMissing = true)
 @RequiredArgsConstructor
 public class OrderSagaEventConsumer {
 

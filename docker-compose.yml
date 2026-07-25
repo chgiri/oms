@@ -126,6 +126,75 @@ services:
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
       DEFAULT_ADMIN_USERNAME: ${DEFAULT_ADMIN_USERNAME:-admin}
       DEFAULT_ADMIN_PASSWORD: ${DEFAULT_ADMIN_PASSWORD}
+      # See application.properties' "Process role" note. web-only: no Kafka
+      # consumers, no outbox poller — pure API server, safe to scale on
+      # request load alone. Its own OutboxService.enqueue calls still write
+      # PENDING rows; app-worker below is what flushes them.
+      APP_PROCESS_ROLE: web
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
+    networks:
+      - oms-network
+
+  # Same image, same code as `app` — only APP_PROCESS_ROLE differs. Runs the
+  # 3 order-events Kafka consumers (inventory reservation, order-saga status
+  # transitions, shipment auto-creation) and the outbox poller, nothing else.
+  # This is what makes independently scaling worker replicas
+  # (`docker compose up -d --scale app-worker=3`) an actual scaling decision
+  # instead of scaling one monolithic process that also handles HTTP traffic.
+  # See docs/process-roles.md for the full walkthrough, including why `app`
+  # itself can't be scaled the same way in this particular compose file
+  # (static container_name + host port 8080 on that service) without further
+  # changes.
+  #
+  # No container_name here (unlike `app`) — a fixed name is exactly what
+  # `--scale` can't work with, since Docker won't let two containers share
+  # one name.
+  #
+  # Left with Tomcat still running (no spring.main.web-application-type=none)
+  # so the same curl-based actuator healthcheck as `app` still works
+  # unmodified — the pure resource-saving version of this is a further
+  # opt-in step: set SPRING_MAIN_WEB_APPLICATION_TYPE=none here and swap the
+  # healthcheck below for something that doesn't need an HTTP listener
+  # (e.g. a process check), since /actuator/health won't be servable once
+  # the web server never starts.
+  app-worker:
+    image: oms:${APP_VERSION:-local}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        GIT_SHA: ${GIT_SHA:-unknown}
+        APP_VERSION: ${APP_VERSION:-local}
+    restart: unless-stopped
+    stop_grace_period: 45s
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-oms}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
+      DEFAULT_ADMIN_USERNAME: ${DEFAULT_ADMIN_USERNAME:-admin}
+      DEFAULT_ADMIN_PASSWORD: ${DEFAULT_ADMIN_PASSWORD}
+      APP_PROCESS_ROLE: worker
     depends_on:
       postgres:
         condition: service_healthy

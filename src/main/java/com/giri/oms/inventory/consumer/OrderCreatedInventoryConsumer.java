@@ -12,6 +12,7 @@ import com.giri.oms.messaging.outbox.OutboxService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
@@ -44,9 +45,14 @@ import java.util.UUID;
  *   still failing after retries, routes it to the dead-letter topic instead of
  *   committing an offset for a message that was never actually processed
  *   (see KafkaConfig.kafkaErrorHandler).
+ *
+ * <p>Guarded by app.process.role (see application.properties) — only active
+ * on a "worker" process, or on any process at all if the property is unset.
+ * Set app.process.role=web on an instance to keep it API-only.
  */
 @Slf4j
 @Component
+@ConditionalOnProperty(name = "app.process.role", havingValue = "worker", matchIfMissing = true)
 @RequiredArgsConstructor
 public class OrderCreatedInventoryConsumer {
 

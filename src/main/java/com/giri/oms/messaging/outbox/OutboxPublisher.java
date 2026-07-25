@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.header.internals.RecordHeader;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -18,8 +19,16 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+/**
+ * Guarded by app.process.role (see application.properties) — only active on
+ * a "worker" process, or on any process at all if the property is unset. Set
+ * app.process.role=web on an instance to keep it API-only; that instance's
+ * OutboxService.enqueue calls still write PENDING rows, some other "worker"
+ * instance just has to be running somewhere to actually flush them.
+ */
 @Slf4j
 @Component
+@ConditionalOnProperty(name = "app.process.role", havingValue = "worker", matchIfMissing = true)
 @RequiredArgsConstructor
 public class OutboxPublisher {
 
