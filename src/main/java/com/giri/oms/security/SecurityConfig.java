@@ -57,7 +57,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(WebConfig.API_PREFIX + "/auth/login").permitAll()
                         .requestMatchers("/.well-known/jwks.json").permitAll() // public key must be fetchable without a token
-                        .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+                        .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info").permitAll()
                         .requestMatchers(PUBLIC_DOC_PATHS).permitAll()
                         .anyRequest().authenticated()
                 )

@@ -34,6 +34,25 @@ USER oms
 
 COPY --from=build /build/target/*.jar app.jar
 
+# Ties this specific image back to the exact commit and version it was built
+# from — without this, every image looks identical from the outside and
+# "which commit is running in prod?" has no answer short of guessing from
+# deploy timestamps. Both default to "unknown" so a plain `docker build`
+# (no --build-arg) still works for local dev; a real build/CI pipeline passes
+# the real values in.
+ARG GIT_SHA=unknown
+ARG APP_VERSION=unknown
+
+# OCI-standard labels — inspectable from outside the container without it
+# even running: `docker inspect --format='{{index .Config.Labels "org.opencontainers.image.revision"}}' <image>`
+LABEL org.opencontainers.image.revision=$GIT_SHA
+LABEL org.opencontainers.image.version=$APP_VERSION
+
+# Also surfaced from inside the running app, so /actuator/info can report
+# them (see application.properties info.app.* and SecurityConfig permitAll).
+ENV APP_GIT_SHA=$GIT_SHA
+ENV APP_VERSION=$APP_VERSION
+
 EXPOSE 8080
 
 # Hits the one endpoint SecurityConfig leaves unauthenticated for exactly

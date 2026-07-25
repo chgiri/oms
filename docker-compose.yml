@@ -88,9 +88,17 @@ services:
       - oms-network
 
   app:
+    image: oms:${APP_VERSION:-local}
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        # Both default so a bare `docker compose up --build` still works with
+        # no env vars set (matches the Dockerfile ARG defaults). A real build
+        # sets these — see the README snippet for the one-liner that does it
+        # from the actual git commit.
+        GIT_SHA: ${GIT_SHA:-unknown}
+        APP_VERSION: ${APP_VERSION:-local}
     container_name: oms-app
     restart: unless-stopped
     ports:
