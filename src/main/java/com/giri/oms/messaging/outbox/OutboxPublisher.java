@@ -6,10 +6,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.header.internals.RecordHeader;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
@@ -30,12 +30,33 @@ public class OutboxPublisher {
     private final KafkaAppProperties kafkaAppProperties;
     private final Clock clock;
 
+    /**
+     * {@code @Transactional} here isn't incidental — it's what makes
+     * {@link OutboxEventRepository#findAndLockPendingBatch} actually do
+     * anything. That query's {@code FOR UPDATE SKIP LOCKED} only protects
+     * these rows from a concurrent poller for as long as this transaction
+     * stays open, so the fetch, every Kafka send, and every status update
+     * below all have to happen inside the one transaction this method opens
+     * — commit only happens once the whole batch is done, which is the
+     * point at which the row locks are actually released and another
+     * instance's poll can see these rows again (now PUBLISHED/FAILED, not
+     * PENDING, so it won't try to touch them again anyway).
+     *
+     * <p>Trade-off worth knowing about: this means a slow batch (e.g. Kafka
+     * broker latency pushing several sends close to SEND_TIMEOUT_SECONDS)
+     * holds those row locks, and this DB transaction, open for the whole
+     * batch's duration — other instances aren't blocked by it (they'll just
+     * SKIP LOCKED past these rows and claim whatever's left), but it does
+     * mean a slow batch delays when the connection and locks free up. If
+     * outbox throughput ever needs tuning, batch-size and
+     * SEND_TIMEOUT_SECONDS are the two knobs that trade off "lock/connection
+     * held per poll" against "events published per poll".
+     */
     @Scheduled(fixedDelayString = "${app.kafka.outbox.poll-interval-ms}")
+    @Transactional
     public void publishPendingEvents() {
         int batchSize = kafkaAppProperties.outbox().batchSize();
-        List<OutboxEvent> pendingEvents = outboxEventRepository.findByStatusOrderByCreatedAtAsc(
-                OutboxEventStatus.PENDING,
-                PageRequest.of(0, batchSize));
+        List<OutboxEvent> pendingEvents = outboxEventRepository.findAndLockPendingBatch(batchSize);
 
         if (pendingEvents.isEmpty()) {
             return;
