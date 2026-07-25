@@ -41,6 +41,9 @@ spec:
         prometheus.io/path: "/actuator/prometheus"
     spec:
       terminationGracePeriodSeconds: 45
+      # Same ServiceAccount as the web Deployment — see that file's comment
+      # and vault/README.md.
+      serviceAccountName: oms-app
       containers:
         - name: oms
           image: your-registry.example.com/oms:REPLACE_ME

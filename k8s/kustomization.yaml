@@ -7,6 +7,7 @@ resources:
   # fill in real values, and either apply the copy separately or list your
   # copy here instead. Never let real secrets ride through this directory
   # as-is.
+  - 12-serviceaccount.yaml
   - 02-deployment-web.yaml
   - 03-service-web.yaml
   - 04-ingress.yaml

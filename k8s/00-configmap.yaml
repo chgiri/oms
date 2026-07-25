@@ -31,6 +31,15 @@ data:
   JWT_EXPIRATION_MS: "86400000"
   DEFAULT_ADMIN_USERNAME: "admin"
 
+  # HashiCorp Vault — connection details only, never a credential (auth is
+  # via this pod's own ServiceAccount; see 12-serviceaccount.yaml and
+  # vault/README.md). Replace with your real Vault address; the role name
+  # must match whichever profile is active (VAULT_KUBERNETES_ROLE defaults
+  # to oms-app-prod/oms-app-uat per-profile if left unset — override here to
+  # be explicit either way).
+  VAULT_ADDR: "https://vault.example.com:8200"
+  VAULT_KUBERNETES_ROLE: "oms-app-prod"
+
   # No localhost fallback in prod — must be the real frontend origin(s),
   # comma-separated. See application-prod.properties.
   CORS_ALLOWED_ORIGINS: "https://app.example.com"

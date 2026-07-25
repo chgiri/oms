@@ -19,10 +19,23 @@
 		<jjwt.version>0.13.0</jjwt.version>
 		<redisson.version>4.6.1</redisson.version>
 		<bucket4j.version>8.13.1</bucket4j.version>
+		<!-- NOTE: pick the Spring Cloud release train that's actually listed
+		     against Spring Boot 4.1.x in Spring's compatibility matrix
+		     (https://spring.io/projects/spring-cloud#overview) before building —
+		     this value is a placeholder and has not been verified against a real
+		     Boot 4.1.0 release. -->
+		<spring-cloud.version>2025.1.2</spring-cloud.version>
 	</properties>
 
 	<dependencyManagement>
 		<dependencies>
+			<dependency>
+				<groupId>org.springframework.cloud</groupId>
+				<artifactId>spring-cloud-dependencies</artifactId>
+				<version>${spring-cloud.version}</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
 			<dependency>
 				<groupId>org.testcontainers</groupId>
 				<artifactId>testcontainers-bom</artifactId>
@@ -140,6 +153,15 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-flyway</artifactId>
+		</dependency>
+
+		<!-- HashiCorp Vault: resolves DB_PASSWORD, REDIS_PASSWORD, JWT_PRIVATE_KEY,
+		     JWT_PUBLIC_KEY and DEFAULT_ADMIN_PASSWORD from Vault's KV v2 secrets
+		     engine instead of plain env vars, when spring.cloud.vault.enabled=true
+		     (see application-{dev,uat,prod}.properties and vault/README.md). -->
+		<dependency>
+			<groupId>org.springframework.cloud</groupId>
+			<artifactId>spring-cloud-starter-vault-config</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>org.flywaydb</groupId>

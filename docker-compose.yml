@@ -87,6 +87,57 @@ services:
     networks:
       - oms-network
 
+  # Vault in built-in dev mode: in-memory storage, auto-unsealed, single root
+  # token — fine for local parity testing, never use dev mode for uat/prod
+  # (see vault/README.md, which covers the real KV + Kubernetes-auth setup
+  # those use instead). Root token defaults to a checked-in throwaway value;
+  # override VAULT_DEV_ROOT_TOKEN in .env if you want a different one locally.
+  vault:
+    image: hashicorp/vault:1.19
+    container_name: oms-vault
+    restart: unless-stopped
+    cap_add:
+      - IPC_LOCK
+    ports:
+      - "8200:8200"
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: ${VAULT_DEV_ROOT_TOKEN:-oms-dev-root-token}
+      VAULT_DEV_LISTEN_ADDRESS: 0.0.0.0:8200
+    healthcheck:
+      test: ["CMD", "vault", "status"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+    networks:
+      - oms-network
+
+  # One-shot: writes DB_PASSWORD/REDIS_PASSWORD/JWT_PRIVATE_KEY/JWT_PUBLIC_KEY/
+  # DEFAULT_ADMIN_PASSWORD into secret/oms/dev (see vault/dev/seed.sh) from the
+  # same .env values the rest of this compose file already uses, then exits.
+  # app/app-worker's own healthcheck-gated startup means they won't come up
+  # meaningfully before this has run, but `service_completed_successfully`
+  # below makes that an explicit dependency rather than a race.
+  vault-init:
+    image: hashicorp/vault:1.19
+    container_name: oms-vault-init
+    depends_on:
+      vault:
+        condition: service_healthy
+    environment:
+      VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: ${VAULT_DEV_ROOT_TOKEN:-oms-dev-root-token}
+      DB_PASSWORD: ${DB_PASSWORD}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY:-}
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:-}
+      DEFAULT_ADMIN_PASSWORD: ${DEFAULT_ADMIN_PASSWORD}
+    entrypoint: ["/bin/sh", "/vault-init/seed.sh"]
+    volumes:
+      - ./vault/dev/seed.sh:/vault-init/seed.sh:ro
+    networks:
+      - oms-network
+
   app:
     image: oms:${APP_VERSION:-local}
     build:
@@ -123,17 +174,21 @@ services:
       DB_PORT: 5432
       DB_NAME: ${DB_NAME:-oms}
       DB_USERNAME: ${DB_USERNAME}
-      DB_PASSWORD: ${DB_PASSWORD}
       # Talks to Kafka's INTERNAL listener (see kafka service above) — do not
       # point this at localhost:9092 or 29092 from inside the app container.
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
-      JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
       DEFAULT_ADMIN_USERNAME: ${DEFAULT_ADMIN_USERNAME:-admin}
-      DEFAULT_ADMIN_PASSWORD: ${DEFAULT_ADMIN_PASSWORD}
+      # DB_PASSWORD, REDIS_PASSWORD, JWT_PRIVATE_KEY, JWT_PUBLIC_KEY and
+      # DEFAULT_ADMIN_PASSWORD are no longer passed here directly — Vault
+      # supplies all five (see vault/dev/seed.sh and
+      # application-dev.properties). VAULT_TOKEN below is this dev server's
+      # own throwaway root token, not a real secret.
+      VAULT_ENABLED: "true"
+      VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: ${VAULT_DEV_ROOT_TOKEN:-oms-dev-root-token}
       # See application.properties' "Process role" note. web-only: no Kafka
       # consumers, no outbox poller — pure API server, safe to scale on
       # request load alone. Its own OutboxService.enqueue calls still write
@@ -146,6 +201,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      vault-init:
+        condition: service_completed_successfully
     healthcheck:
       # Port 8081, not 8080 — see the management.server.port comment above.
       test: ["CMD", "curl", "--fail", "http://localhost:8081/actuator/health"]
@@ -194,15 +251,15 @@ services:
       DB_PORT: 5432
       DB_NAME: ${DB_NAME:-oms}
       DB_USERNAME: ${DB_USERNAME}
-      DB_PASSWORD: ${DB_PASSWORD}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
-      JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
       DEFAULT_ADMIN_USERNAME: ${DEFAULT_ADMIN_USERNAME:-admin}
-      DEFAULT_ADMIN_PASSWORD: ${DEFAULT_ADMIN_PASSWORD}
+      # Same Vault handoff as `app` above — see that service's comment.
+      VAULT_ENABLED: "true"
+      VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: ${VAULT_DEV_ROOT_TOKEN:-oms-dev-root-token}
       APP_PROCESS_ROLE: worker
     depends_on:
       postgres:
@@ -211,6 +268,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      vault-init:
+        condition: service_completed_successfully
     healthcheck:
       # Port 8081, not 8080 — see the management.server.port comment on
       # `app`'s ports: block above; same reasoning applies here.

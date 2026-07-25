@@ -43,6 +43,10 @@ spec:
       # task.scheduling.shutdown.await-termination-period (both 30s). K8s
       # sends SIGKILL once this elapses after SIGTERM, same as Docker.
       terminationGracePeriodSeconds: 45
+      # Matches bound_service_account_names in the Vault Kubernetes-auth role
+      # (see vault/README.md) — this is what lets the pod authenticate to
+      # Vault with no token/credential of its own to manage.
+      serviceAccountName: oms-app
       containers:
         - name: oms
           # Replace with your real registry/tag, or wire this up via
