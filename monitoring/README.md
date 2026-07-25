@@ -51,6 +51,43 @@ panel comes up empty, check Prometheus's own UI
 (http://localhost:9090/graph) for the real metric/label names and adjust
 the query in `grafana/dashboards/oms-overview.json`.
 
+## Running the app from IntelliJ instead of Docker
+
+Grafana and Prometheus don't need the app to be containerized — only
+reachable. To point this stack at an app you're running from IntelliJ:
+
+1. **Don't start the `app`/`app-worker` containers** (they'd fight your
+   IntelliJ run config for port 8080/8081):
+   ```bash
+   docker compose up -d postgres kafka redis prometheus grafana
+   ```
+2. **In your IntelliJ run config**, set env vars so the app reaches the
+   same infra containers via their published host ports (values below
+   match `docker-compose.yml`'s defaults — adjust for your `.env`):
+   ```
+   DB_HOST=localhost
+   DB_PORT=5432
+   KAFKA_BOOTSTRAP_SERVERS=localhost:29092
+   REDIS_HOST=localhost
+   REDIS_PORT=6379
+   ```
+   (Plus whatever `.env` requires — `DB_USERNAME`/`DB_PASSWORD`, `JWT_SECRET`,
+   etc.; same required vars as running it in Docker.)
+3. **Run it.** Prometheus already has a job (`oms-host-intellij` in
+   `prometheus/prometheus.yml`) targeting `host.docker.internal:8081` — the
+   same actuator port, just reached from outside Docker. It shows up in
+   Grafana under the `compose_service="host-intellij"` label instead of
+   `app`/`app-worker`.
+4. **Sanity check**: http://localhost:9090/targets — the `oms-host-intellij`
+   job should flip from red/down to green/up within ~15s of the app
+   starting. If it stays down, confirm the app actually bound
+   `management.server.port` (8081) and that nothing else on your machine
+   already owns that port.
+
+`host.docker.internal` resolves out of the box on Docker Desktop
+(Mac/Windows); on Linux, `extra_hosts: host-gateway` on the `prometheus`
+service in `docker-compose.yml` is what makes it resolve there too.
+
 ## Editing the dashboard
 
 Easiest path: edit it in the Grafana UI, then *Dashboard settings → JSON

@@ -236,6 +236,14 @@ services:
     volumes:
       - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - oms-prometheus-data:/prometheus
+    # Docker Desktop (Mac/Windows) resolves host.docker.internal for free;
+    # this line is what makes it also resolve on Linux, where it otherwise
+    # doesn't exist. Needed so Prometheus (itself in a container) can reach
+    # an app you're running directly from IntelliJ on the host, not just
+    # the containerized `app`/`app-worker` — see the oms-host-intellij job
+    # in monitoring/prometheus/prometheus.yml.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - oms-network
 

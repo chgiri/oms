@@ -30,3 +30,18 @@ scrape_configs:
         type: A
         port: 8081
         refresh_interval: 15s
+
+  # For running the app straight from IntelliJ instead of the `app`/
+  # `app-worker` containers — point your run config at postgres/kafka/redis
+  # via their published host ports (localhost:5432, localhost:29092,
+  # localhost:6379; see .env), and this job picks it up on 8081 the same
+  # way oms-web does for the containerized version. Harmless to leave
+  # enabled even when you're not using it: if nothing's listening on
+  # host.docker.internal:8081, this target just shows as "down" in
+  # Prometheus (Status → Targets) instead of erroring.
+  - job_name: oms-host-intellij
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["host.docker.internal:8081"]
+        labels:
+          compose_service: host-intellij
