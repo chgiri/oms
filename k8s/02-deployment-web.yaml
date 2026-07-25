@@ -1,0 +1,102 @@
+# Same image as the worker Deployment — only APP_PROCESS_ROLE differs, same
+# split docker-compose.yml demonstrates locally. This is the piece that
+# turns that local proof into an actual production scaling artifact: web
+# and worker now scale independently for real, via separate Deployments
+# instead of a `--scale` flag on one compose service.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oms-web
+  labels:
+    app.kubernetes.io/name: oms
+    app.kubernetes.io/component: web
+spec:
+  # Baseline replica count — 05-hpa-web.yaml takes over from here and scales
+  # within [minReplicas, maxReplicas]. Keep this in sync with the HPA's
+  # minReplicas so a `kubectl apply` without the HPA present still leaves
+  # you at a sane starting point.
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: oms
+      app.kubernetes.io/component: web
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: oms
+        app.kubernetes.io/component: web
+    spec:
+      # Matches stop_grace_period: 45s in docker-compose.yml — must stay
+      # comfortably above spring.lifecycle.timeout-per-shutdown-phase /
+      # task.scheduling.shutdown.await-termination-period (both 30s). K8s
+      # sends SIGKILL once this elapses after SIGTERM, same as Docker.
+      terminationGracePeriodSeconds: 45
+      containers:
+        - name: oms
+          # Replace with your real registry/tag, or wire this up via
+          # `kustomize edit set image` / a CI pipeline step — same image
+          # that builds both `app` and `app-worker` in docker-compose.yml.
+          image: your-registry.example.com/oms:REPLACE_ME
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: oms-config
+            - secretRef:
+                name: oms-secrets
+          env:
+            # The one thing that makes this the web role instead of worker.
+            # See docs/process-roles.md — this alone stops the 3
+            # @KafkaListener consumers and the OutboxPublisher poller from
+            # starting; Tomcat/HTTP stays up.
+            - name: APP_PROCESS_ROLE
+              value: "web"
+          # Spring Boot auto-enables the readiness/liveness health groups
+          # under Kubernetes (detected via the KUBERNETES_SERVICE_HOST env
+          # var every pod gets) because management.health.readiness-state
+          # and .liveness-state are both already on in application.properties
+          # — no extra app config needed here. Both paths are permitAll in
+          # SecurityConfig (/actuator/health/**).
+          startupProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            periodSeconds: 5
+            failureThreshold: 18   # ~90s ceiling for a cold start (DB migrations, JVM warmup)
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            # Starting point only — tune from real request-rate/JVM-heap
+            # numbers once this is running. The web role's load is HTTP
+            # traffic, so CPU is the meaningful dimension for the HPA.
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 768Mi
+          securityContext:
+            # Dockerfile already `USER oms` (non-root) — this just asserts
+            # it and lets the kubelet refuse to schedule if that ever
+            # regresses, rather than silently running as root.
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false

@@ -1,0 +1,36 @@
+# Non-secret config shared by both the web and worker Deployments.
+# Mirrors the `environment:` blocks that are identical between `app` and
+# `app-worker` in docker-compose.yml. The one variable that must differ
+# between the two roles — APP_PROCESS_ROLE — is deliberately NOT here; it's
+# set directly on each Deployment (see 02-deployment-web.yaml /
+# 06-deployment-worker.yaml) so this ConfigMap can stay shared.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: oms-config
+  labels:
+    app.kubernetes.io/name: oms
+data:
+  # prod is the only profile that makes sense to run here — it's the one
+  # that refuses to start without real JWT keys / admin password / CORS
+  # origins (see application-prod.properties). dev/test/uat are for local
+  # and pre-prod work outside this manifest set.
+  SPRING_PROFILES_ACTIVE: "prod"
+
+  DB_HOST: "postgres"       # replace with your managed Postgres host/Service name
+  DB_PORT: "5432"
+  DB_NAME: "oms"
+
+  # Same INTERNAL-listener reasoning as docker-compose.yml's kafka service:
+  # this must resolve from inside the cluster, not localhost.
+  KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
+
+  REDIS_HOST: "redis"       # replace with your managed Redis host/Service name
+  REDIS_PORT: "6379"
+
+  JWT_EXPIRATION_MS: "86400000"
+  DEFAULT_ADMIN_USERNAME: "admin"
+
+  # No localhost fallback in prod — must be the real frontend origin(s),
+  # comma-separated. See application-prod.properties.
+  CORS_ALLOWED_ORIGINS: "https://app.example.com"

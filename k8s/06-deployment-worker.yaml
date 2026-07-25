@@ -1,0 +1,85 @@
+# Same image, same code as oms-web — only APP_PROCESS_ROLE differs, exactly
+# like docker-compose.yml's app/app-worker pair. Runs the 3 order-events
+# Kafka consumers (inventory reservation, order-saga status transitions,
+# shipment auto-creation) and the outbox poller. No Service is defined for
+# this Deployment anywhere in this directory, and none should be — nothing
+# should route HTTP traffic here even though Tomcat is still listening
+# (see docs/process-roles.md's "Optional: skip Tomcat entirely" section for
+# why it's left running rather than disabled).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oms-worker
+  labels:
+    app.kubernetes.io/name: oms
+    app.kubernetes.io/component: worker
+spec:
+  # KEDA (07-scaledobject-worker.yaml) owns scaling from here once it's
+  # installed and the ScaledObject is applied — it takes over this field
+  # the same way an HPA would. This is just the floor if KEDA is ever
+  # absent or paused: never zero, since some worker must always be up for
+  # OutboxService.enqueue() writes from oms-web to ever get flushed (see
+  # docs/process-roles.md: "the row sits there harmlessly until one is").
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: oms
+      app.kubernetes.io/component: worker
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: oms
+        app.kubernetes.io/component: worker
+    spec:
+      terminationGracePeriodSeconds: 45
+      containers:
+        - name: oms
+          image: your-registry.example.com/oms:REPLACE_ME
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: oms-config
+            - secretRef:
+                name: oms-secrets
+          env:
+            - name: APP_PROCESS_ROLE
+              value: "worker"
+          startupProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            periodSeconds: 5
+            failureThreshold: 18
+          # No readinessProbe gating traffic here on purpose — there's no
+          # Service/endpoint list for this Deployment to gate, and the
+          # consumers/poller aren't behind a readiness gate in the app
+          # itself. Liveness still protects against a wedged JVM.
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            # Worker load is consumer throughput / outbox batch processing,
+            # not request concurrency — start smaller than web and tune
+            # against real batch-size/poll-interval numbers
+            # (app.kafka.outbox.batch-size, app.kafka.outbox.poll-interval-ms).
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: 750m
+              memory: 768Mi
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false

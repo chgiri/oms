@@ -1,0 +1,19 @@
+# Only the web Deployment gets a Service. The worker deliberately has none
+# — nothing should ever route HTTP traffic to it, matching docker-compose.yml
+# where only `app` publishes a host port and `app-worker` doesn't.
+apiVersion: v1
+kind: Service
+metadata:
+  name: oms-web
+  labels:
+    app.kubernetes.io/name: oms
+    app.kubernetes.io/component: web
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: oms
+    app.kubernetes.io/component: web
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http

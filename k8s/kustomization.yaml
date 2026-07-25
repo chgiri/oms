@@ -1,0 +1,25 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - 00-configmap.yaml
+  # 01-secret.example.yaml is intentionally NOT listed here — copy it,
+  # fill in real values, and either apply the copy separately or list your
+  # copy here instead. Never let real secrets ride through this directory
+  # as-is.
+  - 02-deployment-web.yaml
+  - 03-service-web.yaml
+  - 04-ingress.yaml
+  - 05-hpa-web.yaml
+  - 06-deployment-worker.yaml
+  - 07-scaledobject-worker.yaml   # requires KEDA CRDs installed in-cluster
+  - 08-pdb.yaml
+
+# Convenience for CI: `kustomize edit set image oms=your-registry/oms:$GIT_SHA`
+# rewrites the image on both Deployments in one shot, same tag on both,
+# same guarantee docker-compose.yml gives locally (both services build
+# from the same Dockerfile/image, only APP_PROCESS_ROLE differs).
+images:
+  - name: your-registry.example.com/oms
+    newName: your-registry.example.com/oms
+    newTag: REPLACE_ME

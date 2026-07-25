@@ -1,0 +1,42 @@
+# CPU-based HPA — works out of the box with just metrics-server, which
+# most clusters already run. This is the "or CPU" half of "HPA on request
+# rate or CPU."
+#
+# Request-rate-based scaling (the other half) is a valid alternative but
+# needs more plumbing this repo doesn't have yet: the app doesn't currently
+# expose Prometheus metrics (no micrometer-registry-prometheus dependency,
+# and management.endpoints.web.exposure.include is just health,info — see
+# application.properties). To switch to request-rate:
+#   1. Add micrometer-registry-prometheus and include "prometheus" in
+#      management.endpoints.web.exposure.include.
+#   2. Either run Prometheus + prometheus-adapter and target a
+#      `http_server_requests_seconds_count` rate via a custom/external
+#      metric HPA, or use KEDA's Prometheus scaler / http-add-on instead of
+#      this HPA object.
+# CPU is the pragmatic default until that's in place.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: oms-web
+  labels:
+    app.kubernetes.io/name: oms
+    app.kubernetes.io/component: web
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: oms-web
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+    scaleUp:
+      stabilizationWindowSeconds: 0

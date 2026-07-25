@@ -1,0 +1,83 @@
+# Requires KEDA (https://keda.sh) installed in the cluster. This is what
+# actually closes the loop from docs/process-roles.md's "Real deployments"
+# note: the worker scales on consumer lag / outbox queue depth, not on CPU.
+#
+# Why KEDA over a metrics-server HPA here: consumer lag and outbox row
+# count aren't things the app exposes as Prometheus metrics today (see the
+# note in 05-hpa-web.yaml), but KEDA's kafka and postgresql scalers read
+# both directly — Kafka consumer-group lag from the broker itself, and
+# outbox depth via a plain SQL query — so no app-side metrics work is
+# needed to wire this up.
+#
+# Four triggers, OR'd together (KEDA takes the max replica count any
+# trigger asks for): one per Kafka consumer group used by the 3
+# @KafkaListener consumers, plus one for outbox_events. A burst on any
+# single one scales the worker up.
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: oms-outbox-pg-auth
+spec:
+  secretTargetRef:
+    - parameter: connection
+      name: oms-secrets
+      key: OUTBOX_PG_CONNECTION
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: oms-worker
+  labels:
+    app.kubernetes.io/name: oms
+    app.kubernetes.io/component: worker
+spec:
+  scaleTargetRef:
+    name: oms-worker
+  # Never scale to zero — see the replicas: 1 comment in
+  # 06-deployment-worker.yaml for why (someone has to flush the outbox).
+  minReplicaCount: 1
+  maxReplicaCount: 8
+  pollingInterval: 15    # how often KEDA checks lag/queue depth, seconds
+  cooldownPeriod: 300    # wait this long after the last high reading before scaling back down
+  triggers:
+    # app.kafka.consumer.group-id default — OrderCreatedInventoryConsumer
+    # (inventory reservation on OrderCreated).
+    - type: kafka
+      metadata:
+        bootstrapServers: kafka:9092
+        consumerGroup: oms-inventory-service
+        topic: oms.order.events
+        # Scale-up trigger: total lag across partitions, divided by this,
+        # rounds up to the replica count KEDA asks for. Tune against your
+        # actual throughput/partition count (KAFKA_NUM_PARTITIONS: 3 in
+        # docker-compose.yml) rather than trusting this starting value.
+        lagThreshold: "50"
+        offsetResetPolicy: earliest
+    # app.kafka.consumer.order-service-group-id —OrderSagaEventConsumer
+    # (order status transitions off inventory/payment outcomes).
+    - type: kafka
+      metadata:
+        bootstrapServers: kafka:9092
+        consumerGroup: oms-order-service
+        topic: oms.order.events
+        lagThreshold: "50"
+        offsetResetPolicy: earliest
+    # app.kafka.consumer.shipment-service-group-id — OrderConfirmedShipmentConsumer
+    # (auto-creates a shipment on OrderConfirmed).
+    - type: kafka
+      metadata:
+        bootstrapServers: kafka:9092
+        consumerGroup: oms-shipment-service
+        topic: oms.order.events
+        lagThreshold: "50"
+        offsetResetPolicy: earliest
+    # Outbox queue depth — mirrors OutboxPublisher's own query shape
+    # (status = 'PENDING', see idx_outbox_events_status_created_at in
+    # V11__create_outbox_events_table.sql). targetQueryValue is "PENDING
+    # rows per replica" — e.g. 200 pending rows asks KEDA for 2 replicas.
+    - type: postgresql
+      metadata:
+        query: "SELECT COUNT(*) FROM outbox_events WHERE status = 'PENDING'"
+        targetQueryValue: "100"
+      authenticationRef:
+        name: oms-outbox-pg-auth

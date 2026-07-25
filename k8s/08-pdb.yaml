@@ -1,0 +1,35 @@
+# Protects both roles from node drains/upgrades taking out all replicas at
+# once. Not something docker-compose has an equivalent of — pure k8s
+# production concern.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: oms-web
+  labels:
+    app.kubernetes.io/name: oms
+    app.kubernetes.io/component: web
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: oms
+      app.kubernetes.io/component: web
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: oms-worker
+  labels:
+    app.kubernetes.io/name: oms
+    app.kubernetes.io/component: worker
+spec:
+  # minAvailable: 0 would defeat the point when minReplicaCount is only 1
+  # (see 06-deployment-worker.yaml / 07-scaledobject-worker.yaml) — a drain
+  # could legally take the only worker out. maxUnavailable: 1 instead lets
+  # a drain proceed one pod at a time without ever going to zero workers
+  # when replicas >= 2, and still permits it (unavoidably) at replicas: 1.
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: oms
+      app.kubernetes.io/component: worker

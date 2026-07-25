@@ -1,0 +1,97 @@
+# OMS on Kubernetes: web/worker split
+
+This directory is the deployment-side half of `app.process.role` (see
+[`docs/process-roles.md`](../docs/process-roles.md)). `docker-compose.yml`'s
+`app` / `app-worker` split proves the mechanism works locally; it isn't a
+production scaling artifact by itself — nothing there lets web and worker
+scale independently under real load, on real signals, unattended. These
+manifests are that piece: two `Deployment`s built from the same image, one
+`web` behind a `Service`/`Ingress` with an `HorizontalPodAutoscaler`, one
+`worker` with no `Service` at all, scaled by KEDA on Kafka consumer lag and
+outbox queue depth instead.
+
+## Files
+
+| File | What it is |
+|---|---|
+| `00-configmap.yaml` | Non-secret env vars shared by both roles |
+| `01-secret.example.yaml` | **Template only** — copy it, fill in real values out of band, don't apply as-is |
+| `02-deployment-web.yaml` | `APP_PROCESS_ROLE=web` — HTTP API only, no consumers/poller |
+| `03-service-web.yaml` | ClusterIP in front of the web pods only |
+| `04-ingress.yaml` | External entry point, routes to `oms-web` only |
+| `05-hpa-web.yaml` | Scales web on CPU utilization |
+| `06-deployment-worker.yaml` | `APP_PROCESS_ROLE=worker` — consumers + outbox poller, no Service |
+| `07-scaledobject-worker.yaml` | KEDA: scales worker on Kafka consumer lag + outbox depth |
+| `08-pdb.yaml` | PodDisruptionBudgets for both roles |
+| `kustomization.yaml` | Ties it all together; `kustomize edit set image` to point at your build |
+
+## Prerequisites
+
+- **metrics-server** — required for `05-hpa-web.yaml` (CPU-based HPA). Most
+  managed clusters (EKS, GKE, AKS) already run this.
+- **[KEDA](https://keda.sh)** — required for `07-scaledobject-worker.yaml`.
+  Install it (Helm chart or operator) before applying that file, or the
+  `ScaledObject`/`TriggerAuthentication` CRDs won't exist.
+- **An ingress controller** — `04-ingress.yaml` assumes `ingress-nginx`;
+  swap `ingressClassName` and annotations for whatever you run.
+- **Postgres, Kafka, Redis reachable from the cluster** — `00-configmap.yaml`
+  points at `postgres` / `kafka` / `redis` as in-cluster Service names by
+  default. Point these at your real managed instances if you're not
+  running them in-cluster.
+
+## Applying
+
+```bash
+# 1. Copy and fill in real secrets — never apply 01-secret.example.yaml directly
+cp 01-secret.example.yaml 01-secret.yaml
+# edit 01-secret.yaml with real values, then either:
+kubectl apply -f 01-secret.yaml
+# ...or add it to kustomization.yaml's resources list once filled in.
+
+# 2. Point the image at your real build
+kustomize edit set image your-registry.example.com/oms=your-registry.example.com/oms:$GIT_SHA
+
+# 3. Apply everything else
+kubectl apply -k .
+```
+
+## What scales on what
+
+- **`oms-web`**: CPU utilization via a standard HPA (`05-hpa-web.yaml`),
+  `minReplicas: 2` / `maxReplicas: 10`. Request-rate-based scaling is a
+  valid alternative but needs Prometheus metrics this app doesn't expose
+  yet — see the note at the top of `05-hpa-web.yaml` for exactly what that
+  would take.
+- **`oms-worker`**: KEDA, `minReplicaCount: 1` / `maxReplicaCount: 8`, on
+  whichever of 4 triggers asks for the most replicas:
+  - Consumer lag on each of the 3 Kafka consumer groups
+    (`oms-inventory-service`, `oms-order-service`, `oms-shipment-service`)
+    on the `oms.order.events` topic.
+  - Row count in `outbox_events` where `status = 'PENDING'`, queried
+    directly against Postgres.
+
+  Never scales to zero — `docs/process-roles.md` notes that a `web`
+  instance's `OutboxService.enqueue()` calls just write `PENDING` rows and
+  rely on *some* worker being up to flush them; at zero workers those rows
+  would sit indefinitely instead of just until the next scale-up.
+
+## What this doesn't change
+
+No application code changes — this is purely the orchestrator-side piece.
+`app.process.role` and the guarded components (the 3 `@KafkaListener`
+consumers, `OutboxPublisher`) work exactly as documented in
+`docs/process-roles.md`; these manifests just point `APP_PROCESS_ROLE` at
+two independent `Deployment`s instead of one `docker-compose` service each,
+and replace `--scale` with real autoscaling signals.
+
+## Tuning before production use
+
+Everything marked with a comment in the manifests is a starting point, not
+a recommendation — in particular:
+
+- `resources.requests`/`limits` on both Deployments (placeholder values)
+- `lagThreshold` on the 3 Kafka triggers and `targetQueryValue` on the
+  Postgres trigger (placeholder values — tune against real throughput and
+  `KAFKA_NUM_PARTITIONS`)
+- HPA `averageUtilization: 70` and KEDA `pollingInterval`/`cooldownPeriod`
+- `maxReplicas`/`maxReplicaCount` ceilings on both
