@@ -369,6 +369,41 @@ services:
     networks:
       - oms-network
 
+  # GraphQL aggregation layer sitting behind `gateway`, in front of `app` —
+  # see oms-bff/README.md. `gateway` depends on this being healthy before it
+  # starts, since its own route to /graphql needs somewhere to send traffic.
+  #
+  # Same image/build pattern as `gateway` above — a sibling checkout at
+  # ../oms-bff, `image:` + `build:` together so local dev builds from source
+  # (`docker compose up --build`) while CI/CD just sets BFF_VERSION and pulls
+  # the already-built image.
+  bff:
+    image: oms-bff:${BFF_VERSION:-local}
+    build:
+      context: ../oms-bff
+      dockerfile: Dockerfile
+      args:
+        GIT_SHA: ${GIT_SHA:-unknown}
+        APP_VERSION: ${BFF_VERSION:-local}
+    container_name: oms-bff
+    restart: unless-stopped
+    ports:
+      - "8095:8095"
+      - "8096:8096"
+    environment:
+      OMS_MONOLITH_URI: http://app:8080
+    depends_on:
+      app:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8096/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - oms-network
+
   # Spring Cloud Gateway sitting in front of `app` — JWT validation at the
   # edge, Redis-backed login rate limiting, CORS. See oms-gateway/README.md.
   #
@@ -411,6 +446,7 @@ services:
     environment:
       OMS_MONOLITH_URI: http://app:8080
       OMS_JWKS_URI: http://app:8080/.well-known/jwks.json
+      OMS_BFF_URI: http://bff:8095
       REDIS_HOST: redis
       REDIS_PORT: 6379
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:4200}
@@ -429,6 +465,8 @@ services:
         condition: service_healthy
       vault-init:
         condition: service_completed_successfully
+      bff:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8091/actuator/health"]
       interval: 15s

@@ -1,15 +1,27 @@
 # Local-only override: use when running `app` (oms-main) directly from
-# IntelliJ instead of as a container, while `gateway` still runs in Docker.
+# IntelliJ instead of as a container, while `gateway`/`bff` still run in
+# Docker.
 #
 # Usage:
 #   docker compose up -d redis vault vault-init
-#   docker compose up --no-deps -d gateway
+#   docker compose up --no-deps -d bff gateway
 #
 # Compose picks this file up automatically alongside docker-compose.yml
 # (default override filename) — no -f flag needed. Delete or rename it
 # when you go back to running `app` in Docker too.
 
 services:
+  bff:
+    environment:
+      # Overrides the base file's http://app:8080 — same reasoning as
+      # `gateway` below. bff calls oms-main directly (WebClient, not back
+      # through the gateway — see oms-bff's WebClientConfig), so it needs
+      # this override too or its downstream calls 404/connection-refuse
+      # against a container that isn't running.
+      OMS_MONOLITH_URI: http://host.docker.internal:8080
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
   gateway:
     environment:
       # Overrides the base file's http://app:8080 — there's no `app`
