@@ -369,6 +369,75 @@ services:
     networks:
       - oms-network
 
+  # Spring Cloud Gateway sitting in front of `app` — JWT validation at the
+  # edge, Redis-backed login rate limiting, CORS. See oms-gateway/README.md.
+  #
+  # Included by default (no `profiles:` key) so `docker compose up` starts
+  # the whole stack in one shot, per-repo dev workflow, and CI/CD alike.
+  # If you're actively iterating on the gateway itself in IntelliJ, just
+  # exclude it explicitly for that session instead:
+  #   docker compose up $(docker compose config --services | grep -v ^gateway$)
+  # against REDIS_HOST=localhost / OMS_MONOLITH_URI=http://localhost:8080 /
+  # VAULT_ADDR=http://localhost:8200 (all published to the host already).
+  #
+  # `image:` + `build:` together (same pattern as `app` above) is what makes
+  # one file work for both local dev and CI/CD:
+  #  - Local dev: `docker compose up --build` builds from ../oms-gateway and
+  #    tags the result oms-gateway:local — zero setup, no registry needed.
+  #  - CI/CD: the oms-gateway repo's own pipeline builds and pushes
+  #    oms-gateway:<git-sha> to a registry; the deploy step here just sets
+  #    GATEWAY_VERSION=<that tag> and runs `docker compose up` WITHOUT
+  #    --build, so it pulls the already-built, already-tested image instead
+  #    of rebuilding from source — Factor V (build/release/run as separate
+  #    stages), not a live build baked into the run step.
+  gateway:
+    image: oms-gateway:${GATEWAY_VERSION:-local}
+    build:
+      # Sibling checkout, not a nested copy — oms-gateway stays its own repo
+      # with its own git history (Factor I: one codebase per app). Expects
+      # this layout on disk:
+      #   dev/oms-main/       <- this docker-compose.yml
+      #   dev/oms-gateway/    <- cloned separately, next to it
+      context: ../oms-gateway
+      dockerfile: Dockerfile
+      args:
+        GIT_SHA: ${GIT_SHA:-unknown}
+        APP_VERSION: ${GATEWAY_VERSION:-local}
+    container_name: oms-gateway
+    restart: unless-stopped
+    ports:
+      - "8090:8090"
+      - "8091:8091"
+    environment:
+      OMS_MONOLITH_URI: http://app:8080
+      OMS_JWKS_URI: http://app:8080/.well-known/jwks.json
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:4200}
+      # REDIS_PASSWORD not passed directly — Vault supplies it from
+      # secret/oms/dev, the same path `app`/`app-worker` already read (see
+      # spring.cloud.vault.kv.default-context=oms in the gateway's own
+      # application.properties). VAULT_TOKEN below is the same dev-mode
+      # root token they already use.
+      VAULT_ENABLED: "true"
+      VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: ${VAULT_DEV_ROOT_TOKEN:-oms-dev-root-token}
+    depends_on:
+      app:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      vault-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8091/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - oms-network
+
 networks:
   oms-network:
     driver: bridge
