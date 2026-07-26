@@ -52,7 +52,8 @@ public class SecurityConfig {
 
         http
                 .csrf(csrf -> csrf.disable()) // stateless token API — no browser session/cookie to forge
-                .cors(Customizer.withDefaults()) // picks up the CorsConfigurationSource bean (see CorsConfig)
+                // Superseded by the gateway's copy
+                // .cors(Customizer.withDefaults()) // picks up the CorsConfigurationSource bean (see CorsConfig)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(WebConfig.API_PREFIX + "/auth/login").permitAll()

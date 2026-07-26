@@ -22,7 +22,7 @@ import java.util.List;
  * by this API — the token travels in an Authorization header — so allow-credentials stays
  * false and allowed-origins can safely be a concrete list (never "*") for header-based auth.
  */
-@Configuration
+//@Configuration
 public class CorsConfig {
 
     @Value("${app.cors.allowed-origins:http://localhost:4200}")
