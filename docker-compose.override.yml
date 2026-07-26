@@ -1,36 +1,40 @@
-# Local-only override: use when running `app` (oms-main) directly from
-# IntelliJ instead of as a container, while `gateway`/`bff` still run in
+# Local-only override — use when `app` (oms-main) AND `bff` both run in
+# IntelliJ on the host, with only `gateway` (+ redis/vault) staying in
 # Docker.
 #
 # Usage:
 #   docker compose up -d redis vault vault-init
-#   docker compose up --no-deps -d bff gateway
+#   docker compose up --no-deps -d gateway
+#   (run oms-main in IntelliJ, listening on :8080)
+#   (run oms-bff in IntelliJ, listening on :8095, with
+#    OMS_MONOLITH_URI=http://localhost:8080 set — see its README)
 #
 # Compose picks this file up automatically alongside docker-compose.yml
-# (default override filename) — no -f flag needed. Delete or rename it
-# when you go back to running `app` in Docker too.
+# (default override filename) — no -f flag needed. Delete or comment out
+# when you go back to running `app`/`bff` in Docker too.
 
 services:
-  bff:
-    environment:
-      # Overrides the base file's http://app:8080 — same reasoning as
-      # `gateway` below. bff calls oms-main directly (WebClient, not back
-      # through the gateway — see oms-bff's WebClientConfig), so it needs
-      # this override too or its downstream calls 404/connection-refuse
-      # against a container that isn't running.
-      OMS_MONOLITH_URI: http://host.docker.internal:8080
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-
   gateway:
     environment:
-      # Overrides the base file's http://app:8080 — there's no `app`
-      # container in this scenario, so the gateway needs to reach your
-      # IntelliJ-run instance on the host instead. Same trick already used
-      # by the `prometheus` service's `oms-host-intellij` scrape target.
+      # Overrides the base file's http://app:8080 / http://bff:8095 —
+      # neither `app` nor `bff` is a container in this scenario, so the
+      # gateway needs to reach both of your IntelliJ-run instances on the
+      # host instead. Same trick already used by the `prometheus` service's
+      # `oms-host-intellij` scrape target.
       OMS_MONOLITH_URI: http://host.docker.internal:8080
       OMS_JWKS_URI: http://host.docker.internal:8080/.well-known/jwks.json
+      OMS_BFF_URI: http://host.docker.internal:8095
     extra_hosts:
       # Docker Desktop (Mac/Windows) resolves host.docker.internal for free;
       # this line is what makes it also resolve on Linux.
       - "host.docker.internal:host-gateway"
+
+  # --- If `bff` moves back into Docker while `app` stays in IntelliJ,
+  # it needs this too (bff calls oms-main directly over WebClient, not
+  # back through the gateway — see oms-bff's WebClientConfig): ---
+  #
+  # bff:
+  #   environment:
+  #     OMS_MONOLITH_URI: http://host.docker.internal:8080
+  #   extra_hosts:
+  #     - "host.docker.internal:host-gateway"

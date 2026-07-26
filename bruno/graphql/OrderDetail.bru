@@ -1,0 +1,53 @@
+meta {
+  name: OrderDetail
+  type: graphql
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/graphql
+  body: graphql
+  auth: inherit
+}
+
+body:graphql {
+  query OrderDetail($id: ID!) {
+    orderDetail(id: $id) {
+      id
+      status
+      totalAmount
+      customer {
+        id
+        name
+        email
+      }
+      payment {
+        id
+        status
+        amount
+      }
+      shipment {
+        id
+        status
+        trackingNumber
+      }
+    }
+  }
+}
+
+body:graphql:vars {
+  {
+    "id": "1"
+  }
+}
+
+docs {
+  Goes through oms-gateway's /graphql route to oms-bff, which aggregates
+  order + customer + payment + shipment from oms-main in one call. Run
+  Login first (auth/Login.bru) — the gateway validates the bearer token and
+  forwards X-Auth-User/X-Auth-Roles to oms-bff, which trusts those headers
+  instead of re-checking the JWT itself.
+
+  payment/shipment come back null if they don't exist yet for this order
+  (e.g. a brand-new PENDING order) — that's expected, not an error.
+}

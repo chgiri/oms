@@ -1,0 +1,35 @@
+meta {
+  name: OrderDetailMinimal
+  type: graphql
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/graphql
+  body: graphql
+  auth: inherit
+}
+
+body:graphql {
+  query {
+    orderDetail(id: "1") {
+      id
+      status
+      totalAmount
+      customer {
+        name
+        email
+      }
+    }
+  }
+}
+
+docs {
+  Simplest possible orderDetail request — no variables, just customer
+  fields (no payment/shipment selected). Handy as a smoke test that the
+  gateway -> bff -> monolith hop is wired up correctly.
+
+  Swap the hardcoded id for a freshly created, still-PENDING order (see
+  order/CreateOrder.bru) and add payment/shipment back into the selection
+  set to see them come back null.
+}
