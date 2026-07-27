@@ -52,6 +52,7 @@ public class ProductController {
                                       "name": "Wireless Mouse",
                                       "description": "Ergonomic wireless mouse with USB receiver",
                                       "price": 29.99,
+                                      "status": "ACTIVE",
                                       "createdAt": "2026-07-01T10:15:30",
                                       "updatedAt": "2026-07-01T10:15:30"
                                     }

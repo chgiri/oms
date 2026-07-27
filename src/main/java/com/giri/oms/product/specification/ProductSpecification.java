@@ -1,6 +1,7 @@
 package com.giri.oms.product.specification;
 
 import com.giri.oms.product.entity.Product;
+import com.giri.oms.product.entity.ProductStatus;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.jpa.domain.Specification;
 
@@ -39,15 +40,24 @@ public class ProductSpecification {
                 date == null ? null : cb.greaterThanOrEqualTo(root.get("createdAt"), date);
     }
 
+    public static Specification<Product> hasStatus(ProductStatus status) {
+        return (root, query, cb) ->
+                status == null ? null : cb.equal(root.get("status"), status);
+    }
+
     /**
      * Combines all filters, skipping any that are null (Specification.and() treats
-     * a null Specification as a no-op condition automatically).
+     * a null Specification as a no-op condition automatically). hasStatus(ACTIVE) is
+     * always applied, not passed in like the others — this is the catalog search, and
+     * a DISCONTINUED product shouldn't surface here regardless of what the caller asks
+     * for (mirrors the unconditional status filter in ProductRepository.searchProducts).
      */
     public static Specification<Product> buildSearchSpec(String name, BigDecimal minPrice,
                                                          BigDecimal maxPrice) {
         return Specification.where(hasName(name))
                 .and(hasMinPrice(minPrice))
-                .and(hasMaxPrice(maxPrice));
+                .and(hasMaxPrice(maxPrice))
+                .and(hasStatus(ProductStatus.ACTIVE));
     }
 
     /**

@@ -12,6 +12,7 @@ import com.giri.oms.inventory.exception.InventoryAlreadyExistsException;
 import com.giri.oms.inventory.exception.InventoryNotFoundException;
 import com.giri.oms.inventory.mapper.InventoryMapper;
 import com.giri.oms.inventory.repository.InventoryRepository;
+import com.giri.oms.inventory.repository.ProductRefRepository;
 import com.giri.oms.inventory.service.InventoryService;
 import com.giri.oms.inventory.specification.InventorySpecification;
 import com.giri.oms.product.dto.ProductResponse;
@@ -40,8 +41,16 @@ public class InventoryServiceImpl implements InventoryService {
 
     private final InventoryRepository inventoryRepository;
     private final ProductService productService;
+    private final ProductRefRepository productRefRepository;
     private final InventoryMapper inventoryMapper;
     private final DistributedLockService distributedLockService;
+
+    // Fallback shown on a read when product_ref has no row for this product id
+    // yet — see resolveProductName. Should be rare in steady state (the V18
+    // migration backfills every existing product, and the consumer keeps new
+    // ones current), but at-least-once/eventually-consistent replication means
+    // it's not impossible, and a read path should degrade rather than 500.
+    private static final String UNKNOWN_PRODUCT_NAME = "Unknown Product";
 
     @Value("${app.lock.inventory.wait-seconds}")
     private long lockWaitSeconds;
@@ -96,7 +105,7 @@ public class InventoryServiceImpl implements InventoryService {
     public InventoryResponse getInventoryById(Long inventoryId) {
         log.debug("Fetching inventory record with id: {}", inventoryId);
         Inventory inventory = getExistingInventory(inventoryId);
-        String productName = getExistingProduct(inventory.getProductId()).getName();
+        String productName = resolveProductName(inventory.getProductId());
         return inventoryMapper.mapToInventoryResponse(inventory, productName);
     }
 
@@ -118,11 +127,25 @@ public class InventoryServiceImpl implements InventoryService {
         return PagedResponse.of(responsePage);
     }
 
-    // Resolves the product's current name via ProductService for each record —
-    // see the note on InventoryMapper for why this isn't done in the mapper itself.
+    // Resolves the product's name from the local product_ref replica for each
+    // record — see the note on InventoryMapper for why this isn't done in the
+    // mapper itself. Deliberately NOT a live ProductService call: this runs once
+    // per row on every listing/search page, which is exactly the N+1-once-Product-
+    // is-a-separate-service problem the microservices-prep plan flagged — see
+    // ProductRef's Javadoc and ProductEventInventoryConsumer.
     private InventoryResponse mapToInventoryResponse(Inventory inventory) {
-        String productName = getExistingProduct(inventory.getProductId()).getName();
+        String productName = resolveProductName(inventory.getProductId());
         return inventoryMapper.mapToInventoryResponse(inventory, productName);
+    }
+
+    private String resolveProductName(Long productId) {
+        return productRefRepository.findById(productId)
+                .map(ProductRef::getName)
+                .orElseGet(() -> {
+                    log.warn("No product_ref row for product id {} — replica hasn't caught up yet, " +
+                            "showing placeholder name", productId);
+                    return UNKNOWN_PRODUCT_NAME;
+                });
     }
 
     private void validateSortField(String sortBy) {

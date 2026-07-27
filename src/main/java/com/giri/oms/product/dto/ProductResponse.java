@@ -1,5 +1,6 @@
 package com.giri.oms.product.dto;
 
+import com.giri.oms.product.entity.ProductStatus;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -28,6 +29,10 @@ public class ProductResponse {
 
     @Schema(description = "Unit price in USD", example = "29.99", requiredMode = Schema.RequiredMode.REQUIRED)
     private BigDecimal price;
+
+    @Schema(description = "Product status — DISCONTINUED products are excluded from listing/search " +
+            "but remain resolvable by id", example = "ACTIVE", requiredMode = Schema.RequiredMode.REQUIRED)
+    private ProductStatus status;
 
     @Schema(description = "Timestamp the product was created", example = "2026-07-01T10:15:30", requiredMode = Schema.RequiredMode.REQUIRED)
     private LocalDateTime createdAt;

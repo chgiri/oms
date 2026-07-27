@@ -9,6 +9,7 @@ import com.giri.oms.product.constants.ProductConstants;
 import com.giri.oms.product.dto.ProductRequest;
 import com.giri.oms.product.dto.ProductResponse;
 import com.giri.oms.product.entity.Product;
+import com.giri.oms.product.entity.ProductStatus;
 import com.giri.oms.common.exception.InvalidSortFieldException;
 import com.giri.oms.product.exception.ProductNotFoundException;
 import com.giri.oms.product.mapper.ProductMapper;
@@ -77,7 +78,9 @@ public class ProductServiceImpl implements ProductService {
 
         Pageable pageable = PageRequest.of(pageNo, pageSize, sort);
 
-        Page<Product> productPage = productRepository.findAll(pageable);
+        // ACTIVE only — a DISCONTINUED product stays resolvable by id (see
+        // getProductById) but shouldn't appear in the catalog listing.
+        Page<Product> productPage = productRepository.findByStatus(ProductStatus.ACTIVE, pageable);
 
         Page<ProductResponse> responsePage = productPage.map(productMapper::mapToProductResponse);
 
@@ -110,10 +113,26 @@ public class ProductServiceImpl implements ProductService {
     @Transactional // write operation — overrides the class-level readOnly default
     @CacheEvict(value = CacheConfig.PRODUCTS_CACHE, key = "#productId")
     public void deleteProduct(Long productId) {
-        log.debug("Deleting product with id: {}", productId);
+        log.debug("Discontinuing product with id: {}", productId);
 
-        getExistingProduct(productId);
-        productRepository.deleteById(productId);
+        // Soft-delete (Phase 1 of the microservices-prep plan) — see the
+        // comment on Product.status for why this is no longer a hard
+        // productRepository.deleteById(...). getExistingProduct still throws
+        // ProductNotFoundException for an id that never existed; it does NOT
+        // filter by status, so this also runs cleanly against a product
+        // that's already DISCONTINUED.
+        Product product = getExistingProduct(productId);
+
+        if (product.getStatus() == ProductStatus.DISCONTINUED) {
+            // Idempotent no-op: DELETE is conventionally safe to repeat, and a
+            // second ProductDeletedEvent for a delete that already happened
+            // would just be noise for whatever's consuming that topic.
+            log.debug("Product id {} is already discontinued — no-op", productId);
+            return;
+        }
+
+        product.setStatus(ProductStatus.DISCONTINUED);
+        productRepository.save(product);
 
         enqueueProductDeletedEvent(productId);
 

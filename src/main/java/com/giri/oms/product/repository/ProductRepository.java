@@ -1,6 +1,7 @@
 package com.giri.oms.product.repository;
 
 import com.giri.oms.product.entity.Product;
+import com.giri.oms.product.entity.ProductStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -22,12 +23,19 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
 
     boolean existsByNameIgnoreCase(String name);
 
+    // Used by getAllProducts — the catalog listing only ever shows ACTIVE
+    // products; a DISCONTINUED one is still resolvable by id (getProductById
+    // deliberately does NOT filter by status — see ProductServiceImpl) for
+    // whatever still references it, but it shouldn't appear in a browse/list.
+    Page<Product> findByStatus(ProductStatus status, Pageable pageable);
+
     // JPQL @Query — for anything derived-method-names can't express cleanly,
     // e.g. combining multiple optional filters in one query.
 
     @Query("""
             SELECT p FROM Product p
-            WHERE (:name IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', CAST(:name AS string), '%')))
+            WHERE p.status = com.giri.oms.product.entity.ProductStatus.ACTIVE
+                AND (:name IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', CAST(:name AS string), '%')))
                 AND (:minPrice IS NULL OR p.price >= :minPrice)
                 AND (:maxPrice IS NULL OR p.price <= :maxPrice)
             """)

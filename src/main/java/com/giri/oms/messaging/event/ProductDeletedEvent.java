@@ -4,17 +4,19 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 /**
- * Published by the product module (see ProductServiceImpl.deleteProduct).
+ * Published by the product module (see ProductServiceImpl.deleteProduct)
+ * whenever a product transitions ACTIVE -> DISCONTINUED (Phase 1 step 2 of
+ * the microservices-prep plan converted this from a hard delete to a status
+ * flip — see Product.status). Not published again on a repeat delete call
+ * against an already-discontinued product; deleteProduct treats that as an
+ * idempotent no-op.
  *
- * NOTE: deleteProduct is still a hard delete as of this event being added —
- * Product doesn't have soft-delete yet (that's Phase 1 step 2 of the
- * microservices-prep plan, not done in this change). A future replica
- * consumer reacting to this event today would be reacting to a delete that
- * Postgres's fk_inventory_product/fk_order_items_product constraints still
- * prevent whenever the product is actually referenced — so in practice this
- * only ever fires for genuinely unreferenced products until those FKs are
- * dropped in Phase 2, at which point soft-delete needs to already be in
- * place per that phase's data-integrity note.
+ * Consumed by the inventory module's ProductEventInventoryConsumer (Phase 1
+ * step 3) — deliberately as a no-op for the product_ref replica itself: an
+ * existing inventory row can still reference a discontinued product, and it
+ * still needs a name to display, so the replica keeps the last known name
+ * rather than clearing it. See that consumer's Javadoc for the full
+ * reasoning.
  */
 public record ProductDeletedEvent(
         UUID eventId,
