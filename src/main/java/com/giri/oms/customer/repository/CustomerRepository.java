@@ -47,7 +47,7 @@ public interface CustomerRepository extends JpaRepository<Customer, Long>, JpaSp
     // "alan.turing@archive.org") would never match without this normalization.
     // Use sparingly — ties you to one DB vendor.
     @Query(value = """
-            SELECT * FROM customers c
+            SELECT * FROM oms_customer.customers c
             WHERE to_tsvector('english',
                     c.first_name || ' ' || c.last_name || ' ' ||
                     regexp_replace(c.email, '[^a-zA-Z0-9]+', ' ', 'g'))

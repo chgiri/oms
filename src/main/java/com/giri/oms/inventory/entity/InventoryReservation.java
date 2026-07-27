@@ -32,7 +32,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "inventory_reservations",
+@Table(name = "inventory_reservations", schema = "oms_inventory",
         uniqueConstraints = @UniqueConstraint(name = "uk_inventory_reservations_order_product", columnNames = {"order_id", "product_id"}))
 public class InventoryReservation extends BaseEntity {
 

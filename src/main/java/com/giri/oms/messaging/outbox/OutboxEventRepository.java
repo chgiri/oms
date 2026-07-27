@@ -48,7 +48,7 @@ public interface OutboxEventRepository extends JpaRepository<OutboxEvent, UUID> 
      * them) support it.
      */
     @Query(value = """
-            SELECT * FROM outbox_events
+            SELECT * FROM oms_messaging.outbox_events
             WHERE status = 'PENDING'
             ORDER BY created_at ASC
             LIMIT :limit

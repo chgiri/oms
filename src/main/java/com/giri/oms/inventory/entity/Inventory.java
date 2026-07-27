@@ -12,7 +12,7 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "inventory",
+@Table(name = "inventory", schema = "oms_inventory",
         uniqueConstraints = @UniqueConstraint(name = "uk_inventory_product_location", columnNames = {"product_id", "location"}))
 public class Inventory extends BaseEntity {
 

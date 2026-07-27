@@ -12,7 +12,7 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "customers", uniqueConstraints = @UniqueConstraint(name = "uk_customers_email", columnNames = "email"))
+@Table(name = "customers", schema = "oms_customer", uniqueConstraints = @UniqueConstraint(name = "uk_customers_email", columnNames = "email"))
 public class Customer extends BaseEntity {
 
     @Id

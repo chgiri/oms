@@ -49,7 +49,7 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
     // Native query — for DB-specific features JPQL can't express
     // (full-text search, DB functions, etc.). Use sparingly — ties you to one DB vendor.
     @Query(value = """
-            SELECT * FROM products p
+            SELECT * FROM oms_product.products p
             WHERE to_tsvector('english', p.name || ' ' || coalesce(p.description, ''))
                 @@ plainto_tsquery('english', :keyword)
             """, nativeQuery = true)

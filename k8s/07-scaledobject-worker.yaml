@@ -77,7 +77,7 @@ spec:
     # rows per replica" — e.g. 200 pending rows asks KEDA for 2 replicas.
     - type: postgresql
       metadata:
-        query: "SELECT COUNT(*) FROM outbox_events WHERE status = 'PENDING'"
+        query: "SELECT COUNT(*) FROM oms_messaging.outbox_events WHERE status = 'PENDING'"
         targetQueryValue: "100"
       authenticationRef:
         name: oms-outbox-pg-auth

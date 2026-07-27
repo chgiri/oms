@@ -70,8 +70,8 @@ kubectl apply -k .
   - Consumer lag on each of the 3 Kafka consumer groups
     (`oms-inventory-service`, `oms-order-service`, `oms-shipment-service`)
     on the `oms.order.events` topic.
-  - Row count in `outbox_events` where `status = 'PENDING'`, queried
-    directly against Postgres.
+  - Row count in `oms_messaging.outbox_events` where `status = 'PENDING'`,
+    queried directly against Postgres.
 
   Never scales to zero — `docs/process-roles.md` notes that a `web`
   instance's `OutboxService.enqueue()` calls just write `PENDING` rows and

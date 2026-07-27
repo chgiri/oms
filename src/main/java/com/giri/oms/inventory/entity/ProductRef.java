@@ -38,7 +38,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "product_ref")
+@Table(name = "product_ref", schema = "oms_inventory")
 public class ProductRef {
 
     @Id
