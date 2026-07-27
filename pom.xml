@@ -25,10 +25,18 @@
 		     this value is a placeholder and has not been verified against a real
 		     Boot 4.1.0 release. -->
 		<spring-cloud.version>2025.1.2</spring-cloud.version>
+		<spring-modulith.version>2.0.5</spring-modulith.version>
 	</properties>
 
 	<dependencyManagement>
 		<dependencies>
+			<dependency>
+				<groupId>org.springframework.modulith</groupId>
+				<artifactId>spring-modulith-bom</artifactId>
+				<version>${spring-modulith.version}</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
 			<dependency>
 				<groupId>org.springframework.cloud</groupId>
 				<artifactId>spring-cloud-dependencies</artifactId>
@@ -170,6 +178,25 @@
 		<dependency>
 			<groupId>org.junit.jupiter</groupId>
 			<artifactId>junit-jupiter</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<!-- @ApplicationModule / @NamedInterface (used in main-source package-info.java
+		     files to declare each module's public surface) live here. This is a
+		     compile-scope, framework-free annotations-only jar — it must NOT be
+		     test-scoped, or every module's package-info.java fails to compile during
+		     the main build (that's the "package org.springframework.modulith does not
+		     exist" error). -->
+		<dependency>
+			<groupId>org.springframework.modulith</groupId>
+			<artifactId>spring-modulith-api</artifactId>
+		</dependency>
+		<!-- Enforces module boundaries while oms-main is still a monolith — see
+		     com.giri.oms.ModularityTests. Version tracked by spring-modulith-bom
+		     below (2.0.5 targets Spring Boot 4 / Framework 7, matching our
+		     spring-boot-starter-parent 4.1.0). -->
+		<dependency>
+			<groupId>org.springframework.modulith</groupId>
+			<artifactId>spring-modulith-starter-test</artifactId>
 			<scope>test</scope>
 		</dependency>
 		<dependency>

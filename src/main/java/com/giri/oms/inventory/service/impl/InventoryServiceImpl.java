@@ -14,9 +14,8 @@ import com.giri.oms.inventory.mapper.InventoryMapper;
 import com.giri.oms.inventory.repository.InventoryRepository;
 import com.giri.oms.inventory.service.InventoryService;
 import com.giri.oms.inventory.specification.InventorySpecification;
-import com.giri.oms.product.entity.Product;
-import com.giri.oms.product.exception.ProductNotFoundException;
-import com.giri.oms.product.repository.ProductRepository;
+import com.giri.oms.product.dto.ProductResponse;
+import com.giri.oms.product.service.ProductService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -40,7 +39,7 @@ import java.util.Set;
 public class InventoryServiceImpl implements InventoryService {
 
     private final InventoryRepository inventoryRepository;
-    private final ProductRepository productRepository;
+    private final ProductService productService;
     private final InventoryMapper inventoryMapper;
     private final DistributedLockService distributedLockService;
 
@@ -76,7 +75,7 @@ public class InventoryServiceImpl implements InventoryService {
     }
 
     private InventoryResponse doCreateInventory(InventoryRequest request) {
-        Product product = getExistingProduct(request.getProductId());
+        ProductResponse product = getExistingProduct(request.getProductId());
 
         if (inventoryRepository.existsByProductIdAndLocation(request.getProductId(), request.getLocation())) {
             log.warn("Attempted to create duplicate inventory record for product id: {} at location: {}",
@@ -85,18 +84,20 @@ public class InventoryServiceImpl implements InventoryService {
         }
 
         Inventory inventory = inventoryMapper.mapToInventory(request);
-        inventory.setProduct(product);
+        inventory.setProductId(product.getId());
         Inventory savedInventory = inventoryRepository.save(inventory);
 
         log.info(InventoryConstants.INVENTORY_CREATED_LOG, savedInventory.getId());
-        return inventoryMapper.mapToInventoryResponse(savedInventory);
+        return inventoryMapper.mapToInventoryResponse(savedInventory, product.getName());
     }
 
     @Override
     @Cacheable(value = CacheConfig.INVENTORY_CACHE, key = "#inventoryId")
     public InventoryResponse getInventoryById(Long inventoryId) {
         log.debug("Fetching inventory record with id: {}", inventoryId);
-        return inventoryMapper.mapToInventoryResponse(getExistingInventory(inventoryId));
+        Inventory inventory = getExistingInventory(inventoryId);
+        String productName = getExistingProduct(inventory.getProductId()).getName();
+        return inventoryMapper.mapToInventoryResponse(inventory, productName);
     }
 
     @Override
@@ -112,9 +113,16 @@ public class InventoryServiceImpl implements InventoryService {
         Pageable pageable = PageRequest.of(pageNo, pageSize, sort);
 
         Page<Inventory> inventoryPage = inventoryRepository.findAll(pageable);
-        Page<InventoryResponse> responsePage = inventoryPage.map(inventoryMapper::mapToInventoryResponse);
+        Page<InventoryResponse> responsePage = inventoryPage.map(this::mapToInventoryResponse);
 
         return PagedResponse.of(responsePage);
+    }
+
+    // Resolves the product's current name via ProductService for each record —
+    // see the note on InventoryMapper for why this isn't done in the mapper itself.
+    private InventoryResponse mapToInventoryResponse(Inventory inventory) {
+        String productName = getExistingProduct(inventory.getProductId()).getName();
+        return inventoryMapper.mapToInventoryResponse(inventory, productName);
     }
 
     private void validateSortField(String sortBy) {
@@ -172,7 +180,7 @@ public class InventoryServiceImpl implements InventoryService {
     private InventoryResponse doUpdateInventory(Long inventoryId, InventoryRequest request) {
         Inventory inventory = getExistingInventory(inventoryId);
 
-        boolean productChanged = !inventory.getProduct().getId().equals(request.getProductId());
+        boolean productChanged = !inventory.getProductId().equals(request.getProductId());
         boolean locationChanged = !inventory.getLocation().equals(request.getLocation());
 
         // Only re-check uniqueness if the (product, location) pair is actually
@@ -185,15 +193,20 @@ public class InventoryServiceImpl implements InventoryService {
             throw new InventoryAlreadyExistsException(request.getProductId(), request.getLocation());
         }
 
+        // Resolve/validate the (possibly new) product up front, regardless of whether
+        // it changed — its name is needed for the response either way, and validating
+        // it here (rather than only when productChanged) keeps a stale/unknown
+        // productId on an otherwise-unchanged request from silently sneaking through.
+        ProductResponse product = getExistingProduct(request.getProductId());
         if (productChanged) {
-            inventory.setProduct(getExistingProduct(request.getProductId()));
+            inventory.setProductId(product.getId());
         }
 
         inventoryMapper.mapToInventory(request, inventory);
         Inventory updatedInventory = inventoryRepository.save(inventory);
 
         log.info(InventoryConstants.INVENTORY_UPDATED_LOG, updatedInventory.getId());
-        return inventoryMapper.mapToInventoryResponse(updatedInventory);
+        return inventoryMapper.mapToInventoryResponse(updatedInventory, product.getName());
     }
 
     @Override
@@ -211,14 +224,14 @@ public class InventoryServiceImpl implements InventoryService {
     @Override
     public Page<InventoryResponse> searchInventory(Long productId, String location, boolean lowStockOnly, Pageable pageable) {
         Page<Inventory> results = inventoryRepository.searchInventory(productId, location, lowStockOnly, normalizeSort(pageable));
-        return results.map(inventoryMapper::mapToInventoryResponse);
+        return results.map(this::mapToInventoryResponse);
     }
 
     @Override
     public Page<InventoryResponse> searchInventoryBySpecification(Long productId, String location, boolean lowStockOnly, Pageable pageable) {
         var spec = InventorySpecification.buildSearchSpec(productId, location, lowStockOnly);
         Page<Inventory> results = inventoryRepository.findAll(spec, normalizeSort(pageable));
-        return results.map(inventoryMapper::mapToInventoryResponse);
+        return results.map(this::mapToInventoryResponse);
     }
 
     private Inventory getExistingInventory(Long inventoryId) {
@@ -229,12 +242,9 @@ public class InventoryServiceImpl implements InventoryService {
                 });
     }
 
-    private Product getExistingProduct(Long productId) {
-        return productRepository.findById(productId)
-                .orElseThrow(() -> {
-                    log.warn("Product not found with id: {} while managing inventory", productId);
-                    return new ProductNotFoundException(productId);
-                });
+    private ProductResponse getExistingProduct(Long productId) {
+        log.debug("Resolving product id: {} via ProductService while managing inventory", productId);
+        return productService.getProductById(productId);
     }
 
 }

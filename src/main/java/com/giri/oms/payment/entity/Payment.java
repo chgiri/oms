@@ -1,7 +1,6 @@
 package com.giri.oms.payment.entity;
 
 import com.giri.oms.common.entity.BaseEntity;
-import com.giri.oms.order.entity.Order;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -22,12 +21,11 @@ public class Payment extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // An order can have more than one payment row over its lifetime — e.g. a
-    // failed attempt followed by a successful retry — so this is deliberately
-    // ManyToOne rather than a OneToOne.
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "order_id", nullable = false)
-    private Order order;
+    // Plain FK column, not a @ManyToOne to the order module's Order entity —
+    // see ModularityTests. Existence and status are validated once, up front,
+    // via OrderService (see PaymentServiceImpl.createPayment).
+    @Column(name = "order_id", nullable = false)
+    private Long orderId;
 
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal amount;

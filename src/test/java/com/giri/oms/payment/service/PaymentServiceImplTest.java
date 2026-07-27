@@ -2,18 +2,15 @@ package com.giri.oms.payment.service;
 
 import com.giri.oms.common.dto.PagedResponse;
 import com.giri.oms.common.exception.InvalidSortFieldException;
-import com.giri.oms.customer.entity.Customer;
-import com.giri.oms.customer.entity.CustomerStatus;
 import com.giri.oms.messaging.event.EventType;
 import com.giri.oms.messaging.event.PaymentConfirmedEvent;
 import com.giri.oms.messaging.event.PaymentEventFactory;
 import com.giri.oms.messaging.event.PaymentFailedEvent;
 import com.giri.oms.messaging.outbox.OutboxService;
-import com.giri.oms.order.entity.Order;
 import com.giri.oms.order.entity.OrderStatus;
 import com.giri.oms.order.exception.IllegalOrderStateException;
 import com.giri.oms.order.exception.OrderNotFoundException;
-import com.giri.oms.order.repository.OrderRepository;
+import com.giri.oms.order.service.OrderService;
 import com.giri.oms.payment.dto.PaymentRequest;
 import com.giri.oms.payment.dto.PaymentResponse;
 import com.giri.oms.payment.entity.Payment;
@@ -54,7 +51,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 /**
- * Pure unit tests — no Spring context, no DB. Repository, OrderRepository, and
+ * Pure unit tests — no Spring context, no DB. Repository, OrderService, and
  * mapper are all mocked so these run in milliseconds and only exercise
  * PaymentServiceImpl's own logic.
  */
@@ -65,7 +62,7 @@ class PaymentServiceImplTest {
     private PaymentRepository paymentRepository;
 
     @Mock
-    private OrderRepository orderRepository;
+    private OrderService orderService;
 
     @Mock
     private PaymentMapper paymentMapper;
@@ -82,32 +79,15 @@ class PaymentServiceImplTest {
     @InjectMocks
     private PaymentServiceImpl paymentService;
 
-    private Order order;
     private Payment payment;
     private PaymentRequest paymentRequest;
     private PaymentResponse paymentResponse;
 
     @BeforeEach
     void setUp() {
-        Customer customer = new Customer();
-        customer.setId(1L);
-        customer.setFirstName("Ada");
-        customer.setLastName("Lovelace");
-        customer.setEmail("ada@example.com");
-        customer.setStatus(CustomerStatus.ACTIVE);
-
-        order = new Order();
-        order.setId(1L);
-        order.setCustomer(customer);
-        // AWAITING_PAYMENT, not PENDING: createPayment requires inventory to already
-        // be reserved (Phase 2) before it'll accept a payment — see the dedicated
-        // rejection test in CreatePayment for the PENDING case.
-        order.setStatus(OrderStatus.AWAITING_PAYMENT);
-        order.setTotalAmount(new BigDecimal("77.97"));
-
         payment = new Payment();
         payment.setId(1L);
-        payment.setOrder(order);
+        payment.setOrderId(1L);
         payment.setAmount(new BigDecimal("77.97"));
         payment.setMethod(PaymentMethod.CREDIT_CARD);
         payment.setStatus(PaymentStatus.PENDING);
@@ -126,7 +106,8 @@ class PaymentServiceImplTest {
 
         @Test
         void savesAndReturnsMappedResponse() {
-            when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+            // orderService.assertAwaitingPayment is void — no stubbing needed for
+            // the happy path, Mockito's default no-op is exactly "order is fine".
             when(paymentRepository.save(any(Payment.class))).thenReturn(payment);
             when(paymentMapper.mapToPaymentResponse(payment)).thenReturn(paymentResponse);
 
@@ -138,7 +119,6 @@ class PaymentServiceImplTest {
 
         @Test
         void savesPaymentWithPendingStatusRegardlessOfInput() {
-            when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
             when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
             when(paymentMapper.mapToPaymentResponse(any(Payment.class))).thenReturn(paymentResponse);
 
@@ -147,12 +127,12 @@ class PaymentServiceImplTest {
             var paymentCaptor = ArgumentCaptor.forClass(Payment.class);
             verify(paymentRepository).save(paymentCaptor.capture());
             assertThat(paymentCaptor.getValue().getStatus()).isEqualTo(PaymentStatus.PENDING);
-            assertThat(paymentCaptor.getValue().getOrder()).isEqualTo(order);
+            assertThat(paymentCaptor.getValue().getOrderId()).isEqualTo(1L);
         }
 
         @Test
         void throwsOrderNotFoundException_whenOrderDoesNotExist() {
-            when(orderRepository.findById(99L)).thenReturn(Optional.empty());
+            doThrow(new OrderNotFoundException(99L)).when(orderService).assertAwaitingPayment(99L);
             paymentRequest.setOrderId(99L);
 
             assertThatThrownBy(() -> paymentService.createPayment(paymentRequest))
@@ -165,8 +145,9 @@ class PaymentServiceImplTest {
         @ParameterizedTest
         @EnumSource(value = OrderStatus.class, names = {"AWAITING_PAYMENT"}, mode = EnumSource.Mode.EXCLUDE)
         void throwsIllegalOrderStateException_whenOrderIsNotAwaitingPayment(OrderStatus nonAwaitingStatus) {
-            order.setStatus(nonAwaitingStatus);
-            when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+            doThrow(new IllegalOrderStateException(
+                    "Order 1 is not awaiting payment (status: " + nonAwaitingStatus + ")"))
+                    .when(orderService).assertAwaitingPayment(1L);
 
             assertThatThrownBy(() -> paymentService.createPayment(paymentRequest))
                     .isInstanceOf(IllegalOrderStateException.class)

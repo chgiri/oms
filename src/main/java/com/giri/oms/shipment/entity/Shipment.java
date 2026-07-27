@@ -1,7 +1,6 @@
 package com.giri.oms.shipment.entity;
 
 import com.giri.oms.common.entity.BaseEntity;
-import com.giri.oms.order.entity.Order;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -22,12 +21,11 @@ public class Shipment extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // An order can have more than one shipment row over its lifetime — e.g. a
-    // returned shipment followed by a reship — so this is deliberately ManyToOne
-    // rather than a OneToOne.
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "order_id", nullable = false)
-    private Order order;
+    // Plain FK column, not a @ManyToOne to the order module's Order entity —
+    // see ModularityTests. Existence is validated once, up front, via
+    // OrderService.getOrderById (see ShipmentServiceImpl / ShipmentAutoCreationServiceImpl).
+    @Column(name = "order_id", nullable = false)
+    private Long orderId;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)

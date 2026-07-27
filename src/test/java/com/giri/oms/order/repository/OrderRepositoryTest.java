@@ -81,12 +81,14 @@ class OrderRepositoryTest extends AbstractIntegrationTest {
 
     private Order order(Customer customer, OrderStatus status, String total, Product product, int quantity) {
         Order order = new Order();
-        order.setCustomer(customer);
+        order.setCustomerId(customer.getId());
+        order.setCustomerName(customer.getFirstName() + " " + customer.getLastName());
         order.setStatus(status);
         order.setTotalAmount(new BigDecimal(total));
 
         OrderItem item = new OrderItem();
-        item.setProduct(product);
+        item.setProductId(product.getId());
+        item.setProductName(product.getName());
         item.setQuantity(quantity);
         item.setUnitPrice(product.getPrice());
         item.setSubtotal(product.getPrice().multiply(BigDecimal.valueOf(quantity)));
@@ -107,7 +109,7 @@ class OrderRepositoryTest extends AbstractIntegrationTest {
         List<Order> results = orderRepository.findByStatus(OrderStatus.CANCELLED);
 
         assertThat(results).hasSize(1);
-        assertThat(results.get(0).getCustomer().getId()).isEqualTo(alan.getId());
+        assertThat(results.get(0).getCustomerId()).isEqualTo(alan.getId());
     }
 
     @Test

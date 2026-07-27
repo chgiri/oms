@@ -1,9 +1,7 @@
 package com.giri.oms.shipment.service.impl;
 
 import com.giri.oms.messaging.event.OrderConfirmedEvent;
-import com.giri.oms.order.entity.Order;
-import com.giri.oms.order.exception.OrderNotFoundException;
-import com.giri.oms.order.repository.OrderRepository;
+import com.giri.oms.order.service.OrderService;
 import com.giri.oms.shipment.constants.ShipmentConstants;
 import com.giri.oms.shipment.entity.Shipment;
 import com.giri.oms.shipment.entity.ShipmentStatus;
@@ -22,7 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class ShipmentAutoCreationServiceImpl implements ShipmentAutoCreationService {
 
     private final ShipmentRepository shipmentRepository;
-    private final OrderRepository orderRepository;
+    private final OrderService orderService;
 
     // Phase 3 auto-creates a shipment the moment an order is confirmed, but
     // nothing in the saga so far has any notion of which carrier the customer
@@ -52,23 +50,17 @@ public class ShipmentAutoCreationServiceImpl implements ShipmentAutoCreationServ
             return;
         }
 
-        Order order = getExistingOrder(orderId);
+        // Existence-only check — OrderService.getOrderById throws OrderNotFoundException
+        // itself if the order doesn't exist.
+        orderService.getOrderById(orderId);
 
         Shipment shipment = new Shipment();
-        shipment.setOrder(order);
+        shipment.setOrderId(orderId);
         shipment.setCarrier(defaultCarrier);
         shipment.setStatus(ShipmentStatus.PENDING);
 
         Shipment savedShipment = shipmentRepository.save(shipment);
 
         log.info(ShipmentConstants.SHIPMENT_CREATED_LOG, savedShipment.getId());
-    }
-
-    private Order getExistingOrder(Long orderId) {
-        return orderRepository.findById(orderId)
-                .orElseThrow(() -> {
-                    log.warn("Order not found with id: {} while auto-creating shipment", orderId);
-                    return new OrderNotFoundException(orderId);
-                });
     }
 }

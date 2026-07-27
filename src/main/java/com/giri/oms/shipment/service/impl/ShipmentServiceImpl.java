@@ -2,9 +2,7 @@ package com.giri.oms.shipment.service.impl;
 
 import com.giri.oms.common.dto.PagedResponse;
 import com.giri.oms.common.exception.InvalidSortFieldException;
-import com.giri.oms.order.entity.Order;
-import com.giri.oms.order.exception.OrderNotFoundException;
-import com.giri.oms.order.repository.OrderRepository;
+import com.giri.oms.order.service.OrderService;
 import com.giri.oms.shipment.constants.ShipmentConstants;
 import com.giri.oms.shipment.dto.ShipmentRequest;
 import com.giri.oms.shipment.dto.ShipmentResponse;
@@ -41,7 +39,7 @@ import java.util.Set;
 public class ShipmentServiceImpl implements ShipmentService {
 
     private final ShipmentRepository shipmentRepository;
-    private final OrderRepository orderRepository;
+    private final OrderService orderService;
     private final ShipmentMapper shipmentMapper;
     private final Clock clock;
 
@@ -69,10 +67,13 @@ public class ShipmentServiceImpl implements ShipmentService {
     public ShipmentResponse createShipment(ShipmentRequest request) {
         log.debug("Creating shipment for order id: {}", request.getOrderId());
 
-        Order order = getExistingOrder(request.getOrderId());
+        // Existence-only check — OrderService.getOrderById throws OrderNotFoundException
+        // itself if the order doesn't exist, same pattern as OrderServiceImpl's own
+        // cross-module lookups of customer/product.
+        orderService.getOrderById(request.getOrderId());
 
         Shipment shipment = new Shipment();
-        shipment.setOrder(order);
+        shipment.setOrderId(request.getOrderId());
         shipment.setCarrier(request.getCarrier());
         shipment.setStatus(ShipmentStatus.PENDING);
 
@@ -207,14 +208,6 @@ public class ShipmentServiceImpl implements ShipmentService {
                 .orElseThrow(() -> {
                     log.warn("Shipment not found with id: {}", shipmentId);
                     return new ShipmentNotFoundException(shipmentId);
-                });
-    }
-
-    private Order getExistingOrder(Long orderId) {
-        return orderRepository.findById(orderId)
-                .orElseThrow(() -> {
-                    log.warn("Order not found with id: {} while creating shipment", orderId);
-                    return new OrderNotFoundException(orderId);
                 });
     }
 

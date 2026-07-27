@@ -1,6 +1,6 @@
 package com.giri.oms.security;
 
-import com.giri.oms.auth.service.impl.UserDetailsServiceImpl;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import com.giri.oms.common.config.WebConfig;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -31,7 +31,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    private final UserDetailsServiceImpl userDetailsService;
+    private final UserDetailsService userDetailsService;
     private final JwtService jwtService;
     private final TokenBlacklistService tokenBlacklistService;
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;

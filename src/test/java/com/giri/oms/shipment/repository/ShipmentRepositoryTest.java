@@ -90,12 +90,14 @@ class ShipmentRepositoryTest extends AbstractIntegrationTest {
 
     private Order order(Customer customer, String total, Product product, int quantity) {
         Order order = new Order();
-        order.setCustomer(customer);
+        order.setCustomerId(customer.getId());
+        order.setCustomerName(customer.getFirstName() + " " + customer.getLastName());
         order.setStatus(OrderStatus.PENDING);
         order.setTotalAmount(new BigDecimal(total));
 
         OrderItem item = new OrderItem();
-        item.setProduct(product);
+        item.setProductId(product.getId());
+        item.setProductName(product.getName());
         item.setQuantity(quantity);
         item.setUnitPrice(product.getPrice());
         item.setSubtotal(product.getPrice().multiply(BigDecimal.valueOf(quantity)));
@@ -106,7 +108,7 @@ class ShipmentRepositoryTest extends AbstractIntegrationTest {
 
     private Shipment shipment(Order order, ShippingCarrier carrier, ShipmentStatus status) {
         Shipment shipment = new Shipment();
-        shipment.setOrder(order);
+        shipment.setOrderId(order.getId());
         shipment.setCarrier(carrier);
         shipment.setStatus(status);
         return shipment;
@@ -124,7 +126,7 @@ class ShipmentRepositoryTest extends AbstractIntegrationTest {
         List<Shipment> results = shipmentRepository.findByStatus(ShipmentStatus.DELIVERED);
 
         assertThat(results).hasSize(1);
-        assertThat(results.get(0).getOrder().getId()).isEqualTo(order2.getId());
+        assertThat(results.get(0).getOrderId()).isEqualTo(order2.getId());
     }
 
     @Test

@@ -263,9 +263,7 @@ class InventoryReservationServiceImplTest {
     private Inventory inventory(Long inventoryId, Long productId, String location, int available, int reserved) {
         Inventory inventory = new Inventory();
         inventory.setId(inventoryId);
-        com.giri.oms.product.entity.Product product = new com.giri.oms.product.entity.Product();
-        product.setId(productId);
-        inventory.setProduct(product);
+        inventory.setProductId(productId);
         inventory.setLocation(location);
         inventory.setQuantityAvailable(available);
         inventory.setQuantityReserved(reserved);

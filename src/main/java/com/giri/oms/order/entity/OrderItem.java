@@ -1,7 +1,6 @@
 package com.giri.oms.order.entity;
 
 import com.giri.oms.common.entity.BaseEntity;
-import com.giri.oms.product.entity.Product;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -26,9 +25,18 @@ public class OrderItem extends BaseEntity {
     @JoinColumn(name = "order_id", nullable = false)
     private Order order;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "product_id", nullable = false)
-    private Product product;
+    // Plain FK column, not a @ManyToOne to the product module's Product entity —
+    // see the same note on Order.customerId. Existence and price are resolved
+    // once, up front, via ProductService.getProductById.
+    @Column(name = "product_id", nullable = false)
+    private Long productId;
+
+    // Snapshot of the product's name at order-placement time, for the same
+    // reason unitPrice below is a snapshot — a product rename later shouldn't
+    // rewrite what a past order shows, and it avoids a ProductService round-trip
+    // on every read of an order.
+    @Column(name = "product_name", nullable = false, length = 255)
+    private String productName;
 
     @Column(nullable = false)
     private int quantity;

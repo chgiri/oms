@@ -16,7 +16,8 @@ import java.util.List;
 public interface PaymentRepository extends JpaRepository<Payment, Long>, JpaSpecificationExecutor<Payment> {
 
     // Derived query methods — Spring parses the method name into SQL.
-    // "OrderId" navigates the order relation's id field automatically.
+    // "OrderId" is now a direct field match (orderId is a plain FK column,
+    // not a navigable relation — see Payment entity / ModularityTests).
 
     List<Payment> findByOrderId(Long orderId);
 
@@ -25,7 +26,7 @@ public interface PaymentRepository extends JpaRepository<Payment, Long>, JpaSpec
     // JPQL @Query — for combining multiple optional filters in one query.
     @Query("""
             SELECT p FROM Payment p
-            WHERE (:orderId IS NULL OR p.order.id = :orderId)
+            WHERE (:orderId IS NULL OR p.orderId = :orderId)
               AND (:status IS NULL OR p.status = :status)
               AND (:method IS NULL OR p.method = :method)
               AND (:minAmount IS NULL OR p.amount >= :minAmount)

@@ -2,9 +2,8 @@ package com.giri.oms.order.service.impl;
 
 import com.giri.oms.common.dto.PagedResponse;
 import com.giri.oms.common.exception.InvalidSortFieldException;
-import com.giri.oms.customer.entity.Customer;
-import com.giri.oms.customer.exception.CustomerNotFoundException;
-import com.giri.oms.customer.repository.CustomerRepository;
+import com.giri.oms.customer.dto.CustomerResponse;
+import com.giri.oms.customer.service.CustomerService;
 import com.giri.oms.messaging.event.EventType;
 import com.giri.oms.messaging.event.OrderCancelledEvent;
 import com.giri.oms.messaging.event.OrderCancelledEventFactory;
@@ -27,9 +26,8 @@ import com.giri.oms.order.mapper.OrderMapper;
 import com.giri.oms.order.repository.OrderRepository;
 import com.giri.oms.order.service.OrderService;
 import com.giri.oms.order.specification.OrderSpecification;
-import com.giri.oms.product.entity.Product;
-import com.giri.oms.product.exception.ProductNotFoundException;
-import com.giri.oms.product.repository.ProductRepository;
+import com.giri.oms.product.dto.ProductResponse;
+import com.giri.oms.product.service.ProductService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -54,8 +52,8 @@ import java.util.UUID;
 public class OrderServiceImpl implements OrderService {
 
     private final OrderRepository orderRepository;
-    private final CustomerRepository customerRepository;
-    private final ProductRepository productRepository;
+    private final CustomerService customerService;
+    private final ProductService productService;
     private final OrderMapper orderMapper;
     private final OutboxService outboxService;
     private final OrderCreatedEventFactory orderCreatedEventFactory;
@@ -99,21 +97,23 @@ public class OrderServiceImpl implements OrderService {
     public OrderResponse createOrder(OrderRequest request) {
         log.debug("Creating order for customer id: {}", request.getCustomerId());
 
-        Customer customer = getExistingCustomer(request.getCustomerId());
+        CustomerResponse customer = getExistingCustomer(request.getCustomerId());
 
         Order order = new Order();
-        order.setCustomer(customer);
+        order.setCustomerId(customer.getId());
+        order.setCustomerName(customer.getFirstName() + " " + customer.getLastName());
         order.setStatus(OrderStatus.PENDING);
 
         BigDecimal totalAmount = BigDecimal.ZERO;
         for (OrderItemRequest itemRequest : request.getItems()) {
-            Product product = getExistingProduct(itemRequest.getProductId());
+            ProductResponse product = getExistingProduct(itemRequest.getProductId());
 
             BigDecimal unitPrice = product.getPrice();
             BigDecimal subtotal = unitPrice.multiply(BigDecimal.valueOf(itemRequest.getQuantity()));
 
             OrderItem item = new OrderItem();
-            item.setProduct(product);
+            item.setProductId(product.getId());
+            item.setProductName(product.getName());
             item.setQuantity(itemRequest.getQuantity());
             item.setUnitPrice(unitPrice);
             item.setSubtotal(subtotal);
@@ -133,15 +133,35 @@ public class OrderServiceImpl implements OrderService {
 
     private void enqueueOrderCreatedEvent(Order order) {
         UUID eventId = UUID.randomUUID();
-        OrderCreatedEvent event = orderCreatedEventFactory.create(order, eventId);
+        // Order/OrderItem are this module's own entities — order.entity is never
+        // exposed to other modules (see ModularityTests), so unpacking the Order
+        // into plain values here (rather than handing the entity itself to
+        // OrderCreatedEventFactory) is what keeps messaging from having to depend
+        // on order.entity. Same pattern already used for OrderConfirmedEventFactory/
+        // OrderCancelledEventFactory below, just with more fields to unpack.
+        List<OrderCreatedEvent.OrderItemEvent> itemEvents = order.getItems().stream()
+                .map(this::toItemEvent)
+                .toList();
+        OrderCreatedEvent event = orderCreatedEventFactory.create(
+                order.getId(), order.getCustomerId(), order.getStatus().name(), order.getTotalAmount(),
+                itemEvents, eventId);
         outboxService.enqueue(
                 eventId,
                 orderCreatedEventFactory.aggregateType(),
-                orderCreatedEventFactory.aggregateId(order),
+                orderCreatedEventFactory.aggregateId(order.getId()),
                 EventType.ORDER_CREATED,
                 orderCreatedEventFactory.topic(),
-                orderCreatedEventFactory.partitionKey(order),
+                orderCreatedEventFactory.partitionKey(order.getId()),
                 event);
+    }
+
+    private OrderCreatedEvent.OrderItemEvent toItemEvent(OrderItem item) {
+        return new OrderCreatedEvent.OrderItemEvent(
+                item.getProductId(),
+                item.getProductName(),
+                item.getQuantity(),
+                item.getUnitPrice(),
+                item.getSubtotal());
     }
 
     @Override
@@ -234,6 +254,17 @@ public class OrderServiceImpl implements OrderService {
         return mapToOrderResponse(updatedOrder);
     }
 
+    @Override
+    public void assertAwaitingPayment(Long orderId) {
+        Order order = getExistingOrder(orderId);
+        if (order.getStatus() != OrderStatus.AWAITING_PAYMENT) {
+            log.warn("Rejected payment for order id: {} — order is not awaiting payment (status: {})",
+                    order.getId(), order.getStatus());
+            throw new IllegalOrderStateException(
+                    String.format(OrderConstants.ORDER_NOT_AWAITING_PAYMENT_MESSAGE, order.getId(), order.getStatus()));
+        }
+    }
+
     private void enqueueOrderConfirmedEvent(Order order) {
         UUID eventId = UUID.randomUUID();
         OrderConfirmedEvent event = orderConfirmedEventFactory.confirmed(order.getId(), eventId);
@@ -307,20 +338,18 @@ public class OrderServiceImpl implements OrderService {
                 });
     }
 
-    private Customer getExistingCustomer(Long customerId) {
-        return customerRepository.findById(customerId)
-                .orElseThrow(() -> {
-                    log.warn("Customer not found with id: {} while placing order", customerId);
-                    return new CustomerNotFoundException(customerId);
-                });
+    // CustomerService/ProductService already throw their own *NotFoundException
+    // when the id doesn't resolve (see CustomerServiceImpl/ProductServiceImpl) —
+    // no need to duplicate that check here, just add order-placement context to
+    // the log trail.
+    private CustomerResponse getExistingCustomer(Long customerId) {
+        log.debug("Resolving customer id: {} via CustomerService while placing order", customerId);
+        return customerService.getCustomerById(customerId);
     }
 
-    private Product getExistingProduct(Long productId) {
-        return productRepository.findById(productId)
-                .orElseThrow(() -> {
-                    log.warn("Product not found with id: {} while placing order", productId);
-                    return new ProductNotFoundException(productId);
-                });
+    private ProductResponse getExistingProduct(Long productId) {
+        log.debug("Resolving product id: {} via ProductService while placing order", productId);
+        return productService.getProductById(productId);
     }
 
 }

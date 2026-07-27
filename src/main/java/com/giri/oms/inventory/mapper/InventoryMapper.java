@@ -10,27 +10,30 @@ import org.mapstruct.MappingTarget;
 @Mapper(componentModel = "spring")
 public interface InventoryMapper {
 
-    @Mapping(target = "productId", source = "product.id")
-    @Mapping(target = "productName", source = "product.name")
-    InventoryResponse mapToInventoryResponse(Inventory inventory);
+    // productName is no longer on Inventory (it's a live value owned by the
+    // product module, not this module's data) — the service layer resolves it
+    // via ProductService and passes it in here explicitly, rather than the
+    // mapper reaching across the module boundary itself.
+    @Mapping(target = "productName", source = "productName")
+    InventoryResponse mapToInventoryResponse(Inventory inventory, String productName);
 
-    // "product" is intentionally NOT mapped here — resolving a Product entity from
-    // a raw productId requires a repository lookup (to validate it exists), which
-    // is business logic that belongs in the service layer, not the mapper.
+    // "productId" is intentionally NOT mapped here — resolving/validating a
+    // product from a raw productId requires a call to ProductService, which is
+    // business logic that belongs in the service layer, not the mapper.
     // "version" (from BaseEntity) is also intentionally NOT mapped — it's an
     // @Version column Hibernate manages itself: on insert it initializes a null
     // version to 0, and leaving it unmapped here on update preserves whatever
     // value was already loaded onto the managed entity, which is exactly what the
     // optimistic-locking check in GlobalExceptionHandler relies on.
     @Mapping(target = "id", ignore = true)
-    @Mapping(target = "product", ignore = true)
+    @Mapping(target = "productId", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "version", ignore = true)
     Inventory mapToInventory(InventoryRequest request);
 
     @Mapping(target = "id", ignore = true)
-    @Mapping(target = "product", ignore = true)
+    @Mapping(target = "productId", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "version", ignore = true)

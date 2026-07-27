@@ -14,7 +14,8 @@ import java.util.Optional;
 public interface InventoryRepository extends JpaRepository<Inventory, Long>, JpaSpecificationExecutor<Inventory> {
 
     // Derived query methods — Spring parses the method name into SQL.
-    // "ProductId" navigates the product relation's id field automatically.
+    // "ProductId" filters on the plain productId column (no relation to traverse).
+
 
     Optional<Inventory> findByProductIdAndLocation(Long productId, String location);
 
@@ -28,7 +29,7 @@ public interface InventoryRepository extends JpaRepository<Inventory, Long>, Jpa
     // lowStockOnly filters to rows where available stock has dropped to/below the reorder threshold.
     @Query("""
             SELECT i FROM Inventory i
-            WHERE (:productId IS NULL OR i.product.id = :productId)
+            WHERE (:productId IS NULL OR i.productId = :productId)
               AND (:location IS NULL OR LOWER(i.location) LIKE LOWER(CONCAT('%', CAST(:location AS string), '%')))
               AND (:lowStockOnly = FALSE OR i.quantityAvailable <= i.reorderLevel)
             """)

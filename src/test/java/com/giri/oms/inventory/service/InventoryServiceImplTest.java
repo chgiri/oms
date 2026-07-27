@@ -11,9 +11,9 @@ import com.giri.oms.inventory.exception.InventoryNotFoundException;
 import com.giri.oms.inventory.mapper.InventoryMapper;
 import com.giri.oms.inventory.repository.InventoryRepository;
 import com.giri.oms.inventory.service.impl.InventoryServiceImpl;
-import com.giri.oms.product.entity.Product;
+import com.giri.oms.product.dto.ProductResponse;
 import com.giri.oms.product.exception.ProductNotFoundException;
-import com.giri.oms.product.repository.ProductRepository;
+import com.giri.oms.product.service.ProductService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -42,7 +42,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 /**
- * Pure unit tests — no Spring context, no DB. Repository, ProductRepository, and
+ * Pure unit tests — no Spring context, no DB. Repository, ProductService, and
  * mapper are all mocked so these run in milliseconds and only exercise
  * InventoryServiceImpl's own logic.
  */
@@ -53,7 +53,7 @@ class InventoryServiceImplTest {
     private InventoryRepository inventoryRepository;
 
     @Mock
-    private ProductRepository productRepository;
+    private ProductService productService;
 
     @Mock
     private InventoryMapper inventoryMapper;
@@ -64,30 +64,30 @@ class InventoryServiceImplTest {
     @InjectMocks
     private InventoryServiceImpl inventoryService;
 
-    private Product product;
+    private ProductResponse product;
     private Inventory inventory;
     private InventoryRequest inventoryRequest;
     private InventoryResponse inventoryResponse;
 
     @BeforeEach
     void setUp() {
-        // updateInventory wraps its work in a distributed lock — for these unit tests
-        // (no real Redis) just run the wrapped action straight through, same as the
-        // real lock does once acquired.
+        // updateInventory/createInventory wrap their work in a distributed lock — for
+        // these unit tests (no real Redis) just run the wrapped action straight
+        // through, same as the real lock does once acquired.
         lenient().when(distributedLockService.executeWithLock(anyString(), any(), any(), any()))
                 .thenAnswer(invocation -> {
                     java.util.function.Supplier<?> action = invocation.getArgument(3);
                     return action.get();
                 });
 
-        product = new Product();
+        product = new ProductResponse();
         product.setId(1L);
         product.setName("Wireless Mouse");
         product.setPrice(new BigDecimal("25.99"));
 
         inventory = new Inventory();
         inventory.setId(1L);
-        inventory.setProduct(product);
+        inventory.setProductId(1L);
         inventory.setLocation("WH-EAST-01");
         inventory.setQuantityAvailable(120);
         inventory.setQuantityReserved(15);
@@ -112,11 +112,11 @@ class InventoryServiceImplTest {
 
         @Test
         void savesAndReturnsMappedResponse() {
-            when(productRepository.findById(1L)).thenReturn(Optional.of(product));
+            when(productService.getProductById(1L)).thenReturn(product);
             when(inventoryRepository.existsByProductIdAndLocation(1L, "WH-EAST-01")).thenReturn(false);
             when(inventoryMapper.mapToInventory(inventoryRequest)).thenReturn(inventory);
             when(inventoryRepository.save(inventory)).thenReturn(inventory);
-            when(inventoryMapper.mapToInventoryResponse(inventory)).thenReturn(inventoryResponse);
+            when(inventoryMapper.mapToInventoryResponse(inventory, "Wireless Mouse")).thenReturn(inventoryResponse);
 
             InventoryResponse result = inventoryService.createInventory(inventoryRequest);
 
@@ -126,7 +126,7 @@ class InventoryServiceImplTest {
 
         @Test
         void throwsProductNotFoundException_whenProductDoesNotExist() {
-            when(productRepository.findById(99L)).thenReturn(Optional.empty());
+            when(productService.getProductById(99L)).thenThrow(new ProductNotFoundException(99L));
             inventoryRequest.setProductId(99L);
 
             assertThatThrownBy(() -> inventoryService.createInventory(inventoryRequest))
@@ -138,7 +138,7 @@ class InventoryServiceImplTest {
 
         @Test
         void throwsInventoryAlreadyExistsException_whenProductLocationPairIsTaken() {
-            when(productRepository.findById(1L)).thenReturn(Optional.of(product));
+            when(productService.getProductById(1L)).thenReturn(product);
             when(inventoryRepository.existsByProductIdAndLocation(1L, "WH-EAST-01")).thenReturn(true);
 
             assertThatThrownBy(() -> inventoryService.createInventory(inventoryRequest))
@@ -155,7 +155,8 @@ class InventoryServiceImplTest {
         @Test
         void returnsMappedResponse_whenInventoryExists() {
             when(inventoryRepository.findById(1L)).thenReturn(Optional.of(inventory));
-            when(inventoryMapper.mapToInventoryResponse(inventory)).thenReturn(inventoryResponse);
+            when(productService.getProductById(1L)).thenReturn(product);
+            when(inventoryMapper.mapToInventoryResponse(inventory, "Wireless Mouse")).thenReturn(inventoryResponse);
 
             InventoryResponse result = inventoryService.getInventoryById(1L);
 
@@ -170,7 +171,7 @@ class InventoryServiceImplTest {
                     .isInstanceOf(InventoryNotFoundException.class)
                     .hasMessageContaining("99");
 
-            verify(inventoryMapper, never()).mapToInventoryResponse(any());
+            verify(inventoryMapper, never()).mapToInventoryResponse(any(), any());
         }
     }
 
@@ -181,7 +182,8 @@ class InventoryServiceImplTest {
         void returnsPagedResponse_whenSortFieldIsValid() {
             Page<Inventory> inventoryPage = new PageImpl<>(List.of(inventory));
             when(inventoryRepository.findAll(any(Pageable.class))).thenReturn(inventoryPage);
-            when(inventoryMapper.mapToInventoryResponse(inventory)).thenReturn(inventoryResponse);
+            when(productService.getProductById(1L)).thenReturn(product);
+            when(inventoryMapper.mapToInventoryResponse(inventory, "Wireless Mouse")).thenReturn(inventoryResponse);
 
             PagedResponse<InventoryResponse> result = inventoryService.getAllInventory(0, 10, "location", "asc");
 
@@ -201,7 +203,8 @@ class InventoryServiceImplTest {
         @Test
         void sortsDescending_whenSortDirIsDesc() {
             when(inventoryRepository.findAll(any(Pageable.class))).thenReturn(new PageImpl<>(List.of(inventory)));
-            when(inventoryMapper.mapToInventoryResponse(any())).thenReturn(inventoryResponse);
+            when(productService.getProductById(1L)).thenReturn(product);
+            when(inventoryMapper.mapToInventoryResponse(any(), any())).thenReturn(inventoryResponse);
 
             inventoryService.getAllInventory(0, 10, "quantityAvailable", "desc");
 
@@ -217,8 +220,9 @@ class InventoryServiceImplTest {
         @Test
         void updatesAndReturnsMappedResponse_whenInventoryExists() {
             when(inventoryRepository.findById(1L)).thenReturn(Optional.of(inventory));
+            when(productService.getProductById(1L)).thenReturn(product);
             when(inventoryRepository.save(inventory)).thenReturn(inventory);
-            when(inventoryMapper.mapToInventoryResponse(inventory)).thenReturn(inventoryResponse);
+            when(inventoryMapper.mapToInventoryResponse(inventory, "Wireless Mouse")).thenReturn(inventoryResponse);
 
             InventoryResponse result = inventoryService.updateInventory(1L, inventoryRequest);
 
@@ -242,8 +246,9 @@ class InventoryServiceImplTest {
             // request matches the existing record's product+location exactly — should NOT
             // trigger the duplicate check against itself
             when(inventoryRepository.findById(1L)).thenReturn(Optional.of(inventory));
+            when(productService.getProductById(1L)).thenReturn(product);
             when(inventoryRepository.save(inventory)).thenReturn(inventory);
-            when(inventoryMapper.mapToInventoryResponse(inventory)).thenReturn(inventoryResponse);
+            when(inventoryMapper.mapToInventoryResponse(inventory, "Wireless Mouse")).thenReturn(inventoryResponse);
 
             inventoryService.updateInventory(1L, inventoryRequest);
 
@@ -281,7 +286,7 @@ class InventoryServiceImplTest {
             changedProductRequest.setReorderLevel(20);
 
             when(inventoryRepository.existsByProductIdAndLocation(99L, "WH-EAST-01")).thenReturn(false);
-            when(productRepository.findById(99L)).thenReturn(Optional.empty());
+            when(productService.getProductById(99L)).thenThrow(new ProductNotFoundException(99L));
 
             assertThatThrownBy(() -> inventoryService.updateInventory(1L, changedProductRequest))
                     .isInstanceOf(ProductNotFoundException.class);
@@ -323,7 +328,8 @@ class InventoryServiceImplTest {
 
             when(inventoryRepository.searchInventory(1L, null, false, pageable))
                     .thenReturn(inventoryPage);
-            when(inventoryMapper.mapToInventoryResponse(inventory)).thenReturn(inventoryResponse);
+            when(productService.getProductById(1L)).thenReturn(product);
+            when(inventoryMapper.mapToInventoryResponse(inventory, "Wireless Mouse")).thenReturn(inventoryResponse);
 
             Page<InventoryResponse> result = inventoryService.searchInventory(1L, null, false, pageable);
 
@@ -335,7 +341,8 @@ class InventoryServiceImplTest {
             Pageable requestedPageable = PageRequest.of(0, 10, Sort.by("LOCATION").ascending());
             when(inventoryRepository.searchInventory(any(), any(), anyBoolean(), any()))
                     .thenReturn(new PageImpl<>(List.of(inventory)));
-            when(inventoryMapper.mapToInventoryResponse(any())).thenReturn(inventoryResponse);
+            when(productService.getProductById(1L)).thenReturn(product);
+            when(inventoryMapper.mapToInventoryResponse(any(), any())).thenReturn(inventoryResponse);
 
             inventoryService.searchInventory(null, null, false, requestedPageable);
 
@@ -366,7 +373,8 @@ class InventoryServiceImplTest {
             Page<Inventory> inventoryPage = new PageImpl<>(List.of(inventory));
             when(inventoryRepository.findAll(any(org.springframework.data.jpa.domain.Specification.class), any(Pageable.class)))
                     .thenReturn(inventoryPage);
-            when(inventoryMapper.mapToInventoryResponse(inventory)).thenReturn(inventoryResponse);
+            when(productService.getProductById(1L)).thenReturn(product);
+            when(inventoryMapper.mapToInventoryResponse(inventory, "Wireless Mouse")).thenReturn(inventoryResponse);
 
             Page<InventoryResponse> result = inventoryService.searchInventoryBySpecification(
                     1L, "WH-EAST", true, PageRequest.of(0, 10));

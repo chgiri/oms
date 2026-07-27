@@ -15,7 +15,8 @@ import java.util.List;
 public interface ShipmentRepository extends JpaRepository<Shipment, Long>, JpaSpecificationExecutor<Shipment> {
 
     // Derived query methods — Spring parses the method name into SQL.
-    // "OrderId" navigates the order relation's id field automatically.
+    // "OrderId" is now a direct field match (orderId is a plain FK column,
+    // not a navigable relation — see Shipment entity / ModularityTests).
 
     List<Shipment> findByOrderId(Long orderId);
 
@@ -24,7 +25,7 @@ public interface ShipmentRepository extends JpaRepository<Shipment, Long>, JpaSp
     // JPQL @Query — for combining multiple optional filters in one query.
     @Query("""
             SELECT s FROM Shipment s
-            WHERE (:orderId IS NULL OR s.order.id = :orderId)
+            WHERE (:orderId IS NULL OR s.orderId = :orderId)
               AND (:status IS NULL OR s.status = :status)
               AND (:carrier IS NULL OR s.carrier = :carrier)
             """)

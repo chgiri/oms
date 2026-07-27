@@ -19,7 +19,7 @@ public class OrderSpecification {
 
     public static Specification<Order> hasCustomerId(Long customerId) {
         return (root, query, cb) ->
-                customerId == null ? null : cb.equal(root.get("customer").get("id"), customerId);
+                customerId == null ? null : cb.equal(root.get("customerId"), customerId);
     }
 
     public static Specification<Order> hasStatus(OrderStatus status) {

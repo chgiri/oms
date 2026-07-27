@@ -15,7 +15,7 @@ import java.util.List;
 public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecificationExecutor<Order> {
 
     // Derived query methods — Spring parses the method name into SQL.
-    // "CustomerId" navigates the customer relation's id field automatically.
+    // customerId is a plain column (see Order.customerId), not a navigated association.
 
     List<Order> findByCustomerId(Long customerId);
 
@@ -24,7 +24,7 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
     // JPQL @Query — for combining multiple optional filters in one query.
     @Query("""
             SELECT o FROM Order o
-            WHERE (:customerId IS NULL OR o.customer.id = :customerId)
+            WHERE (:customerId IS NULL OR o.customerId = :customerId)
               AND (:status IS NULL OR o.status = :status)
               AND (:minTotal IS NULL OR o.totalAmount >= :minTotal)
               AND (:maxTotal IS NULL OR o.totalAmount <= :maxTotal)

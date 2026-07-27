@@ -2,10 +2,9 @@ package com.giri.oms.order.service;
 
 import com.giri.oms.common.dto.PagedResponse;
 import com.giri.oms.common.exception.InvalidSortFieldException;
-import com.giri.oms.customer.entity.Customer;
-import com.giri.oms.customer.entity.CustomerStatus;
+import com.giri.oms.customer.dto.CustomerResponse;
 import com.giri.oms.customer.exception.CustomerNotFoundException;
-import com.giri.oms.customer.repository.CustomerRepository;
+import com.giri.oms.customer.service.CustomerService;
 import com.giri.oms.messaging.event.OrderCreatedEventFactory;
 import com.giri.oms.messaging.event.OrderConfirmedEventFactory;
 import com.giri.oms.messaging.event.OrderCancelledEvent;
@@ -23,9 +22,9 @@ import com.giri.oms.order.exception.OrderNotFoundException;
 import com.giri.oms.order.mapper.OrderMapper;
 import com.giri.oms.order.repository.OrderRepository;
 import com.giri.oms.order.service.impl.OrderServiceImpl;
-import com.giri.oms.product.entity.Product;
+import com.giri.oms.product.dto.ProductResponse;
 import com.giri.oms.product.exception.ProductNotFoundException;
-import com.giri.oms.product.repository.ProductRepository;
+import com.giri.oms.product.service.ProductService;
 import com.giri.oms.messaging.event.EventType;
 import com.giri.oms.messaging.event.OrderCreatedEvent;
 import org.junit.jupiter.api.BeforeEach;
@@ -58,8 +57,8 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 /**
- * Pure unit tests — no Spring context, no DB. Repository, CustomerRepository,
- * ProductRepository, and mapper are all mocked so these run in milliseconds and
+ * Pure unit tests — no Spring context, no DB. Repository, CustomerService,
+ * ProductService, and mapper are all mocked so these run in milliseconds and
  * only exercise OrderServiceImpl's own logic.
  */
 @ExtendWith(MockitoExtension.class)
@@ -69,10 +68,10 @@ class OrderServiceImplTest {
     private OrderRepository orderRepository;
 
     @Mock
-    private CustomerRepository customerRepository;
+    private CustomerService customerService;
 
     @Mock
-    private ProductRepository productRepository;
+    private ProductService productService;
 
     @Mock
     private OrderMapper orderMapper;
@@ -92,36 +91,37 @@ class OrderServiceImplTest {
     @InjectMocks
     private OrderServiceImpl orderService;
 
-    private Customer customer;
-    private Product product;
+    private CustomerResponse customer;
+    private ProductResponse product;
     private Order order;
     private OrderRequest orderRequest;
     private OrderResponse orderResponse;
 
     @BeforeEach
     void setUp() {
-        customer = new Customer();
+        customer = new CustomerResponse();
         customer.setId(1L);
         customer.setFirstName("Ada");
         customer.setLastName("Lovelace");
         customer.setEmail("ada@example.com");
-        customer.setStatus(CustomerStatus.ACTIVE);
 
-        product = new Product();
+        product = new ProductResponse();
         product.setId(1L);
         product.setName("Wireless Mouse");
         product.setPrice(new BigDecimal("25.99"));
 
         OrderItem orderItem = new OrderItem();
         orderItem.setId(1L);
-        orderItem.setProduct(product);
+        orderItem.setProductId(product.getId());
+        orderItem.setProductName(product.getName());
         orderItem.setQuantity(3);
         orderItem.setUnitPrice(new BigDecimal("25.99"));
         orderItem.setSubtotal(new BigDecimal("77.97"));
 
         order = new Order();
         order.setId(1L);
-        order.setCustomer(customer);
+        order.setCustomerId(customer.getId());
+        order.setCustomerName(customer.getFirstName() + " " + customer.getLastName());
         order.setStatus(OrderStatus.PENDING);
         order.setTotalAmount(new BigDecimal("77.97"));
         order.addItem(orderItem);
@@ -149,13 +149,14 @@ class OrderServiceImplTest {
             // these, so stubbing them anywhere those tests would also run trips
             // Mockito's strict-stubs UnnecessaryStubbingException.
             when(orderCreatedEventFactory.aggregateType()).thenReturn("Order");
-            when(orderCreatedEventFactory.aggregateId(any(Order.class))).thenReturn("1");
+            when(orderCreatedEventFactory.aggregateId(1L)).thenReturn("1");
             when(orderCreatedEventFactory.topic()).thenReturn("oms.order.events");
-            when(orderCreatedEventFactory.partitionKey(any(Order.class))).thenReturn("1");
-            when(customerRepository.findById(1L)).thenReturn(Optional.of(customer));
-            when(productRepository.findById(1L)).thenReturn(Optional.of(product));
+            when(orderCreatedEventFactory.partitionKey(1L)).thenReturn("1");
+            when(customerService.getCustomerById(1L)).thenReturn(customer);
+            when(productService.getProductById(1L)).thenReturn(product);
             when(orderRepository.save(any(Order.class))).thenReturn(order);
-            when(orderCreatedEventFactory.create(eq(order), any(UUID.class))).thenReturn(
+            when(orderCreatedEventFactory.create(eq(1L), eq(1L), eq("PENDING"), eq(new BigDecimal("77.97")),
+                    anyList(), any(UUID.class))).thenReturn(
                     new OrderCreatedEvent(UUID.randomUUID(), 1L, 1L, "PENDING", new BigDecimal("77.97"), List.of(), LocalDateTime.now()));
             when(orderMapper.mapToOrderResponse(order)).thenReturn(orderResponse);
             when(orderMapper.mapToOrderItemResponse(any(OrderItem.class)))
@@ -171,7 +172,7 @@ class OrderServiceImplTest {
 
         @Test
         void computesTotalAmountAsSumOfLineItemSubtotals() {
-            Product keyboard = new Product();
+            ProductResponse keyboard = new ProductResponse();
             keyboard.setId(2L);
             keyboard.setName("Mechanical Keyboard");
             keyboard.setPrice(new BigDecimal("89.99"));
@@ -181,11 +182,12 @@ class OrderServiceImplTest {
                     new OrderItemRequest(2L, 1)    // 1 * 89.99 = 89.99
             ));
 
-            when(customerRepository.findById(1L)).thenReturn(Optional.of(customer));
-            when(productRepository.findById(1L)).thenReturn(Optional.of(product));
-            when(productRepository.findById(2L)).thenReturn(Optional.of(keyboard));
+            when(customerService.getCustomerById(1L)).thenReturn(customer);
+            when(productService.getProductById(1L)).thenReturn(product);
+            when(productService.getProductById(2L)).thenReturn(keyboard);
             when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
-            when(orderCreatedEventFactory.create(any(Order.class), any(UUID.class))).thenReturn(
+            when(orderCreatedEventFactory.create(any(), eq(1L), eq("PENDING"), eq(new BigDecimal("141.97")),
+                    anyList(), any(UUID.class))).thenReturn(
                     new OrderCreatedEvent(UUID.randomUUID(), 1L, 1L, "PENDING", new BigDecimal("141.97"), List.of(), LocalDateTime.now()));
             when(orderMapper.mapToOrderResponse(any(Order.class))).thenReturn(orderResponse);
             when(orderMapper.mapToOrderItemResponse(any(OrderItem.class)))
@@ -200,7 +202,7 @@ class OrderServiceImplTest {
 
         @Test
         void throwsCustomerNotFoundException_whenCustomerDoesNotExist() {
-            when(customerRepository.findById(99L)).thenReturn(Optional.empty());
+            when(customerService.getCustomerById(99L)).thenThrow(new CustomerNotFoundException(99L));
             orderRequest.setCustomerId(99L);
 
             assertThatThrownBy(() -> orderService.createOrder(orderRequest))
@@ -213,8 +215,8 @@ class OrderServiceImplTest {
 
         @Test
         void throwsProductNotFoundException_whenAnItemsProductDoesNotExist() {
-            when(customerRepository.findById(1L)).thenReturn(Optional.of(customer));
-            when(productRepository.findById(99L)).thenReturn(Optional.empty());
+            when(customerService.getCustomerById(1L)).thenReturn(customer);
+            when(productService.getProductById(99L)).thenThrow(new ProductNotFoundException(99L));
             orderRequest.setItems(List.of(new OrderItemRequest(99L, 1)));
 
             assertThatThrownBy(() -> orderService.createOrder(orderRequest))

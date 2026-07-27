@@ -90,12 +90,14 @@ class PaymentRepositoryTest extends AbstractIntegrationTest {
 
     private Order order(Customer customer, String total, Product product, int quantity) {
         Order order = new Order();
-        order.setCustomer(customer);
+        order.setCustomerId(customer.getId());
+        order.setCustomerName(customer.getFirstName() + " " + customer.getLastName());
         order.setStatus(OrderStatus.PENDING);
         order.setTotalAmount(new BigDecimal(total));
 
         OrderItem item = new OrderItem();
-        item.setProduct(product);
+        item.setProductId(product.getId());
+        item.setProductName(product.getName());
         item.setQuantity(quantity);
         item.setUnitPrice(product.getPrice());
         item.setSubtotal(product.getPrice().multiply(BigDecimal.valueOf(quantity)));
@@ -106,7 +108,7 @@ class PaymentRepositoryTest extends AbstractIntegrationTest {
 
     private Payment payment(Order order, String amount, PaymentMethod method, PaymentStatus status) {
         Payment payment = new Payment();
-        payment.setOrder(order);
+        payment.setOrderId(order.getId());
         payment.setAmount(new BigDecimal(amount));
         payment.setMethod(method);
         payment.setStatus(status);
@@ -125,7 +127,7 @@ class PaymentRepositoryTest extends AbstractIntegrationTest {
         List<Payment> results = paymentRepository.findByStatus(PaymentStatus.COMPLETED);
 
         assertThat(results).hasSize(1);
-        assertThat(results.get(0).getOrder().getId()).isEqualTo(order2.getId());
+        assertThat(results.get(0).getOrderId()).isEqualTo(order2.getId());
     }
 
     @Test

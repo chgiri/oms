@@ -66,7 +66,8 @@ class OrderOptimisticLockingTest extends AbstractIntegrationTest {
         customerRepository.saveAndFlush(customer);
 
         Order order = new Order();
-        order.setCustomer(customer);
+        order.setCustomerId(customer.getId());
+        order.setCustomerName(customer.getFirstName() + " " + customer.getLastName());
         order.setStatus(OrderStatus.PENDING);
         order.setTotalAmount(new BigDecimal("99.99"));
         orderRepository.saveAndFlush(order);

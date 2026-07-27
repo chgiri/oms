@@ -19,6 +19,16 @@ public interface OrderService {
 
     OrderResponse updateOrderStatus(Long orderId, OrderStatus newStatus);
 
+    /**
+     * Verifies the order exists and is currently AWAITING_PAYMENT, throwing
+     * OrderNotFoundException or IllegalOrderStateException otherwise. Used by
+     * the payment module before recording a new payment (see
+     * PaymentServiceImpl.createPayment) so that payment never has to depend on
+     * order.entity.OrderStatus (which isn't part of this module's exposed
+     * API — see ModularityTests) just to run this one check.
+     */
+    void assertAwaitingPayment(Long orderId);
+
     void deleteOrder(Long orderId);
 
     Page<OrderResponse> searchOrders(Long customerId, OrderStatus status, BigDecimal minTotal, BigDecimal maxTotal, Pageable pageable);

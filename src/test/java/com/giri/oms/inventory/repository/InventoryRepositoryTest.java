@@ -64,7 +64,7 @@ class InventoryRepositoryTest extends AbstractIntegrationTest {
 
     private Inventory inventory(Product product, String location, int available, int reserved, int reorderLevel) {
         Inventory inventory = new Inventory();
-        inventory.setProduct(product);
+        inventory.setProductId(product.getId());
         inventory.setLocation(location);
         inventory.setQuantityAvailable(available);
         inventory.setQuantityReserved(reserved);

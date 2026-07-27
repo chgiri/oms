@@ -7,11 +7,7 @@ import com.giri.oms.messaging.event.PaymentConfirmedEvent;
 import com.giri.oms.messaging.event.PaymentEventFactory;
 import com.giri.oms.messaging.event.PaymentFailedEvent;
 import com.giri.oms.messaging.outbox.OutboxService;
-import com.giri.oms.order.entity.Order;
-import com.giri.oms.order.entity.OrderStatus;
-import com.giri.oms.order.exception.IllegalOrderStateException;
-import com.giri.oms.order.exception.OrderNotFoundException;
-import com.giri.oms.order.repository.OrderRepository;
+import com.giri.oms.order.service.OrderService;
 import com.giri.oms.payment.constants.PaymentConstants;
 import com.giri.oms.payment.dto.PaymentRequest;
 import com.giri.oms.payment.dto.PaymentResponse;
@@ -48,7 +44,7 @@ import java.util.UUID;
 public class PaymentServiceImpl implements PaymentService {
 
     private final PaymentRepository paymentRepository;
-    private final OrderRepository orderRepository;
+    private final OrderService orderService;
     private final PaymentMapper paymentMapper;
     private final OutboxService outboxService;
     private final PaymentEventFactory paymentEventFactory;
@@ -76,20 +72,15 @@ public class PaymentServiceImpl implements PaymentService {
     public PaymentResponse createPayment(PaymentRequest request) {
         log.debug("Creating payment for order id: {}", request.getOrderId());
 
-        Order order = getExistingOrder(request.getOrderId());
         // Inventory must already be reserved (Phase 2) before it makes sense to
         // take a payment — an order that's still PENDING has nothing backing it
         // yet, and one that's already CONFIRMED/SHIPPED/etc. shouldn't accept a
-        // new payment through this path.
-        if (order.getStatus() != OrderStatus.AWAITING_PAYMENT) {
-            log.warn("Rejected payment creation for order id: {} — order is not awaiting payment (status: {})",
-                    order.getId(), order.getStatus());
-            throw new IllegalOrderStateException(
-                    String.format(PaymentConstants.ORDER_NOT_AWAITING_PAYMENT_MESSAGE, order.getId(), order.getStatus()));
-        }
+        // new payment through this path. OrderService owns this check entirely
+        // (existence + status) so payment never has to depend on order.entity.
+        orderService.assertAwaitingPayment(request.getOrderId());
 
         Payment payment = new Payment();
-        payment.setOrder(order);
+        payment.setOrderId(request.getOrderId());
         payment.setAmount(request.getAmount());
         payment.setMethod(request.getMethod());
         payment.setStatus(PaymentStatus.PENDING);
@@ -195,7 +186,7 @@ public class PaymentServiceImpl implements PaymentService {
 
     private void enqueuePaymentConfirmedEvent(Payment payment) {
         UUID eventId = UUID.randomUUID();
-        Long orderId = payment.getOrder().getId();
+        Long orderId = payment.getOrderId();
         PaymentConfirmedEvent event = paymentEventFactory.confirmed(
                 orderId, payment.getId(), eventId, payment.getAmount(), payment.getTransactionReference());
         outboxService.enqueue(
@@ -210,7 +201,7 @@ public class PaymentServiceImpl implements PaymentService {
 
     private void enqueuePaymentFailedEvent(Payment payment) {
         UUID eventId = UUID.randomUUID();
-        Long orderId = payment.getOrder().getId();
+        Long orderId = payment.getOrderId();
         PaymentFailedEvent event = paymentEventFactory.failed(orderId, payment.getId(), eventId);
         outboxService.enqueue(
                 eventId,
@@ -259,14 +250,6 @@ public class PaymentServiceImpl implements PaymentService {
                 .orElseThrow(() -> {
                     log.warn("Payment not found with id: {}", paymentId);
                     return new PaymentNotFoundException(paymentId);
-                });
-    }
-
-    private Order getExistingOrder(Long orderId) {
-        return orderRepository.findById(orderId)
-                .orElseThrow(() -> {
-                    log.warn("Order not found with id: {} while recording payment", orderId);
-                    return new OrderNotFoundException(orderId);
                 });
     }
 

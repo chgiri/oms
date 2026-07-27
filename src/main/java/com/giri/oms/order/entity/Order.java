@@ -1,7 +1,6 @@
 package com.giri.oms.order.entity;
 
 import com.giri.oms.common.entity.BaseEntity;
-import com.giri.oms.customer.entity.Customer;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -24,9 +23,19 @@ public class Order extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "customer_id", nullable = false)
-    private Customer customer;
+    // Deliberately a plain FK column, not a @ManyToOne to the customer module's
+    // Customer entity — the order module doesn't reach into another module's
+    // entity/repository packages (see ModuleBoundaryTest). Existence is validated
+    // once, up front, via CustomerService.getCustomerById.
+    @Column(name = "customer_id", nullable = false)
+    private Long customerId;
+
+    // Snapshot of the customer's name at order-placement time — same reasoning as
+    // OrderItem.unitPrice below: a customer renaming themselves later shouldn't
+    // silently rewrite the name on a historical order, and it avoids a
+    // CustomerService round-trip on every read of an order.
+    @Column(name = "customer_name", nullable = false, length = 201)
+    private String customerName;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)

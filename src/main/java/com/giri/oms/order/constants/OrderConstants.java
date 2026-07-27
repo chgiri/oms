@@ -13,6 +13,8 @@ public final class OrderConstants {
             "Cannot transition order id %d from status %s to %s";
     public static final String ORDER_NOT_DELETABLE_MESSAGE =
             "Order id %d cannot be deleted while in status %s — only PENDING or CANCELLED orders can be deleted";
+    public static final String ORDER_NOT_AWAITING_PAYMENT_MESSAGE =
+            "Cannot create payment for order id %d — order is not awaiting payment (status: %s)";
 
     // ---- Bean Validation messages ----
     public static final String CUSTOMER_ID_REQUIRED_MESSAGE = "Customer ID must not be null";

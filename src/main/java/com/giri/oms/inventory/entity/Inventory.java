@@ -1,7 +1,6 @@
 package com.giri.oms.inventory.entity;
 
 import com.giri.oms.common.entity.BaseEntity;
-import com.giri.oms.product.entity.Product;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -21,9 +20,13 @@ public class Inventory extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "product_id", nullable = false)
-    private Product product;
+    // Plain FK column, not a @ManyToOne to the product module's Product entity —
+    // see ModuleBoundaryTest. Unlike Order/OrderItem, inventory isn't a
+    // historical record, so there's no name snapshot here: the product's
+    // current name is resolved live via ProductService when building a
+    // response (see InventoryServiceImpl).
+    @Column(name = "product_id", nullable = false)
+    private Long productId;
 
     @Column(nullable = false, length = 100)
     private String location;
