@@ -1,6 +1,7 @@
 package com.giri.oms.product.controller;
 
 import com.giri.oms.common.dto.PagedResponse;
+import com.giri.oms.product.entity.ProductStatus;
 import tools.jackson.databind.json.JsonMapper;
 import com.giri.oms.product.dto.ProductRequest;
 import com.giri.oms.product.dto.ProductResponse;
@@ -60,7 +61,7 @@ class ProductControllerTest {
     void setUp() {
         productResponse = new ProductResponse(
                 1L, "Wireless Mouse", "Ergonomic wireless mouse",
-                new BigDecimal("25.99"), LocalDateTime.now(), LocalDateTime.now());
+                new BigDecimal("25.99"), ProductStatus.ACTIVE, LocalDateTime.now(), LocalDateTime.now());
 
         validRequest = new ProductRequest();
         validRequest.setName("Wireless Mouse");

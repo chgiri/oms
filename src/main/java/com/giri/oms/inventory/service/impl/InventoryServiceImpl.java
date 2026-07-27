@@ -8,6 +8,7 @@ import com.giri.oms.inventory.constants.InventoryConstants;
 import com.giri.oms.inventory.dto.InventoryRequest;
 import com.giri.oms.inventory.dto.InventoryResponse;
 import com.giri.oms.inventory.entity.Inventory;
+import com.giri.oms.inventory.entity.ProductRef;
 import com.giri.oms.inventory.exception.InventoryAlreadyExistsException;
 import com.giri.oms.inventory.exception.InventoryNotFoundException;
 import com.giri.oms.inventory.mapper.InventoryMapper;

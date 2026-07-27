@@ -6,10 +6,12 @@ import com.giri.oms.common.lock.DistributedLockService;
 import com.giri.oms.inventory.dto.InventoryRequest;
 import com.giri.oms.inventory.dto.InventoryResponse;
 import com.giri.oms.inventory.entity.Inventory;
+import com.giri.oms.inventory.entity.ProductRef;
 import com.giri.oms.inventory.exception.InventoryAlreadyExistsException;
 import com.giri.oms.inventory.exception.InventoryNotFoundException;
 import com.giri.oms.inventory.mapper.InventoryMapper;
 import com.giri.oms.inventory.repository.InventoryRepository;
+import com.giri.oms.inventory.repository.ProductRefRepository;
 import com.giri.oms.inventory.service.impl.InventoryServiceImpl;
 import com.giri.oms.product.dto.ProductResponse;
 import com.giri.oms.product.exception.ProductNotFoundException;
@@ -42,9 +44,12 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 /**
- * Pure unit tests — no Spring context, no DB. Repository, ProductService, and
- * mapper are all mocked so these run in milliseconds and only exercise
- * InventoryServiceImpl's own logic.
+ * Pure unit tests — no Spring context, no DB. Repository, ProductService,
+ * ProductRefRepository, and mapper are all mocked so these run in
+ * milliseconds and only exercise InventoryServiceImpl's own logic.
+ * ProductService is only stubbed in write-path tests (create/update) —
+ * read paths (getById/getAll/search) resolve the product name from
+ * ProductRefRepository instead, see InventoryServiceImpl.resolveProductName.
  */
 @ExtendWith(MockitoExtension.class)
 class InventoryServiceImplTest {
@@ -56,6 +61,9 @@ class InventoryServiceImplTest {
     private ProductService productService;
 
     @Mock
+    private ProductRefRepository productRefRepository;
+
+    @Mock
     private InventoryMapper inventoryMapper;
 
     @Mock
@@ -65,6 +73,7 @@ class InventoryServiceImplTest {
     private InventoryServiceImpl inventoryService;
 
     private ProductResponse product;
+    private ProductRef productRef;
     private Inventory inventory;
     private InventoryRequest inventoryRequest;
     private InventoryResponse inventoryResponse;
@@ -84,6 +93,8 @@ class InventoryServiceImplTest {
         product.setId(1L);
         product.setName("Wireless Mouse");
         product.setPrice(new BigDecimal("25.99"));
+
+        productRef = new ProductRef(1L, "Wireless Mouse", LocalDateTime.now());
 
         inventory = new Inventory();
         inventory.setId(1L);
@@ -155,12 +166,24 @@ class InventoryServiceImplTest {
         @Test
         void returnsMappedResponse_whenInventoryExists() {
             when(inventoryRepository.findById(1L)).thenReturn(Optional.of(inventory));
-            when(productService.getProductById(1L)).thenReturn(product);
+            when(productRefRepository.findById(1L)).thenReturn(Optional.of(productRef));
             when(inventoryMapper.mapToInventoryResponse(inventory, "Wireless Mouse")).thenReturn(inventoryResponse);
 
             InventoryResponse result = inventoryService.getInventoryById(1L);
 
             assertThat(result).isEqualTo(inventoryResponse);
+        }
+
+        @Test
+        void usesPlaceholderName_whenProductRefHasNoRowYet() {
+            when(inventoryRepository.findById(1L)).thenReturn(Optional.of(inventory));
+            when(productRefRepository.findById(1L)).thenReturn(Optional.empty());
+            when(inventoryMapper.mapToInventoryResponse(inventory, "Unknown Product")).thenReturn(inventoryResponse);
+
+            InventoryResponse result = inventoryService.getInventoryById(1L);
+
+            assertThat(result).isEqualTo(inventoryResponse);
+            verifyNoInteractions(productService);
         }
 
         @Test
@@ -182,7 +205,7 @@ class InventoryServiceImplTest {
         void returnsPagedResponse_whenSortFieldIsValid() {
             Page<Inventory> inventoryPage = new PageImpl<>(List.of(inventory));
             when(inventoryRepository.findAll(any(Pageable.class))).thenReturn(inventoryPage);
-            when(productService.getProductById(1L)).thenReturn(product);
+            when(productRefRepository.findById(1L)).thenReturn(Optional.of(productRef));
             when(inventoryMapper.mapToInventoryResponse(inventory, "Wireless Mouse")).thenReturn(inventoryResponse);
 
             PagedResponse<InventoryResponse> result = inventoryService.getAllInventory(0, 10, "location", "asc");
@@ -203,7 +226,7 @@ class InventoryServiceImplTest {
         @Test
         void sortsDescending_whenSortDirIsDesc() {
             when(inventoryRepository.findAll(any(Pageable.class))).thenReturn(new PageImpl<>(List.of(inventory)));
-            when(productService.getProductById(1L)).thenReturn(product);
+            when(productRefRepository.findById(1L)).thenReturn(Optional.of(productRef));
             when(inventoryMapper.mapToInventoryResponse(any(), any())).thenReturn(inventoryResponse);
 
             inventoryService.getAllInventory(0, 10, "quantityAvailable", "desc");
@@ -328,7 +351,7 @@ class InventoryServiceImplTest {
 
             when(inventoryRepository.searchInventory(1L, null, false, pageable))
                     .thenReturn(inventoryPage);
-            when(productService.getProductById(1L)).thenReturn(product);
+            when(productRefRepository.findById(1L)).thenReturn(Optional.of(productRef));
             when(inventoryMapper.mapToInventoryResponse(inventory, "Wireless Mouse")).thenReturn(inventoryResponse);
 
             Page<InventoryResponse> result = inventoryService.searchInventory(1L, null, false, pageable);
@@ -341,7 +364,7 @@ class InventoryServiceImplTest {
             Pageable requestedPageable = PageRequest.of(0, 10, Sort.by("LOCATION").ascending());
             when(inventoryRepository.searchInventory(any(), any(), anyBoolean(), any()))
                     .thenReturn(new PageImpl<>(List.of(inventory)));
-            when(productService.getProductById(1L)).thenReturn(product);
+            when(productRefRepository.findById(1L)).thenReturn(Optional.of(productRef));
             when(inventoryMapper.mapToInventoryResponse(any(), any())).thenReturn(inventoryResponse);
 
             inventoryService.searchInventory(null, null, false, requestedPageable);
@@ -373,7 +396,7 @@ class InventoryServiceImplTest {
             Page<Inventory> inventoryPage = new PageImpl<>(List.of(inventory));
             when(inventoryRepository.findAll(any(org.springframework.data.jpa.domain.Specification.class), any(Pageable.class)))
                     .thenReturn(inventoryPage);
-            when(productService.getProductById(1L)).thenReturn(product);
+            when(productRefRepository.findById(1L)).thenReturn(Optional.of(productRef));
             when(inventoryMapper.mapToInventoryResponse(inventory, "Wireless Mouse")).thenReturn(inventoryResponse);
 
             Page<InventoryResponse> result = inventoryService.searchInventoryBySpecification(
