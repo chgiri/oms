@@ -2,6 +2,7 @@ package com.giri.oms.product.repository;
 
 import com.giri.oms.common.AbstractIntegrationTest;
 import com.giri.oms.product.entity.Product;
+import com.giri.oms.product.entity.ProductStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -95,5 +96,37 @@ class ProductRepositoryTest extends AbstractIntegrationTest {
 
         assertThat(results).hasSize(1);
         assertThat(results.get(0).getName()).isEqualTo("USB-C Hub");
+    }
+
+    @Test
+    void findByStatus_active_excludesDiscontinuedProducts() {
+        // All three seeded products default to ACTIVE (see Product.status) —
+        // discontinue one here rather than in setUp, so the other tests'
+        // "3 products total" assumption is undisturbed.
+        Product keyboard = productRepository.findByNameContainingIgnoreCase("Mechanical Keyboard").get(0);
+        keyboard.setStatus(ProductStatus.DISCONTINUED);
+        productRepository.save(keyboard);
+
+        Page<Product> activeResults = productRepository.findByStatus(ProductStatus.ACTIVE, PageRequest.of(0, 10));
+
+        assertThat(activeResults.getContent())
+                .extracting(Product::getName)
+                .containsExactlyInAnyOrder("Wireless Mouse", "USB-C Hub");
+    }
+
+    @Test
+    void findByStatus_discontinued_returnsOnlyDiscontinuedProducts() {
+        Product hub = productRepository.findByNameContainingIgnoreCase("USB-C Hub").get(0);
+        hub.setStatus(ProductStatus.DISCONTINUED);
+        productRepository.save(hub);
+
+        Page<Product> discontinuedResults = productRepository.findByStatus(ProductStatus.DISCONTINUED, PageRequest.of(0, 10));
+
+        assertThat(discontinuedResults.getContent())
+                .extracting(Product::getName)
+                .containsExactly("USB-C Hub");
+        // findById deliberately does NOT filter by status (see ProductServiceImpl) —
+        // a discontinued product must still resolve for existing references to it.
+        assertThat(productRepository.findById(hub.getId())).isPresent();
     }
 }

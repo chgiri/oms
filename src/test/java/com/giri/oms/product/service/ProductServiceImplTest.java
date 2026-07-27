@@ -135,8 +135,10 @@ class ProductServiceImplTest {
 
         @Test
         void returnsPagedResponse_whenSortFieldIsValid() {
+            // Catalog listing only shows ACTIVE products (Phase 1 soft-delete) —
+            // see ProductRepository.findByStatus's Javadoc.
             Page<Product> productPage = new PageImpl<>(List.of(product));
-            when(productRepository.findAll(any(Pageable.class))).thenReturn(productPage);
+            when(productRepository.findByStatus(eq(ProductStatus.ACTIVE), any(Pageable.class))).thenReturn(productPage);
             when(productMapper.mapToProductResponse(product)).thenReturn(productResponse);
 
             PagedResponse<ProductResponse> result = productService.getAllProducts(0, 10, "name", "asc");
@@ -156,13 +158,14 @@ class ProductServiceImplTest {
 
         @Test
         void sortsDescending_whenSortDirIsDesc() {
-            when(productRepository.findAll(any(Pageable.class))).thenReturn(new PageImpl<>(List.of(product)));
+            when(productRepository.findByStatus(eq(ProductStatus.ACTIVE), any(Pageable.class)))
+                    .thenReturn(new PageImpl<>(List.of(product)));
             when(productMapper.mapToProductResponse(any())).thenReturn(productResponse);
 
             productService.getAllProducts(0, 10, "price", "desc");
 
             var pageableCaptor = org.mockito.ArgumentCaptor.forClass(Pageable.class);
-            verify(productRepository).findAll(pageableCaptor.capture());
+            verify(productRepository).findByStatus(eq(ProductStatus.ACTIVE), pageableCaptor.capture());
             assertThat(pageableCaptor.getValue().getSort().getOrderFor("price").isDescending()).isTrue();
         }
     }
@@ -200,13 +203,30 @@ class ProductServiceImplTest {
     class DeleteProduct {
 
         @Test
-        void deletesProduct_whenItExists() {
+        void softDeletesProduct_whenItIsActive() {
+            // Phase 1 soft-delete: deleteProduct flips status to DISCONTINUED and
+            // saves, it never hard-deletes the row (see ProductServiceImpl).
             when(productRepository.findById(1L)).thenReturn(Optional.of(product));
 
             productService.deleteProduct(1L);
 
-            // verify(productRepository).deleteById(1L);
+            assertThat(product.getStatus()).isEqualTo(ProductStatus.DISCONTINUED);
+            verify(productRepository).save(product);
+            verify(productRepository, never()).deleteById(anyLong());
             verify(outboxService).enqueue(any(), any(), any(), eq(EventType.PRODUCT_DELETED), any(), any(), any());
+        }
+
+        @Test
+        void isIdempotent_whenProductIsAlreadyDiscontinued() {
+            product.setStatus(ProductStatus.DISCONTINUED);
+            when(productRepository.findById(1L)).thenReturn(Optional.of(product));
+
+            productService.deleteProduct(1L);
+
+            // No-op: no re-save, no duplicate ProductDeleted event for a delete
+            // that already happened.
+            verify(productRepository, never()).save(any());
+            verifyNoInteractions(outboxService);
         }
 
         @Test
@@ -216,6 +236,7 @@ class ProductServiceImplTest {
             assertThatThrownBy(() -> productService.deleteProduct(99L))
                     .isInstanceOf(ProductNotFoundException.class);
 
+            verify(productRepository, never()).save(any());
             verify(productRepository, never()).deleteById(anyLong());
             verifyNoInteractions(outboxService);
         }
