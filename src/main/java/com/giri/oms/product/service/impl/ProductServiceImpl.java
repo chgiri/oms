@@ -2,6 +2,9 @@ package com.giri.oms.product.service.impl;
 
 import com.giri.oms.common.config.CacheConfig;
 import com.giri.oms.common.dto.PagedResponse;
+import com.giri.oms.messaging.event.EventType;
+import com.giri.oms.messaging.event.ProductEventFactory;
+import com.giri.oms.messaging.outbox.OutboxService;
 import com.giri.oms.product.constants.ProductConstants;
 import com.giri.oms.product.dto.ProductRequest;
 import com.giri.oms.product.dto.ProductResponse;
@@ -25,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.Set;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -34,6 +38,8 @@ public class ProductServiceImpl implements ProductService {
 
     private final ProductRepository productRepository;
     private final ProductMapper productMapper;
+    private final OutboxService outboxService;
+    private final ProductEventFactory productEventFactory;
 
     private static final Set<String> ALLOWED_SORT_FIELDS =
             Set.of("id", "name", "price", "createdAt", "updatedAt");
@@ -45,6 +51,8 @@ public class ProductServiceImpl implements ProductService {
 
         Product product = productMapper.mapToProduct(request);
         Product savedProduct = productRepository.save(product);
+
+        enqueueProductCreatedEvent(savedProduct);
 
         log.info(ProductConstants.PRODUCT_CREATED_LOG, savedProduct.getId());
         return productMapper.mapToProductResponse(savedProduct);
@@ -92,6 +100,8 @@ public class ProductServiceImpl implements ProductService {
         productMapper.mapToProduct(request, product);
         Product updatedProduct = productRepository.save(product);
 
+        enqueueProductUpdatedEvent(updatedProduct);
+
         log.info(ProductConstants.PRODUCT_UPDATED_LOG, updatedProduct.getId());
         return productMapper.mapToProductResponse(updatedProduct);
     }
@@ -105,7 +115,48 @@ public class ProductServiceImpl implements ProductService {
         getExistingProduct(productId);
         productRepository.deleteById(productId);
 
+        enqueueProductDeletedEvent(productId);
+
         log.info(ProductConstants.PRODUCT_DELETED_LOG, productId);
+    }
+
+    private void enqueueProductCreatedEvent(Product product) {
+        UUID eventId = UUID.randomUUID();
+        var event = productEventFactory.created(product.getId(), product.getName(), product.getPrice(), eventId);
+        outboxService.enqueue(
+                eventId,
+                productEventFactory.aggregateType(),
+                productEventFactory.aggregateId(product.getId()),
+                EventType.PRODUCT_CREATED,
+                productEventFactory.topic(),
+                productEventFactory.partitionKey(product.getId()),
+                event);
+    }
+
+    private void enqueueProductUpdatedEvent(Product product) {
+        UUID eventId = UUID.randomUUID();
+        var event = productEventFactory.updated(product.getId(), product.getName(), product.getPrice(), eventId);
+        outboxService.enqueue(
+                eventId,
+                productEventFactory.aggregateType(),
+                productEventFactory.aggregateId(product.getId()),
+                EventType.PRODUCT_UPDATED,
+                productEventFactory.topic(),
+                productEventFactory.partitionKey(product.getId()),
+                event);
+    }
+
+    private void enqueueProductDeletedEvent(Long productId) {
+        UUID eventId = UUID.randomUUID();
+        var event = productEventFactory.deleted(productId, eventId);
+        outboxService.enqueue(
+                eventId,
+                productEventFactory.aggregateType(),
+                productEventFactory.aggregateId(productId),
+                EventType.PRODUCT_DELETED,
+                productEventFactory.topic(),
+                productEventFactory.partitionKey(productId),
+                event);
     }
 
     @Override

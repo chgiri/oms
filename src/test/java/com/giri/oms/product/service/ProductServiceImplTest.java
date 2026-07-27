@@ -1,6 +1,9 @@
 package com.giri.oms.product.service;
 
 import com.giri.oms.common.dto.PagedResponse;
+import com.giri.oms.messaging.event.EventType;
+import com.giri.oms.messaging.event.ProductEventFactory;
+import com.giri.oms.messaging.outbox.OutboxService;
 import com.giri.oms.product.dto.ProductRequest;
 import com.giri.oms.product.dto.ProductResponse;
 import com.giri.oms.product.entity.Product;
@@ -30,6 +33,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 /**
@@ -44,6 +48,16 @@ class ProductServiceImplTest {
 
     @Mock
     private ProductMapper productMapper;
+
+    // Both added alongside the Product* outbox events (see ProductServiceImpl):
+    // without a @Mock here, Mockito's constructor injection would pass null for
+    // these final fields, and createProduct/updateProduct/deleteProduct would
+    // NPE the moment they call outboxService.enqueue(...).
+    @Mock
+    private OutboxService outboxService;
+
+    @Mock
+    private ProductEventFactory productEventFactory;
 
     @InjectMocks
     private ProductServiceImpl productService;
@@ -85,6 +99,7 @@ class ProductServiceImplTest {
 
             assertThat(result).isEqualTo(productResponse);
             verify(productRepository).save(product);
+            verify(outboxService).enqueue(any(), any(), any(), eq(EventType.PRODUCT_CREATED), any(), any(), any());
         }
     }
 
@@ -164,6 +179,7 @@ class ProductServiceImplTest {
             assertThat(result).isEqualTo(productResponse);
             verify(productMapper).mapToProduct(productRequest, product);
             verify(productRepository).save(product);
+            verify(outboxService).enqueue(any(), any(), any(), eq(EventType.PRODUCT_UPDATED), any(), any(), any());
         }
 
         @Test
@@ -174,6 +190,7 @@ class ProductServiceImplTest {
                     .isInstanceOf(ProductNotFoundException.class);
 
             verify(productRepository, never()).save(any());
+            verifyNoInteractions(outboxService);
         }
     }
 
@@ -187,6 +204,7 @@ class ProductServiceImplTest {
             productService.deleteProduct(1L);
 
             verify(productRepository).deleteById(1L);
+            verify(outboxService).enqueue(any(), any(), any(), eq(EventType.PRODUCT_DELETED), any(), any(), any());
         }
 
         @Test
@@ -197,6 +215,7 @@ class ProductServiceImplTest {
                     .isInstanceOf(ProductNotFoundException.class);
 
             verify(productRepository, never()).deleteById(anyLong());
+            verifyNoInteractions(outboxService);
         }
     }
 

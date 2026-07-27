@@ -25,6 +25,14 @@ public final class EventType {
     // an order cancelled while still PENDING).
     public static final String ORDER_CANCELLED = "OrderCancelled";
 
+    // Phase 1 of the microservices-prep plan: Product publishing its own
+    // lifecycle so a future Inventory read-replica (product_ref table, not
+    // built yet) has something to consume instead of calling
+    // ProductService.getProductById on every read.
+    public static final String PRODUCT_CREATED = "ProductCreated";
+    public static final String PRODUCT_UPDATED = "ProductUpdated";
+    public static final String PRODUCT_DELETED = "ProductDeleted";
+
     private EventType() {
     }
 }

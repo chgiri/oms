@@ -31,6 +31,26 @@ public class KafkaConfig {
                 .build();
     }
 
+    // Phase 1 of the microservices-prep plan — see EventType's Product*
+    // constants and messaging/event/ProductEventFactory. No consumer group
+    // reads this yet, but the topic (and its DLT, for when one does) still
+    // needs to exist for the outbox publisher to produce onto it.
+    @Bean
+    NewTopic productEventsTopic(KafkaAppProperties kafkaAppProperties) {
+        return TopicBuilder.name(kafkaAppProperties.topics().productEvents())
+                .partitions(3)
+                .replicas(1)
+                .build();
+    }
+
+    @Bean
+    NewTopic productEventsDeadLetterTopic(KafkaAppProperties kafkaAppProperties) {
+        return TopicBuilder.name(kafkaAppProperties.topics().productEvents() + ".DLT")
+                .partitions(3)
+                .replicas(1)
+                .build();
+    }
+
     /**
      * Applies to every @KafkaListener in the app (Spring Boot wires this into the
      * auto-configured listener container factory automatically) — currently
