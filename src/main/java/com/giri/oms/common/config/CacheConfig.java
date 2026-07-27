@@ -1,5 +1,7 @@
 package com.giri.oms.common.config;
 
+import com.giri.oms.inventory.dto.InventoryResponse;
+import com.giri.oms.product.dto.ProductResponse;
 import org.redisson.api.RedissonClient;
 import org.redisson.config.Config;
 import org.springframework.boot.cache.autoconfigure.RedisCacheManagerBuilderCustomizer;
@@ -7,11 +9,10 @@ import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
-import org.springframework.data.redis.serializer.GenericJacksonJsonRedisSerializer;
+import org.springframework.data.redis.serializer.JacksonJsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 import org.springframework.data.redis.support.collections.RedisProperties;
-import tools.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
 
 import java.time.Duration;
 
@@ -26,6 +27,18 @@ import java.time.Duration;
  * ProductServiceImpl and InventoryServiceImpl — read-mostly, id-keyed lookups are what
  * benefit from caching; paginated/search results are deliberately NOT cached since their
  * key space is unbounded and they change too often to be worth it.
+ *
+ * Each cache is bound to its own {@link JacksonJsonRedisSerializer}, typed to the exact
+ * DTO it stores, rather than sharing one polymorphic {@code GenericJacksonJsonRedisSerializer}
+ * across caches. A generic/polymorphic serializer only knows the value as Object, so it has
+ * to embed a "@class" type id in the JSON to know what to deserialize back into — and every
+ * JDK value type whose JSON form is ambiguous (BigDecimal, LocalDateTime, UUID, ...) needs
+ * that type id explicitly allow-listed via a PolymorphicTypeValidator, or read-back throws
+ * SerializationException ("Could not resolve type id ..."). That's a maintenance trap: every
+ * new field type on a cached DTO risks re-triggering it. Since we already configure each
+ * cache's serializer separately below, we already know the concrete type per cache at
+ * config time — so there's nothing polymorphic to resolve, no allowlist to maintain, and no
+ * type id written into Redis at all.
  */
 @Configuration
 @EnableCaching
@@ -36,34 +49,25 @@ public class CacheConfig {
 
     @Bean
     public RedisCacheManagerBuilderCustomizer redisCacheManagerBuilderCustomizer() {
-        // GenericJacksonJsonRedisSerializer, unlike the deprecated GenericJackson2JsonRedisSerializer
-        // it replaces, does NOT enable default typing out of the box. Without it, cached values are
-        // written as plain JSON with no "@class" hint, so on read-back Spring's cache abstraction
-        // (which only knows the value as Object) gets a generic LinkedHashMap instead of the real
-        // DTO — surfacing as a ClassCastException at the call site (see e.g. InventoryServiceImpl
-        // #getInventoryById). Enabling default typing, scoped to our own package rather than via
-        // enableUnsafeDefaultTyping(), restores type-safe round-tripping without accepting arbitrary
-        // classes from the cache payload.
-        BasicPolymorphicTypeValidator typeValidator = BasicPolymorphicTypeValidator.builder()
-                .allowIfSubType("com.giri.oms.")
-                .build();
-
-        RedisSerializationContext.SerializationPair<Object> valueSerializer =
-                RedisSerializationContext.SerializationPair.fromSerializer(
-                        GenericJacksonJsonRedisSerializer.builder()
-                                .enableDefaultTyping(typeValidator)
-                                .build());
-
         RedisCacheConfiguration base = RedisCacheConfiguration.defaultCacheConfig()
                 .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
-                .serializeValuesWith(valueSerializer)
                 .disableCachingNullValues();
 
-        return builder -> builder
+        RedisCacheConfiguration productsConfig = base
+                .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(
+                        new JacksonJsonRedisSerializer<>(ProductResponse.class)))
                 // Products change rarely (price/name edits) — safe to cache longer.
-                .withCacheConfiguration(PRODUCTS_CACHE, base.entryTtl(Duration.ofMinutes(15)))
+                .entryTtl(Duration.ofMinutes(15));
+
+        RedisCacheConfiguration inventoryConfig = base
+                .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(
+                        new JacksonJsonRedisSerializer<>(InventoryResponse.class)))
                 // Inventory quantities move more often — shorter TTL so stale stock
                 // levels don't linger for long between explicit evictions.
-                .withCacheConfiguration(INVENTORY_CACHE, base.entryTtl(Duration.ofMinutes(2)));
+                .entryTtl(Duration.ofMinutes(2));
+
+        return builder -> builder
+                .withCacheConfiguration(PRODUCTS_CACHE, productsConfig)
+                .withCacheConfiguration(INVENTORY_CACHE, inventoryConfig);
     }
 }
