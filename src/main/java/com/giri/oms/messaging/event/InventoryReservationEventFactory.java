@@ -27,11 +27,11 @@ public class InventoryReservationEventFactory {
     }
 
     public InventoryReservedEvent reserved(Long orderId, UUID eventId) {
-        return new InventoryReservedEvent(eventId, orderId, LocalDateTime.now(clock));
+        return new InventoryReservedEvent(eventId, orderId, LocalDateTime.now(clock), EventSchemaVersion.V1);
     }
 
     public InventoryReservationFailedEvent failed(Long orderId, UUID eventId, String reason) {
-        return new InventoryReservationFailedEvent(eventId, orderId, reason, LocalDateTime.now(clock));
+        return new InventoryReservationFailedEvent(eventId, orderId, reason, LocalDateTime.now(clock), EventSchemaVersion.V1);
     }
 
     public String aggregateType() {

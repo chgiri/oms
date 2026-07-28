@@ -31,11 +31,12 @@ public class PaymentEventFactory {
 
     public PaymentConfirmedEvent confirmed(
             Long orderId, Long paymentId, UUID eventId, BigDecimal amount, String transactionReference) {
-        return new PaymentConfirmedEvent(eventId, orderId, paymentId, amount, transactionReference, LocalDateTime.now(clock));
+        return new PaymentConfirmedEvent(
+                eventId, orderId, paymentId, amount, transactionReference, LocalDateTime.now(clock), EventSchemaVersion.V1);
     }
 
     public PaymentFailedEvent failed(Long orderId, Long paymentId, UUID eventId) {
-        return new PaymentFailedEvent(eventId, orderId, paymentId, LocalDateTime.now(clock));
+        return new PaymentFailedEvent(eventId, orderId, paymentId, LocalDateTime.now(clock), EventSchemaVersion.V1);
     }
 
     public String aggregateType() {

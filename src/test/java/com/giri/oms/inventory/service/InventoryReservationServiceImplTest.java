@@ -10,6 +10,7 @@ import com.giri.oms.inventory.service.impl.InventoryReservationServiceImpl;
 import com.giri.oms.messaging.event.InventoryReservationEventFactory;
 import com.giri.oms.messaging.event.OrderCancelledEvent;
 import com.giri.oms.messaging.event.OrderCreatedEvent;
+import com.giri.oms.messaging.event.EventSchemaVersion;
 import com.giri.oms.messaging.outbox.OutboxService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -155,7 +156,7 @@ class InventoryReservationServiceImplTest {
         OrderCreatedEvent event = new OrderCreatedEvent(
                 EVENT_ID, ORDER_ID, 5L, "PENDING", new BigDecimal("100.00"),
                 List.of(orderItem(PRODUCT_ID, 2), orderItem(secondProductId, 4)),
-                LocalDateTime.now());
+                LocalDateTime.now(), EventSchemaVersion.V1);
 
         reservationService.reserveForOrder(event);
 
@@ -257,7 +258,7 @@ class InventoryReservationServiceImplTest {
     }
 
     private OrderCancelledEvent orderCancelledEvent() {
-        return new OrderCancelledEvent(UUID.randomUUID(), ORDER_ID, LocalDateTime.now());
+        return new OrderCancelledEvent(UUID.randomUUID(), ORDER_ID, LocalDateTime.now(), EventSchemaVersion.V1);
     }
 
     private Inventory inventory(Long inventoryId, Long productId, String location, int available, int reserved) {
@@ -277,6 +278,6 @@ class InventoryReservationServiceImplTest {
 
     private OrderCreatedEvent orderCreatedEvent(OrderCreatedEvent.OrderItemEvent... items) {
         return new OrderCreatedEvent(
-                EVENT_ID, ORDER_ID, 5L, "PENDING", new BigDecimal("100.00"), List.of(items), LocalDateTime.now());
+                EVENT_ID, ORDER_ID, 5L, "PENDING", new BigDecimal("100.00"), List.of(items), LocalDateTime.now(), EventSchemaVersion.V1);
     }
 }

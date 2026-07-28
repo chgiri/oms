@@ -27,7 +27,7 @@ public class OrderCancelledEventFactory {
     }
 
     public OrderCancelledEvent cancelled(Long orderId, UUID eventId) {
-        return new OrderCancelledEvent(eventId, orderId, LocalDateTime.now(clock));
+        return new OrderCancelledEvent(eventId, orderId, LocalDateTime.now(clock), EventSchemaVersion.V1);
     }
 
     public String aggregateType() {

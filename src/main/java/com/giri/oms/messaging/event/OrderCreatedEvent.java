@@ -5,6 +5,11 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * {@code schemaVersion} is {@link EventSchemaVersion#V1} for every event
+ * published today — see that class for the compatibility policy this field
+ * and every other field on this record are held to.
+ */
 public record OrderCreatedEvent(
         UUID eventId,
         Long orderId,
@@ -12,7 +17,8 @@ public record OrderCreatedEvent(
         String status,
         BigDecimal totalAmount,
         List<OrderItemEvent> items,
-        LocalDateTime occurredAt
+        LocalDateTime occurredAt,
+        int schemaVersion
 ) {
 
     public record OrderItemEvent(

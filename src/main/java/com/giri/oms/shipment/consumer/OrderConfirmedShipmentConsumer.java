@@ -11,6 +11,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
+import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -48,9 +49,23 @@ public class OrderConfirmedShipmentConsumer {
             return;
         }
 
-        OrderConfirmedEvent event = objectMapper.readValue(record.value(), OrderConfirmedEvent.class);
+        OrderConfirmedEvent event = readEvent(record.value(), OrderConfirmedEvent.class);
         log.debug("Received OrderConfirmed event id={} for order id={}", event.eventId(), event.orderId());
 
         shipmentAutoCreationService.createForConfirmedOrder(event);
+    }
+
+    /**
+     * Deserializes one event payload, tolerating unknown JSON properties —
+     * see docs/event-schema-versioning.md. Deliberately overridden per-read via
+     * {@code ObjectReader.without(...)} rather than on a separate globally
+     * injected JsonMapper bean: the app's default {@code JsonMapper} (used for
+     * REST request/response bodies) stays at Jackson's normal strict default,
+     * and this override only ever applies to this one readValue call.
+     */
+    private <T> T readEvent(String json, Class<T> eventClass) {
+        return objectMapper.readerFor(eventClass)
+                .without(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                .readValue(json);
     }
 }

@@ -30,15 +30,15 @@ public class ProductEventFactory {
     }
 
     public ProductCreatedEvent created(Long productId, String name, BigDecimal price, UUID eventId) {
-        return new ProductCreatedEvent(eventId, productId, name, price, LocalDateTime.now(clock));
+        return new ProductCreatedEvent(eventId, productId, name, price, LocalDateTime.now(clock), EventSchemaVersion.V1);
     }
 
     public ProductUpdatedEvent updated(Long productId, String name, BigDecimal price, UUID eventId) {
-        return new ProductUpdatedEvent(eventId, productId, name, price, LocalDateTime.now(clock));
+        return new ProductUpdatedEvent(eventId, productId, name, price, LocalDateTime.now(clock), EventSchemaVersion.V1);
     }
 
     public ProductDeletedEvent deleted(Long productId, UUID eventId) {
-        return new ProductDeletedEvent(eventId, productId, LocalDateTime.now(clock));
+        return new ProductDeletedEvent(eventId, productId, LocalDateTime.now(clock), EventSchemaVersion.V1);
     }
 
     public String aggregateType() {

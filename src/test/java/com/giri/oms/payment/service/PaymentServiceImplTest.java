@@ -6,6 +6,7 @@ import com.giri.oms.messaging.event.EventType;
 import com.giri.oms.messaging.event.PaymentConfirmedEvent;
 import com.giri.oms.messaging.event.PaymentEventFactory;
 import com.giri.oms.messaging.event.PaymentFailedEvent;
+import com.giri.oms.messaging.event.EventSchemaVersion;
 import com.giri.oms.messaging.outbox.OutboxService;
 import com.giri.oms.order.entity.OrderStatus;
 import com.giri.oms.order.exception.IllegalOrderStateException;
@@ -263,7 +264,7 @@ class PaymentServiceImplTest {
 
             UUID eventId = UUID.randomUUID();
             PaymentConfirmedEvent event = new PaymentConfirmedEvent(
-                    eventId, 1L, 1L, payment.getAmount(), "txn_9f8c3d2a", LocalDateTime.now());
+                    eventId, 1L, 1L, payment.getAmount(), "txn_9f8c3d2a", LocalDateTime.now(), EventSchemaVersion.V1);
             when(paymentEventFactory.confirmed(eq(1L), eq(1L), any(UUID.class), any(BigDecimal.class), eq("txn_9f8c3d2a")))
                     .thenReturn(event);
             when(paymentEventFactory.aggregateType()).thenReturn("Order");
@@ -285,7 +286,7 @@ class PaymentServiceImplTest {
             when(paymentMapper.mapToPaymentResponse(payment)).thenReturn(paymentResponse);
 
             UUID eventId = UUID.randomUUID();
-            PaymentFailedEvent event = new PaymentFailedEvent(eventId, 1L, 1L, LocalDateTime.now());
+            PaymentFailedEvent event = new PaymentFailedEvent(eventId, 1L, 1L, LocalDateTime.now(), EventSchemaVersion.V1);
             when(paymentEventFactory.failed(eq(1L), eq(1L), any(UUID.class))).thenReturn(event);
             when(paymentEventFactory.aggregateType()).thenReturn("Order");
             when(paymentEventFactory.aggregateId(1L)).thenReturn("1");

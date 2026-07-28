@@ -15,6 +15,7 @@ import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.time.LocalDateTime;
@@ -76,20 +77,34 @@ public class ProductEventInventoryConsumer {
 
     private void handle(ConsumerRecord<String, String> record, String eventType) {
         if (EventType.PRODUCT_CREATED.equals(eventType)) {
-            ProductCreatedEvent event = objectMapper.readValue(record.value(), ProductCreatedEvent.class);
+            ProductCreatedEvent event = readEvent(record.value(), ProductCreatedEvent.class);
             log.debug("Received ProductCreated event id={} for product id={}", event.eventId(), event.productId());
             upsert(event.productId(), event.name(), event.occurredAt());
         } else if (EventType.PRODUCT_UPDATED.equals(eventType)) {
-            ProductUpdatedEvent event = objectMapper.readValue(record.value(), ProductUpdatedEvent.class);
+            ProductUpdatedEvent event = readEvent(record.value(), ProductUpdatedEvent.class);
             log.debug("Received ProductUpdated event id={} for product id={}", event.eventId(), event.productId());
             upsert(event.productId(), event.name(), event.occurredAt());
         } else if (EventType.PRODUCT_DELETED.equals(eventType)) {
-            ProductDeletedEvent event = objectMapper.readValue(record.value(), ProductDeletedEvent.class);
+            ProductDeletedEvent event = readEvent(record.value(), ProductDeletedEvent.class);
             log.debug("Received ProductDeleted event id={} for product id={} — no-op, see class Javadoc",
                     event.eventId(), event.productId());
         } else {
             log.debug("Ignoring event of type {} on product-events topic (key={})", eventType, record.key());
         }
+    }
+
+    /**
+     * Deserializes one event payload, tolerating unknown JSON properties —
+     * see docs/event-schema-versioning.md. Deliberately overridden per-read via
+     * {@code ObjectReader.without(...)} rather than on a separate globally
+     * injected JsonMapper bean: the app's default {@code JsonMapper} (used for
+     * REST request/response bodies) stays at Jackson's normal strict default,
+     * and this override only ever applies to this one readValue call.
+     */
+    private <T> T readEvent(String json, Class<T> eventClass) {
+        return objectMapper.readerFor(eventClass)
+                .without(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                .readValue(json);
     }
 
     @Transactional

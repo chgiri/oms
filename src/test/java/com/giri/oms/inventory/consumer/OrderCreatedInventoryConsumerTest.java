@@ -7,6 +7,7 @@ import com.giri.oms.messaging.event.InventoryReservationEventFactory;
 import com.giri.oms.messaging.event.InventoryReservationFailedEvent;
 import com.giri.oms.messaging.event.OrderCancelledEvent;
 import com.giri.oms.messaging.event.OrderCreatedEvent;
+import com.giri.oms.messaging.event.EventSchemaVersion;
 import com.giri.oms.messaging.outbox.OutboxService;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.jupiter.api.BeforeEach;
@@ -86,7 +87,7 @@ class OrderCreatedInventoryConsumerTest {
         when(inventoryReservationEventFactory.partitionKey(ORDER_ID)).thenReturn(ORDER_ID.toString());
         when(inventoryReservationEventFactory.failed(eq(ORDER_ID), any(UUID.class), any(String.class)))
                 .thenAnswer(invocation -> new InventoryReservationFailedEvent(
-                        invocation.getArgument(1), ORDER_ID, invocation.getArgument(2), LocalDateTime.now()));
+                        invocation.getArgument(1), ORDER_ID, invocation.getArgument(2), LocalDateTime.now(), EventSchemaVersion.V1));
 
         consumer.onMessage(record(event), EventType.ORDER_CREATED, null);
 
@@ -101,7 +102,7 @@ class OrderCreatedInventoryConsumerTest {
 
     @Test
     void orderCancelled_releasesReservedStockForTheOrder() {
-        OrderCancelledEvent event = new OrderCancelledEvent(UUID.randomUUID(), ORDER_ID, LocalDateTime.now());
+        OrderCancelledEvent event = new OrderCancelledEvent(UUID.randomUUID(), ORDER_ID, LocalDateTime.now(), EventSchemaVersion.V1);
 
         consumer.onMessage(record(event), EventType.ORDER_CANCELLED, null);
 
@@ -123,7 +124,7 @@ class OrderCreatedInventoryConsumerTest {
         return new OrderCreatedEvent(
                 UUID.randomUUID(), ORDER_ID, 5L, "PENDING", new BigDecimal("100.00"),
                 List.of(new OrderCreatedEvent.OrderItemEvent(1L, "Widget", 3, new BigDecimal("10.00"), new BigDecimal("30.00"))),
-                LocalDateTime.now());
+                LocalDateTime.now(), EventSchemaVersion.V1);
     }
 
     private ConsumerRecord<String, String> record(Object event) {

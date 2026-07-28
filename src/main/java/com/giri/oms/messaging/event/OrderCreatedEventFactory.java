@@ -43,7 +43,8 @@ public class OrderCreatedEventFactory {
                 status,
                 totalAmount,
                 items,
-                LocalDateTime.now(clock));
+                LocalDateTime.now(clock),
+                EventSchemaVersion.V1);
     }
 
     public String aggregateType() {

@@ -26,7 +26,7 @@ public class OrderConfirmedEventFactory {
     }
 
     public OrderConfirmedEvent confirmed(Long orderId, UUID eventId) {
-        return new OrderConfirmedEvent(eventId, orderId, LocalDateTime.now(clock));
+        return new OrderConfirmedEvent(eventId, orderId, LocalDateTime.now(clock), EventSchemaVersion.V1);
     }
 
     public String aggregateType() {

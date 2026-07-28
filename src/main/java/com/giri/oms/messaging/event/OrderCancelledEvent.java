@@ -14,10 +14,15 @@ import java.util.UUID;
  * looks up the order's own InventoryReservation rows rather than trusting a
  * snapshot on this event, the same way OrderConfirmedEvent doesn't carry line
  * items either.
+ *
+ * {@code schemaVersion} is {@link EventSchemaVersion#V1} for every event
+ * published today — see that class for the compatibility policy this field
+ * and every other field on this record are held to.
  */
 public record OrderCancelledEvent(
         UUID eventId,
         Long orderId,
-        LocalDateTime occurredAt
+        LocalDateTime occurredAt,
+        int schemaVersion
 ) {
 }

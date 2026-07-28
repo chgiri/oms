@@ -6,6 +6,7 @@ import com.giri.oms.messaging.event.EventType;
 import com.giri.oms.messaging.event.ProductCreatedEvent;
 import com.giri.oms.messaging.event.ProductDeletedEvent;
 import com.giri.oms.messaging.event.ProductUpdatedEvent;
+import com.giri.oms.messaging.event.EventSchemaVersion;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -58,7 +59,7 @@ class ProductEventInventoryConsumerTest {
     void productCreated_insertsNewProductRefRow() {
         LocalDateTime occurredAt = LocalDateTime.now();
         ProductCreatedEvent event = new ProductCreatedEvent(
-                UUID.randomUUID(), PRODUCT_ID, "Wireless Mouse", new BigDecimal("25.99"), occurredAt);
+                UUID.randomUUID(), PRODUCT_ID, "Wireless Mouse", new BigDecimal("25.99"), occurredAt, EventSchemaVersion.V1);
         when(productRefRepository.findById(PRODUCT_ID)).thenReturn(Optional.empty());
 
         consumer.onMessage(record(event), EventType.PRODUCT_CREATED, null);
@@ -75,7 +76,7 @@ class ProductEventInventoryConsumerTest {
         ProductRef existing = new ProductRef(PRODUCT_ID, "Old Name", LocalDateTime.now().minusDays(1));
         LocalDateTime occurredAt = LocalDateTime.now();
         ProductUpdatedEvent event = new ProductUpdatedEvent(
-                UUID.randomUUID(), PRODUCT_ID, "New Name", new BigDecimal("29.99"), occurredAt);
+                UUID.randomUUID(), PRODUCT_ID, "New Name", new BigDecimal("29.99"), occurredAt, EventSchemaVersion.V1);
         when(productRefRepository.findById(PRODUCT_ID)).thenReturn(Optional.of(existing));
 
         consumer.onMessage(record(event), EventType.PRODUCT_UPDATED, null);
@@ -94,7 +95,7 @@ class ProductEventInventoryConsumerTest {
         // inventory row can still reference a discontinued product and still
         // needs a name to display, so this event must NOT clear or remove the
         // replica row. See the class Javadoc.
-        ProductDeletedEvent event = new ProductDeletedEvent(UUID.randomUUID(), PRODUCT_ID, LocalDateTime.now());
+        ProductDeletedEvent event = new ProductDeletedEvent(UUID.randomUUID(), PRODUCT_ID, LocalDateTime.now(), EventSchemaVersion.V1);
 
         consumer.onMessage(record(event), EventType.PRODUCT_DELETED, null);
 

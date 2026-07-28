@@ -1,6 +1,7 @@
 package com.giri.oms.shipment.service;
 
 import com.giri.oms.messaging.event.OrderConfirmedEvent;
+import com.giri.oms.messaging.event.EventSchemaVersion;
 import com.giri.oms.order.dto.OrderResponse;
 import com.giri.oms.order.exception.OrderNotFoundException;
 import com.giri.oms.order.service.OrderService;
@@ -66,7 +67,7 @@ class ShipmentAutoCreationServiceImplTest {
         order = new OrderResponse();
         order.setId(ORDER_ID);
 
-        event = new OrderConfirmedEvent(UUID.randomUUID(), ORDER_ID, LocalDateTime.now());
+        event = new OrderConfirmedEvent(UUID.randomUUID(), ORDER_ID, LocalDateTime.now(), EventSchemaVersion.V1);
     }
 
     @Test

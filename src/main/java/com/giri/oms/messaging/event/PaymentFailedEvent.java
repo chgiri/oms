@@ -8,11 +8,16 @@ import java.util.UUID;
  * when a payment transitions to FAILED. Consumed by OrderSagaEventConsumer to
  * move the order from AWAITING_PAYMENT to CANCELLED (Phase 4), which in turn
  * triggers OrderCancelledEvent to release the inventory reserved in Phase 2.
+ *
+ * {@code schemaVersion} is {@link EventSchemaVersion#V1} for every event
+ * published today — see that class for the compatibility policy this field
+ * and every other field on this record are held to.
  */
 public record PaymentFailedEvent(
         UUID eventId,
         Long orderId,
         Long paymentId,
-        LocalDateTime occurredAt
+        LocalDateTime occurredAt,
+        int schemaVersion
 ) {
 }

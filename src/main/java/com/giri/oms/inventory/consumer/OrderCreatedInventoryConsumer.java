@@ -16,6 +16,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
+import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.util.UUID;
@@ -73,11 +74,11 @@ public class OrderCreatedInventoryConsumer {
 
     private void handle(ConsumerRecord<String, String> record, String eventType) {
         if (EventType.ORDER_CREATED.equals(eventType)) {
-            OrderCreatedEvent event = objectMapper.readValue(record.value(), OrderCreatedEvent.class);
+            OrderCreatedEvent event = readEvent(record.value(), OrderCreatedEvent.class);
             log.debug("Received OrderCreated event id={} for order id={}", event.eventId(), event.orderId());
             reserve(event);
         } else if (EventType.ORDER_CANCELLED.equals(eventType)) {
-            OrderCancelledEvent event = objectMapper.readValue(record.value(), OrderCancelledEvent.class);
+            OrderCancelledEvent event = readEvent(record.value(), OrderCancelledEvent.class);
             log.debug("Received OrderCancelled event id={} for order id={}", event.eventId(), event.orderId());
             inventoryReservationService.releaseForOrder(event);
         } else {
@@ -86,6 +87,20 @@ public class OrderCreatedInventoryConsumer {
             // belong to the order-saga and shipment consumer groups.
             log.debug("Ignoring event of type {} on order-events topic (key={})", eventType, record.key());
         }
+    }
+
+    /**
+     * Deserializes one event payload, tolerating unknown JSON properties —
+     * see docs/event-schema-versioning.md. Deliberately overridden per-read via
+     * {@code ObjectReader.without(...)} rather than on a separate globally
+     * injected JsonMapper bean: the app's default {@code JsonMapper} (used for
+     * REST request/response bodies) stays at Jackson's normal strict default,
+     * and this override only ever applies to this one readValue call.
+     */
+    private <T> T readEvent(String json, Class<T> eventClass) {
+        return objectMapper.readerFor(eventClass)
+                .without(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                .readValue(json);
     }
 
     private void reserve(OrderCreatedEvent event) {

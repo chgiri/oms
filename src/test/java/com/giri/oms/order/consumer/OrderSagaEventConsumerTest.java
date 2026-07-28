@@ -5,6 +5,7 @@ import com.giri.oms.messaging.event.InventoryReservationFailedEvent;
 import com.giri.oms.messaging.event.InventoryReservedEvent;
 import com.giri.oms.messaging.event.PaymentConfirmedEvent;
 import com.giri.oms.messaging.event.PaymentFailedEvent;
+import com.giri.oms.messaging.event.EventSchemaVersion;
 import com.giri.oms.order.entity.OrderStatus;
 import com.giri.oms.order.exception.IllegalOrderStateException;
 import com.giri.oms.order.service.OrderService;
@@ -61,7 +62,7 @@ class OrderSagaEventConsumerTest {
 
     @Test
     void inventoryReserved_movesOrderToAwaitingPayment() {
-        InventoryReservedEvent event = new InventoryReservedEvent(UUID.randomUUID(), ORDER_ID, LocalDateTime.now());
+        InventoryReservedEvent event = new InventoryReservedEvent(UUID.randomUUID(), ORDER_ID, LocalDateTime.now(), EventSchemaVersion.V1);
 
         consumer.onMessage(record(event), EventType.INVENTORY_RESERVED, null);
 
@@ -73,7 +74,7 @@ class OrderSagaEventConsumerTest {
         // Phase 4: a reservation failure (no stock available) is a compensating
         // trigger just like a failed payment — the order can't proceed.
         InventoryReservationFailedEvent event =
-                new InventoryReservationFailedEvent(UUID.randomUUID(), ORDER_ID, "insufficient stock", LocalDateTime.now());
+                new InventoryReservationFailedEvent(UUID.randomUUID(), ORDER_ID, "insufficient stock", LocalDateTime.now(), EventSchemaVersion.V1);
 
         consumer.onMessage(record(event), EventType.INVENTORY_RESERVATION_FAILED, null);
 
@@ -83,7 +84,7 @@ class OrderSagaEventConsumerTest {
     @Test
     void paymentConfirmed_movesOrderToConfirmed() {
         PaymentConfirmedEvent event = new PaymentConfirmedEvent(
-                UUID.randomUUID(), ORDER_ID, 7L, new BigDecimal("50.00"), "txn-123", LocalDateTime.now());
+                UUID.randomUUID(), ORDER_ID, 7L, new BigDecimal("50.00"), "txn-123", LocalDateTime.now(), EventSchemaVersion.V1);
 
         consumer.onMessage(record(event), EventType.PAYMENT_CONFIRMED, null);
 
@@ -95,7 +96,7 @@ class OrderSagaEventConsumerTest {
         // This is what makes OrderServiceImpl.updateOrderStatus enqueue
         // OrderCancelled, which the inventory module reacts to by releasing
         // the stock this order held (see OrderCreatedInventoryConsumer).
-        PaymentFailedEvent event = new PaymentFailedEvent(UUID.randomUUID(), ORDER_ID, 7L, LocalDateTime.now());
+        PaymentFailedEvent event = new PaymentFailedEvent(UUID.randomUUID(), ORDER_ID, 7L, LocalDateTime.now(), EventSchemaVersion.V1);
 
         consumer.onMessage(record(event), EventType.PAYMENT_FAILED, null);
 
@@ -109,7 +110,7 @@ class OrderSagaEventConsumerTest {
         // left AWAITING_PAYMENT, so the transition throws and the consumer must
         // log-and-drop rather than propagate (which would trigger a Kafka retry
         // and eventually a dead-letter for a message that was never a real failure).
-        PaymentFailedEvent event = new PaymentFailedEvent(UUID.randomUUID(), ORDER_ID, 7L, LocalDateTime.now());
+        PaymentFailedEvent event = new PaymentFailedEvent(UUID.randomUUID(), ORDER_ID, 7L, LocalDateTime.now(), EventSchemaVersion.V1);
         doThrow(new IllegalOrderStateException("already cancelled"))
                 .when(orderService).updateOrderStatus(ORDER_ID, OrderStatus.CANCELLED);
 
@@ -123,7 +124,7 @@ class OrderSagaEventConsumerTest {
     @Test
     void inventoryReservationFailed_swallowsIllegalOrderStateException_asARedeliveryNoOp() {
         InventoryReservationFailedEvent event =
-                new InventoryReservationFailedEvent(UUID.randomUUID(), ORDER_ID, "insufficient stock", LocalDateTime.now());
+                new InventoryReservationFailedEvent(UUID.randomUUID(), ORDER_ID, "insufficient stock", LocalDateTime.now(), EventSchemaVersion.V1);
         doThrow(new IllegalOrderStateException("already cancelled"))
                 .when(orderService).updateOrderStatus(ORDER_ID, OrderStatus.CANCELLED);
 

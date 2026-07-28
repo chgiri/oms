@@ -16,6 +16,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
+import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -73,17 +74,17 @@ public class OrderSagaEventConsumer {
 
     private void handle(ConsumerRecord<String, String> record, String eventType) {
         if (EventType.INVENTORY_RESERVED.equals(eventType)) {
-            InventoryReservedEvent event = objectMapper.readValue(record.value(), InventoryReservedEvent.class);
+            InventoryReservedEvent event = readEvent(record.value(), InventoryReservedEvent.class);
             log.debug("Received InventoryReserved event id={} for order id={}", event.eventId(), event.orderId());
             applyTransition(event.orderId(), OrderStatus.AWAITING_PAYMENT);
         } else if (EventType.INVENTORY_RESERVATION_FAILED.equals(eventType)) {
             InventoryReservationFailedEvent event =
-                    objectMapper.readValue(record.value(), InventoryReservationFailedEvent.class);
+                    readEvent(record.value(), InventoryReservationFailedEvent.class);
             log.debug("Received InventoryReservationFailed event id={} for order id={}: {}",
                     event.eventId(), event.orderId(), event.reason());
             applyTransition(event.orderId(), OrderStatus.CANCELLED);
         } else if (EventType.PAYMENT_CONFIRMED.equals(eventType)) {
-            PaymentConfirmedEvent event = objectMapper.readValue(record.value(), PaymentConfirmedEvent.class);
+            PaymentConfirmedEvent event = readEvent(record.value(), PaymentConfirmedEvent.class);
             log.debug("Received PaymentConfirmed event id={} for order id={}", event.eventId(), event.orderId());
             applyTransition(event.orderId(), OrderStatus.CONFIRMED);
         } else if (EventType.PAYMENT_FAILED.equals(eventType)) {
@@ -91,7 +92,7 @@ public class OrderSagaEventConsumer {
             // can't proceed. Moving it to CANCELLED here is what makes
             // OrderServiceImpl.updateOrderStatus enqueue OrderCancelled, which the
             // inventory module reacts to by releasing the stock this order held.
-            PaymentFailedEvent event = objectMapper.readValue(record.value(), PaymentFailedEvent.class);
+            PaymentFailedEvent event = readEvent(record.value(), PaymentFailedEvent.class);
             log.debug("Received PaymentFailed event id={} for order id={}", event.eventId(), event.orderId());
             applyTransition(event.orderId(), OrderStatus.CANCELLED);
         } else {
@@ -99,6 +100,20 @@ public class OrderSagaEventConsumer {
             // is handled by the inventory group.
             log.debug("Ignoring event of type {} on order-events topic (key={})", eventType, record.key());
         }
+    }
+
+    /**
+     * Deserializes one event payload, tolerating unknown JSON properties —
+     * see docs/event-schema-versioning.md. Deliberately overridden per-read via
+     * {@code ObjectReader.without(...)} rather than on a separate globally
+     * injected JsonMapper bean: the app's default {@code JsonMapper} (used for
+     * REST request/response bodies) stays at Jackson's normal strict default,
+     * and this override only ever applies to this one readValue call.
+     */
+    private <T> T readEvent(String json, Class<T> eventClass) {
+        return objectMapper.readerFor(eventClass)
+                .without(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                .readValue(json);
     }
 
     private void applyTransition(Long orderId, OrderStatus newStatus) {

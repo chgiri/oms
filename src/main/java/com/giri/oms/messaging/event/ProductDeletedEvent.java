@@ -17,10 +17,15 @@ import java.util.UUID;
  * still needs a name to display, so the replica keeps the last known name
  * rather than clearing it. See that consumer's Javadoc for the full
  * reasoning.
+ *
+ * {@code schemaVersion} is {@link EventSchemaVersion#V1} for every event
+ * published today — see that class for the compatibility policy this field
+ * and every other field on this record are held to.
  */
 public record ProductDeletedEvent(
         UUID eventId,
         Long productId,
-        LocalDateTime occurredAt
+        LocalDateTime occurredAt,
+        int schemaVersion
 ) {
 }

@@ -11,11 +11,16 @@ import java.util.UUID;
  *
  * {@code reason} is a human-readable message for logging/support, not a machine-
  * parseable failure code — nothing downstream should branch on its contents.
+ *
+ * {@code schemaVersion} is {@link EventSchemaVersion#V1} for every event
+ * published today — see that class for the compatibility policy this field
+ * and every other field on this record are held to.
  */
 public record InventoryReservationFailedEvent(
         UUID eventId,
         Long orderId,
         String reason,
-        LocalDateTime occurredAt
+        LocalDateTime occurredAt,
+        int schemaVersion
 ) {
 }

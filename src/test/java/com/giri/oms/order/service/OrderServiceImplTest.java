@@ -27,6 +27,7 @@ import com.giri.oms.product.exception.ProductNotFoundException;
 import com.giri.oms.product.service.ProductService;
 import com.giri.oms.messaging.event.EventType;
 import com.giri.oms.messaging.event.OrderCreatedEvent;
+import com.giri.oms.messaging.event.EventSchemaVersion;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -157,7 +158,7 @@ class OrderServiceImplTest {
             when(orderRepository.save(any(Order.class))).thenReturn(order);
             when(orderCreatedEventFactory.create(eq(1L), eq(1L), eq("PENDING"), eq(new BigDecimal("77.97")),
                     anyList(), any(UUID.class))).thenReturn(
-                    new OrderCreatedEvent(UUID.randomUUID(), 1L, 1L, "PENDING", new BigDecimal("77.97"), List.of(), LocalDateTime.now()));
+                    new OrderCreatedEvent(UUID.randomUUID(), 1L, 1L, "PENDING", new BigDecimal("77.97"), List.of(), LocalDateTime.now(), EventSchemaVersion.V1));
             when(orderMapper.mapToOrderResponse(order)).thenReturn(orderResponse);
             when(orderMapper.mapToOrderItemResponse(any(OrderItem.class)))
                     .thenReturn(orderResponse.getItems().get(0));
@@ -188,7 +189,7 @@ class OrderServiceImplTest {
             when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
             when(orderCreatedEventFactory.create(any(), eq(1L), eq("PENDING"), eq(new BigDecimal("141.97")),
                     anyList(), any(UUID.class))).thenReturn(
-                    new OrderCreatedEvent(UUID.randomUUID(), 1L, 1L, "PENDING", new BigDecimal("141.97"), List.of(), LocalDateTime.now()));
+                    new OrderCreatedEvent(UUID.randomUUID(), 1L, 1L, "PENDING", new BigDecimal("141.97"), List.of(), LocalDateTime.now(), EventSchemaVersion.V1));
             when(orderMapper.mapToOrderResponse(any(Order.class))).thenReturn(orderResponse);
             when(orderMapper.mapToOrderItemResponse(any(OrderItem.class)))
                     .thenReturn(orderResponse.getItems().get(0));
@@ -375,7 +376,7 @@ class OrderServiceImplTest {
             when(orderCancelledEventFactory.topic()).thenReturn("oms.order.events");
             when(orderCancelledEventFactory.partitionKey(1L)).thenReturn("1");
             when(orderCancelledEventFactory.cancelled(eq(1L), any(UUID.class))).thenReturn(
-                    new OrderCancelledEvent(UUID.randomUUID(), 1L, LocalDateTime.now()));
+                    new OrderCancelledEvent(UUID.randomUUID(), 1L, LocalDateTime.now(), EventSchemaVersion.V1));
 
             orderService.updateOrderStatus(1L, OrderStatus.CANCELLED);
 

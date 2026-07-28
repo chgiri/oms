@@ -8,6 +8,10 @@ import java.util.UUID;
  * Published by the payment module (see PaymentServiceImpl.updatePaymentStatus)
  * when a payment transitions to COMPLETED. Consumed by OrderSagaEventConsumer
  * to move the order from AWAITING_PAYMENT to CONFIRMED.
+ *
+ * {@code schemaVersion} is {@link EventSchemaVersion#V1} for every event
+ * published today — see that class for the compatibility policy this field
+ * and every other field on this record are held to.
  */
 public record PaymentConfirmedEvent(
         UUID eventId,
@@ -15,6 +19,7 @@ public record PaymentConfirmedEvent(
         Long paymentId,
         BigDecimal amount,
         String transactionReference,
-        LocalDateTime occurredAt
+        LocalDateTime occurredAt,
+        int schemaVersion
 ) {
 }
