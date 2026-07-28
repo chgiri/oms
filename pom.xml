@@ -84,6 +84,39 @@
 			<scope>runtime</scope>
 		</dependency>
 
+		<!-- Distributed tracing (Tempo). The OTel bridge is what makes Micrometer
+		     Observation API calls actually produce spans instead of just timers/
+		     counters — every inbound HTTP request gets a server span and outbound
+		     RestClient/WebClient calls propagate traceparent automatically, no
+		     code changes needed. Combined with
+		     spring.kafka.template/listener.observation-enabled below, the same
+		     applies to KafkaTemplate.send() and every @KafkaListener. See
+		     management.otlp.tracing.endpoint (application.properties) for where
+		     spans are exported to, and monitoring/tempo/ + the tempo service in
+		     docker-compose.yml for the backend itself.
+		     NOTE: the outbox poller (OutboxPublisher) runs on a scheduler thread
+		     with no live span context by the time it picks a row up, which would
+		     otherwise mean two disconnected traces for any saga that goes
+		     through the outbox. Bridged via span links persisted on OutboxEvent
+		     (trace_id/span_id columns) — see OutboxTraceLinking. -->
+		<dependency>
+			<groupId>io.micrometer</groupId>
+			<artifactId>micrometer-tracing-bridge-otel</artifactId>
+		</dependency>
+		<!-- Spring Boot 4's dedicated OpenTelemetry starter. This is what actually
+		     produces the io.opentelemetry.api.OpenTelemetry bean (and, via the
+		     bridge above, the io.micrometer.tracing.Tracer bean that OutboxService,
+		     OutboxPublisher, etc. depend on) plus OTLP export support, configured
+		     via management.opentelemetry.tracing.export.otlp.* below. Replaces the
+		     old pre-Boot-4 approach of declaring raw io.opentelemetry:opentelemetry-sdk
+		     + io.opentelemetry:opentelemetry-exporter-otlp directly ? that combo no
+		     longer triggers Spring Boot's OpenTelemetry auto-configuration on its
+		     own (see https://github.com/spring-projects/spring-boot/issues/48585). -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-opentelemetry</artifactId>
+		</dependency>
+
 		<!-- Redis: connection factory (Lettuce), used by the Spring Cache abstraction
 		     below and by anything reaching for RedisTemplate/StringRedisTemplate directly. -->
 		<dependency>

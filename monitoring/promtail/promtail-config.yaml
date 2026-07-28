@@ -43,16 +43,18 @@ scrape_configs:
           stages:
             - regex:
                 # Mirrors logging.pattern.console exactly:
-                # %d{yyyy-MM-dd HH:mm:ss} [%thread] [%X{correlationId:-}] %-5level %logger{36} - %msg%n
-                expression: '^(?P<timestamp>\S+ \S+) \[(?P<thread>[^\]]*)\] \[(?P<correlation_id>[^\]]*)\] (?P<level>\w+)\s+(?P<logger>\S+) - (?P<message>.*)$'
+                # %d{yyyy-MM-dd HH:mm:ss} [%thread] [%X{correlationId:-}] [%X{traceId:-}] [%X{spanId:-}] %-5level %logger{36} - %msg%n
+                expression: '^(?P<timestamp>\S+ \S+) \[(?P<thread>[^\]]*)\] \[(?P<correlation_id>[^\]]*)\] \[(?P<trace_id>[^\]]*)\] \[(?P<span_id>[^\]]*)\] (?P<level>\w+)\s+(?P<logger>\S+) - (?P<message>.*)$'
             - labels:
                 # level is low-cardinality (INFO/DEBUG/WARN/ERROR) so it's
-                # safe as a Loki label. correlation_id is deliberately NOT
-                # promoted to a label — same reasoning as OutboxMetrics.java
-                # skipping a per-error-message Prometheus tag: it's
-                # effectively unbounded, one value per request, and would
-                # blow up Loki's index. It's still fully searchable — just
-                # as plain text via a LogQL line filter, e.g.
-                # {container="oms-app"} |= "<correlation-id>", not as a
-                # label.
+                # safe as a Loki label. correlation_id/trace_id/span_id are
+                # deliberately NOT promoted to labels — same reasoning as
+                # OutboxMetrics.java skipping a per-error-message Prometheus
+                # tag: each is effectively unbounded, one value per request,
+                # and would blow up Loki's index. They're still fully
+                # searchable — either as plain text via a LogQL line filter,
+                # e.g. {container="oms-app"} |= "<correlation-id>", or via
+                # the Tempo datasource's derived field for trace_id (see
+                # monitoring/grafana/provisioning/datasources/datasource.yml)
+                # — not as labels.
                 level:

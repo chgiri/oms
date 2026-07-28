@@ -21,3 +21,39 @@ datasources:
     access: proxy
     url: http://loki:3100
     editable: true
+    jsonData:
+      # Turns the "[<traceId>] [<spanId>]" pair that logging.pattern.console
+      # writes into every log line (see application.properties) into a
+      # clickable "View Trace" link in Grafana's log view. Matches on the
+      # 32-hex-char traceId specifically (spanId is 16), so this can't
+      # accidentally latch onto the correlation_id bracket next to it, which
+      # is a UUID (contains dashes) rather than bare hex.
+      derivedFields:
+        - datasourceUid: tempo
+          matcherRegex: '\[(?P<traceID>[0-9a-f]{32})\] \[[0-9a-f]{16}\]'
+          name: TraceID
+          url: '$${__value.raw}'
+          urlDisplayLabel: 'View Trace'
+
+  - name: Tempo
+    type: tempo
+    uid: tempo
+    access: proxy
+    url: http://tempo:3200
+    editable: true
+    jsonData:
+      # The reverse direction of the Loki derived field above: from a trace
+      # in Grafana, jump to the log lines for that request. Scoped to the
+      # oms-app* containers since that's the only log format Promtail
+      # parses structurally (see promtail-config.yaml) — other containers'
+      # logs don't carry a traceId to search on anyway.
+      tracesToLogsV2:
+        datasourceUid: loki
+        spanStartTimeShift: '-1h'
+        spanEndTimeShift: '1h'
+        filterByTraceID: false
+        filterBySpanID: false
+        customQuery: true
+        query: '{container=~"oms-app.*"} |= "$${__trace.traceId}"'
+      serviceMap:
+        datasourceUid: prometheus

@@ -53,6 +53,22 @@ public class OutboxEvent {
     @Column(name = "correlation_id", length = 100)
     private String correlationId;
 
+    /**
+     * The W3C trace id/span id (see io.micrometer.tracing.TraceContext) that
+     * were current on whichever thread enqueued this event — mirrors
+     * correlationId above, but for tracing rather than logging. Null under
+     * the same conditions correlationId can be null (no live span at
+     * enqueue time). OutboxPublisher uses these to add a span link when it
+     * eventually publishes, so the Kafka send traces back to the original
+     * request instead of starting a disconnected trace of its own — see
+     * OutboxTraceLinking.
+     */
+    @Column(name = "trace_id", length = 32)
+    private String traceId;
+
+    @Column(name = "span_id", length = 16)
+    private String spanId;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private OutboxEventStatus status = OutboxEventStatus.PENDING;
@@ -83,6 +99,8 @@ public class OutboxEvent {
             String partitionKey,
             String payload,
             String correlationId,
+            String traceId,
+            String spanId,
             Clock clock) {
         OutboxEvent event = new OutboxEvent();
         event.id = id;
@@ -93,6 +111,8 @@ public class OutboxEvent {
         event.partitionKey = partitionKey;
         event.payload = payload;
         event.correlationId = correlationId;
+        event.traceId = traceId;
+        event.spanId = spanId;
         event.status = OutboxEventStatus.PENDING;
         event.retryCount = 0;
         event.createdAt = LocalDateTime.now(clock);

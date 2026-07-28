@@ -180,6 +180,11 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      # Talks to Tempo's OTLP/HTTP receiver by in-network service name — see
+      # management.otlp.tracing.endpoint in application.properties and the
+      # tempo service above. Same reasoning as KAFKA_BOOTSTRAP_SERVERS: don't
+      # point this at localhost from inside the app container.
+      OTLP_TRACING_ENDPOINT: http://tempo:4318/v1/traces
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
       DEFAULT_ADMIN_USERNAME: ${DEFAULT_ADMIN_USERNAME:-admin}
       # DB_PASSWORD, REDIS_PASSWORD, JWT_PRIVATE_KEY, JWT_PUBLIC_KEY and
@@ -255,6 +260,8 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      # Same reasoning as `app` above — see its comment.
+      OTLP_TRACING_ENDPOINT: http://tempo:4318/v1/traces
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
       DEFAULT_ADMIN_USERNAME: ${DEFAULT_ADMIN_USERNAME:-admin}
       # Same Vault handoff as `app` above — see that service's comment.
@@ -322,6 +329,30 @@ services:
     networks:
       - oms-network
 
+  # Filesystem-backed, single-binary — same local-dev-only reasoning as
+  # `loki` above (see monitoring/tempo/tempo-config.yaml). Receives spans
+  # over OTLP/HTTP from app/app-worker (see OTLP_TRACING_ENDPOINT below and
+  # management.otlp.tracing.endpoint in application.properties) and is
+  # queried by Grafana (see the Tempo datasource in
+  # monitoring/grafana/provisioning/datasources/datasource.yml). Not on
+  # `depends_on` for app/app-worker: span export is push-based over OTLP and
+  # tolerates Tempo not being up yet the same way Kafka producer retries do —
+  # spans just get dropped/retried, not a startup-ordering requirement.
+  tempo:
+    image: grafana/tempo:2.6.1
+    container_name: oms-tempo
+    restart: unless-stopped
+    ports:
+      - "3200:3200"   # Tempo's own HTTP API — Grafana's datasource URL below
+      - "4317:4317"   # OTLP gRPC receiver
+      - "4318:4318"   # OTLP HTTP receiver — what app/app-worker actually use
+    volumes:
+      - ./monitoring/tempo/tempo-config.yaml:/etc/tempo.yaml:ro
+      - oms-tempo-data:/var/tempo
+    command: -config.file=/etc/tempo.yaml
+    networks:
+      - oms-network
+
   # Ships every container's stdout/stderr to Loki — see
   # monitoring/promtail/promtail-config.yaml. Needs the Docker socket
   # (read-only) to discover containers, and the host's docker log directory
@@ -366,6 +397,7 @@ services:
     depends_on:
       - prometheus
       - loki
+      - tempo
     networks:
       - oms-network
 
@@ -486,3 +518,4 @@ volumes:
   oms-prometheus-data:
   oms-grafana-data:
   oms-loki-data:
+  oms-tempo-data:

@@ -1,6 +1,8 @@
 package com.giri.oms.messaging.outbox;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import io.micrometer.tracing.Span;
+import io.micrometer.tracing.Tracer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
@@ -22,6 +24,7 @@ public class OutboxService {
     private final OutboxEventRepository outboxEventRepository;
     private final JsonMapper objectMapper;
     private final Clock clock;
+    private final Tracer tracer;
 
     @Transactional
     public UUID enqueue(
@@ -42,6 +45,18 @@ public class OutboxService {
         // it, we don't set it — this method has no opinion on what put it there.
         String correlationId = MDC.get(MDC_KEY);
 
+        // Same idea as correlationId above, but for the span that's live on
+        // this thread right now (if any) — see OutboxTraceLinking for how
+        // OutboxPublisher uses this later to link the eventual Kafka publish
+        // back to this trace instead of starting a disconnected one.
+        String traceId = null;
+        String spanId = null;
+        Span currentSpan = tracer.currentSpan();
+        if (currentSpan != null) {
+            traceId = currentSpan.context().traceId();
+            spanId = currentSpan.context().spanId();
+        }
+
         OutboxEvent outboxEvent = OutboxEvent.pending(
                 eventId,
                 aggregateType,
@@ -51,6 +66,8 @@ public class OutboxService {
                 partitionKey,
                 serializedPayload,
                 correlationId,
+                traceId,
+                spanId,
                 clock);
 
         outboxEventRepository.save(outboxEvent);

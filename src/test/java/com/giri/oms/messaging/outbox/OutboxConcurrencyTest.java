@@ -86,6 +86,8 @@ class OutboxConcurrencyTest extends AbstractIntegrationTest {
                     partitionKey,
                     "{\"key\":\"" + partitionKey + "\"}",
                     null,
+                    null,
+                    null,
                     clock);
             outboxEventRepository.save(event);
         }
