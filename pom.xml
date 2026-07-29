@@ -26,6 +26,11 @@
 		     Boot 4.1.0 release. -->
 		<spring-cloud.version>2025.1.2</spring-cloud.version>
 		<spring-modulith.version>2.0.5</spring-modulith.version>
+		<!-- NOTE: resilience4j-spring-boot3's artifact name is a historical holdover
+		     from the Boot 3 era but it still targets plain Spring Boot autoconfiguration
+		     (not a Boot-3-specific API) — verify this version's compatibility against
+		     Spring Boot 4.1.0 before building, same caution as spring-cloud.version above. -->
+		<resilience4j.version>2.3.0</resilience4j.version>
 	</properties>
 
 	<dependencyManagement>
@@ -66,6 +71,16 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-webmvc</artifactId>
+		</dependency>
+		<!-- Spring Boot 4 split RestClient.Builder auto-configuration out of the core
+		     autoconfigure jar into its own starter — spring-boot-starter-webmvc no longer
+		     pulls it in transitively. Required for ProductClientConfig's
+		     productServiceRestClient bean (see productclient.config.ProductClientConfig);
+		     without it that bean fails to construct and the whole ApplicationContext fails
+		     to load for every @SpringBootTest. -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-restclient</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -115,6 +130,18 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-opentelemetry</artifactId>
+		</dependency>
+
+		<!-- Stage 2 of the microservices-prep plan (Phase 4, Product extraction):
+		     backs ProductClient's timeout/circuit-breaker/retry policy (see
+		     productclient.config.ProductClientConfig and application.properties'
+		     resilience4j.* block) — the resilience posture Stage 0 decided on for
+		     calling product-service: fail closed, no fallback, short timeout,
+		     retry only on timeout/5xx (never on 404). -->
+		<dependency>
+			<groupId>io.github.resilience4j</groupId>
+			<artifactId>resilience4j-spring-boot3</artifactId>
+			<version>${resilience4j.version}</version>
 		</dependency>
 
 		<!-- Redis: connection factory (Lettuce), used by the Spring Cache abstraction
@@ -291,6 +318,16 @@
 		<dependency>
 			<groupId>org.springframework.security</groupId>
 			<artifactId>spring-security-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<!-- Stage 2 of the microservices-prep plan: stands in for product-service's
+		     actual HTTP API in ProductClientImplTest — a real embedded HTTP server,
+		     not a mocked RestClient, so the test also exercises real (de)serialization
+		     and real HTTP status handling, not just "was this method called". -->
+		<dependency>
+			<groupId>org.wiremock</groupId>
+			<artifactId>wiremock-standalone</artifactId>
+			<version>3.9.2</version>
 			<scope>test</scope>
 		</dependency>
 	</dependencies>

@@ -77,6 +77,14 @@ public enum ErrorCode {
     // ---- Product (PR) ----
     PRODUCT_NOT_FOUND("E", "PR", "100", HttpStatus.NOT_FOUND,
             "Product not found with id: %d"),
+    // Stage 2 of the microservices-prep plan: thrown by productclient's
+    // ProductClientImpl for a timeout, a 5xx, or an open circuit breaker
+    // calling product-service — see ProductServiceUnavailableException.
+    // Deliberately NOT reused for a 404 (that's still PRODUCT_NOT_FOUND
+    // above) — a missing product and an unreachable service are different
+    // failure modes with different meanings for a caller/retry policy.
+    PRODUCT_SERVICE_UNAVAILABLE("E", "PR", "500", HttpStatus.SERVICE_UNAVAILABLE,
+            "Product service is currently unavailable (product id: %d) — please try again shortly"),
 
     // ---- Customer (CU) ----
     CUSTOMER_NOT_FOUND("E", "CU", "100", HttpStatus.NOT_FOUND,

@@ -12,6 +12,7 @@ import com.giri.oms.order.exception.OrderNotFoundException;
 import com.giri.oms.payment.exception.IllegalPaymentStateException;
 import com.giri.oms.payment.exception.PaymentNotFoundException;
 import com.giri.oms.product.exception.ProductNotFoundException;
+import com.giri.oms.productclient.exception.ProductServiceUnavailableException;
 import com.giri.oms.shipment.exception.IllegalShipmentStateException;
 import com.giri.oms.shipment.exception.ShipmentNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -52,6 +53,16 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ProductNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleProductNotFound(ProductNotFoundException ex, HttpServletRequest request) {
         log.warn("Product not found — path: {}, message: {}", request.getRequestURI(), ex.getMessage());
+        return build(codeOf(ex), ex.getMessage(), request);
+    }
+
+    // Stage 2 of the microservices-prep plan — see ProductServiceUnavailableException's
+    // Javadoc for why this is deliberately its own handler rather than falling
+    // through to the catch-all Exception handler below (which would turn a
+    // legitimate "try again shortly" into an opaque 500).
+    @ExceptionHandler(ProductServiceUnavailableException.class)
+    public ResponseEntity<ErrorResponse> handleProductServiceUnavailable(ProductServiceUnavailableException ex, HttpServletRequest request) {
+        log.error("product-service unavailable — path: {}, message: {}", request.getRequestURI(), ex.getMessage());
         return build(codeOf(ex), ex.getMessage(), request);
     }
 
