@@ -91,6 +91,10 @@ public enum ErrorCode {
             "Customer not found with id: %d"),
     CUSTOMER_EMAIL_ALREADY_EXISTS("E", "CU", "101", HttpStatus.CONFLICT,
             "A customer already exists with email: %s"),
+    // Same reasoning as PRODUCT_SERVICE_UNAVAILABLE above — deliberately NOT
+    // reused for a 404 (that's still CUSTOMER_NOT_FOUND).
+    CUSTOMER_SERVICE_UNAVAILABLE("E", "CU", "500", HttpStatus.SERVICE_UNAVAILABLE,
+            "Customer service is currently unavailable (customer id: %d) — please try again shortly"),
 
     // ---- Order (OR) ----
     ORDER_NOT_FOUND("E", "OR", "100", HttpStatus.NOT_FOUND,

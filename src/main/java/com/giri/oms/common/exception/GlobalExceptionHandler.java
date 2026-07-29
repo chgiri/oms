@@ -5,6 +5,7 @@ import com.giri.oms.auth.exception.UsernameAlreadyExistsException;
 import com.giri.oms.common.lock.LockAcquisitionException;
 import com.giri.oms.customer.exception.CustomerEmailAlreadyExistsException;
 import com.giri.oms.customer.exception.CustomerNotFoundException;
+import com.giri.oms.customerclient.exception.CustomerServiceUnavailableException;
 import com.giri.oms.inventory.exception.InventoryAlreadyExistsException;
 import com.giri.oms.inventory.exception.InventoryNotFoundException;
 import com.giri.oms.order.exception.IllegalOrderStateException;
@@ -63,6 +64,14 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ProductServiceUnavailableException.class)
     public ResponseEntity<ErrorResponse> handleProductServiceUnavailable(ProductServiceUnavailableException ex, HttpServletRequest request) {
         log.error("product-service unavailable — path: {}, message: {}", request.getRequestURI(), ex.getMessage());
+        return build(codeOf(ex), ex.getMessage(), request);
+    }
+
+    // Same reasoning as handleProductServiceUnavailable above — see
+    // CustomerServiceUnavailableException's Javadoc.
+    @ExceptionHandler(CustomerServiceUnavailableException.class)
+    public ResponseEntity<ErrorResponse> handleCustomerServiceUnavailable(CustomerServiceUnavailableException ex, HttpServletRequest request) {
+        log.error("customer-service unavailable — path: {}, message: {}", request.getRequestURI(), ex.getMessage());
         return build(codeOf(ex), ex.getMessage(), request);
     }
 
