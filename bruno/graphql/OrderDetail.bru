@@ -31,6 +31,16 @@ body:graphql {
         status
         trackingNumber
       }
+      items {
+        id
+        productId
+        productName
+        quantity
+        unitPrice
+        subtotal
+      }
+      createdAt
+      updatedAt
     }
   }
 }
@@ -50,4 +60,9 @@ docs {
 
   payment/shipment come back null if they don't exist yet for this order
   (e.g. a brand-new PENDING order) — that's expected, not an error.
+
+  items/createdAt/updatedAt were added to OrderDetail alongside the
+  order-detail page's GraphQL migration (see schema.graphqls) — createdAt/
+  updatedAt come back as ISO-8601 strings, passed through from oms-main
+  rather than parsed into a dedicated scalar.
 }
