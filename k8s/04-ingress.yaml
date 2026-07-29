@@ -1,3 +1,15 @@
+# SUPERSEDED — kept as a reference, not deleted, but no longer applied
+# (see kustomization.yaml, where this file is commented out of `resources`).
+# The gateway is now the browser-facing edge (oms-gateway/k8s/04-ingress.yaml
+# is its replacement, same host, same TLS secret name — a straight handoff,
+# not a new entry point). oms-web's Service still exists and still needs to
+# — the gateway routes to it in-cluster by that Service name — it just
+# doesn't need its own Ingress anymore, since nothing outside the cluster
+# should reach it directly once the gateway is in front. Left here rather
+# than deleted so the history of "this used to be the edge" isn't lost, and
+# so reverting (temporarily bypassing the gateway) is a one-line
+# uncomment away rather than a from-scratch rewrite.
+#
 # Assumes an ingress-nginx controller; swap the class/annotations for
 # whatever controller your cluster actually runs. Replace the host and TLS
 # secret with real values.

@@ -10,7 +10,12 @@ resources:
   - 12-serviceaccount.yaml
   - 02-deployment-web.yaml
   - 03-service-web.yaml
-  - 04-ingress.yaml
+  # 04-ingress.yaml is commented out — superseded by oms-gateway/k8s/04-ingress.yaml.
+  # oms-web's Service (03-service-web.yaml, above) stays listed: the
+  # gateway still routes to it in-cluster by that Service name, it's only
+  # the external entry point that moved. See the note at the top of
+  # 04-ingress.yaml itself for why the file is kept rather than deleted.
+  # - 04-ingress.yaml
   - 05-hpa-web.yaml
   - 06-deployment-worker.yaml
   - 07-scaledobject-worker.yaml   # requires KEDA CRDs installed in-cluster

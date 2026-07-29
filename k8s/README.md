@@ -6,9 +6,14 @@ This directory is the deployment-side half of `app.process.role` (see
 production scaling artifact by itself — nothing there lets web and worker
 scale independently under real load, on real signals, unattended. These
 manifests are that piece: two `Deployment`s built from the same image, one
-`web` behind a `Service`/`Ingress` with an `HorizontalPodAutoscaler`, one
-`worker` with no `Service` at all, scaled by KEDA on Kafka consumer lag and
-outbox queue depth instead.
+`web` behind a `Service` with an `HorizontalPodAutoscaler`, one `worker`
+with no `Service` at all, scaled by KEDA on Kafka consumer lag and outbox
+queue depth instead.
+
+> **The external entry point now lives in `oms-gateway/k8s/`, not here.**
+> `web`'s `Service` (`03-service-web.yaml`) is still what the gateway routes
+> to in-cluster; it's only the `Ingress` that moved — see
+> `oms-gateway/k8s/README.md` and the note at the top of `04-ingress.yaml`.
 
 ## Files
 
@@ -18,7 +23,7 @@ outbox queue depth instead.
 | `01-secret.example.yaml` | **Template only** — copy it, fill in real values out of band, don't apply as-is |
 | `02-deployment-web.yaml` | `APP_PROCESS_ROLE=web` — HTTP API only, no consumers/poller |
 | `03-service-web.yaml` | ClusterIP in front of the web pods only |
-| `04-ingress.yaml` | External entry point, routes to `oms-web` only |
+| `04-ingress.yaml` | **Superseded** — see note below; kept for reference, not applied |
 | `05-hpa-web.yaml` | Scales web on CPU utilization |
 | `06-deployment-worker.yaml` | `APP_PROCESS_ROLE=worker` — consumers + outbox poller, no Service |
 | `07-scaledobject-worker.yaml` | KEDA: scales worker on Kafka consumer lag + outbox depth |
@@ -35,8 +40,10 @@ outbox queue depth instead.
 - **[KEDA](https://keda.sh)** — required for `07-scaledobject-worker.yaml`.
   Install it (Helm chart or operator) before applying that file, or the
   `ScaledObject`/`TriggerAuthentication` CRDs won't exist.
-- **An ingress controller** — `04-ingress.yaml` assumes `ingress-nginx`;
-  swap `ingressClassName` and annotations for whatever you run.
+- **An ingress controller** — needed for `oms-gateway/k8s/04-ingress.yaml`
+  now, not this directory's (see the note below). That one assumes
+  `ingress-nginx`; swap `ingressClassName` and annotations for whatever you
+  run.
 - **Postgres, Kafka, Redis reachable from the cluster** — `00-configmap.yaml`
   points at `postgres` / `kafka` / `redis` as in-cluster Service names by
   default. Point these at your real managed instances if you're not
