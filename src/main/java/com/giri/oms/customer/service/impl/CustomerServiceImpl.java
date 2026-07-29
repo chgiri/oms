@@ -9,12 +9,14 @@ import com.giri.oms.customer.entity.Customer;
 import com.giri.oms.customer.entity.CustomerStatus;
 import com.giri.oms.customer.exception.CustomerEmailAlreadyExistsException;
 import com.giri.oms.customer.exception.CustomerNotFoundException;
+import com.giri.oms.customer.exception.CustomerWritesFrozenException;
 import com.giri.oms.customer.mapper.CustomerMapper;
 import com.giri.oms.customer.repository.CustomerRepository;
 import com.giri.oms.customer.service.CustomerService;
 import com.giri.oms.customer.specification.CustomerSpecification;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -34,12 +36,30 @@ public class CustomerServiceImpl implements CustomerService {
     private final CustomerRepository customerRepository;
     private final CustomerMapper customerMapper;
 
+    // Stage 3 of the microservices-prep plan (data cutover) — see
+    // CustomerWritesFrozenException and docs/stage3-data-cutover-runbook-customer.md.
+    // false outside an active cutover window; the runbook is what flips this
+    // to true, and back to false once the migrated data is verified.
+    //
+    // Deliberately NOT final — @RequiredArgsConstructor generates a
+    // constructor parameter for every final field, and Lombok doesn't copy
+    // field-level annotations (like @Value) onto that generated parameter.
+    // A final field here would produce a bare, unannotated boolean
+    // constructor parameter that Spring can't resolve as a bean, failing
+    // startup with an UnsatisfiedDependencyException. Field-level @Value
+    // injection happens via reflection after construction — fundamentally
+    // incompatible with final regardless. Same fix as ProductServiceImpl's
+    // identical field — see that class if this comes up again elsewhere.
+    @Value("${app.customer.writes-frozen:false}")
+    private boolean writesFrozen;
+
     private static final Set<String> ALLOWED_SORT_FIELDS =
             Set.of("id", "firstName", "lastName", "email", "status", "createdAt", "updatedAt");
 
     @Override
     @Transactional // write operation — overrides the class-level readOnly default
     public CustomerResponse createCustomer(CustomerRequest request) {
+        assertWritesNotFrozen();
         log.debug("Creating customer with email: {}", request.getEmail());
 
         if (customerRepository.existsByEmailIgnoreCase(request.getEmail())) {
@@ -84,6 +104,13 @@ public class CustomerServiceImpl implements CustomerService {
         }
     }
 
+    // Stage 3 of the microservices-prep plan — see CustomerWritesFrozenException.
+    private void assertWritesNotFrozen() {
+        if (writesFrozen) {
+            throw new CustomerWritesFrozenException();
+        }
+    }
+
     /**
      * Search endpoints take a raw Pageable straight from request query params (unlike
      * getAllCustomers, which validates sortBy up front). A client can send any sort
@@ -116,6 +143,7 @@ public class CustomerServiceImpl implements CustomerService {
     @Override
     @Transactional // write operation — overrides the class-level readOnly default
     public CustomerResponse updateCustomer(Long customerId, CustomerRequest request) {
+        assertWritesNotFrozen();
         log.debug("Updating customer with id: {}", customerId);
 
         Customer customer = getExistingCustomer(customerId);
@@ -139,6 +167,7 @@ public class CustomerServiceImpl implements CustomerService {
     @Override
     @Transactional // write operation — overrides the class-level readOnly default
     public void deleteCustomer(Long customerId) {
+        assertWritesNotFrozen();
         log.debug("Deleting customer with id: {}", customerId);
 
         getExistingCustomer(customerId);

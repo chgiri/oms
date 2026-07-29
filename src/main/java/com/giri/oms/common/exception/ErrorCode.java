@@ -100,6 +100,11 @@ public enum ErrorCode {
     // reused for a 404 (that's still CUSTOMER_NOT_FOUND).
     CUSTOMER_SERVICE_UNAVAILABLE("E", "CU", "500", HttpStatus.SERVICE_UNAVAILABLE,
             "Customer service is currently unavailable (customer id: %d) — please try again shortly"),
+    // Stage 3 of the microservices-prep plan (data cutover) — see
+    // CustomerWritesFrozenException. Time-boxed to the maintenance window,
+    // never left on outside of an active cutover.
+    CUSTOMER_WRITES_FROZEN("E", "CU", "501", HttpStatus.SERVICE_UNAVAILABLE,
+            "Customer writes are temporarily frozen for a data migration — please try again shortly"),
 
     // ---- Order (OR) ----
     ORDER_NOT_FOUND("E", "OR", "100", HttpStatus.NOT_FOUND,

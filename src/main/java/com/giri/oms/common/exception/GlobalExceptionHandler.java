@@ -5,6 +5,7 @@ import com.giri.oms.auth.exception.UsernameAlreadyExistsException;
 import com.giri.oms.common.lock.LockAcquisitionException;
 import com.giri.oms.customer.exception.CustomerEmailAlreadyExistsException;
 import com.giri.oms.customer.exception.CustomerNotFoundException;
+import com.giri.oms.customer.exception.CustomerWritesFrozenException;
 import com.giri.oms.customerclient.exception.CustomerServiceUnavailableException;
 import com.giri.oms.inventory.exception.InventoryAlreadyExistsException;
 import com.giri.oms.inventory.exception.InventoryNotFoundException;
@@ -73,6 +74,14 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ProductWritesFrozenException.class)
     public ResponseEntity<ErrorResponse> handleProductWritesFrozen(ProductWritesFrozenException ex, HttpServletRequest request) {
         log.warn("Product write rejected — writes frozen for data cutover — path: {}", request.getRequestURI());
+        return build(codeOf(ex), ex.getMessage(), request);
+    }
+
+    // Same reasoning as handleProductWritesFrozen above — see
+    // CustomerWritesFrozenException's Javadoc.
+    @ExceptionHandler(CustomerWritesFrozenException.class)
+    public ResponseEntity<ErrorResponse> handleCustomerWritesFrozen(CustomerWritesFrozenException ex, HttpServletRequest request) {
+        log.warn("Customer write rejected — writes frozen for data cutover — path: {}", request.getRequestURI());
         return build(codeOf(ex), ex.getMessage(), request);
     }
 

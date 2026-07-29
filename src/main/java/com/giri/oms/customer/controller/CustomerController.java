@@ -65,7 +65,7 @@ public class CustomerController {
                                     }
                                     """)))
     })
-    @ApiErrorCodes({ErrorCode.CUSTOMER_EMAIL_ALREADY_EXISTS})
+    @ApiErrorCodes({ErrorCode.CUSTOMER_EMAIL_ALREADY_EXISTS, ErrorCode.CUSTOMER_WRITES_FROZEN})
     public ResponseEntity<CustomerResponse> createCustomer(@Valid @RequestBody CustomerRequest customerRequest) {
         log.info("POST " + API_PREFIX + "/customers — creating customer: {}", customerRequest.getEmail());
         CustomerResponse savedCustomer = customerService.createCustomer(customerRequest);
@@ -117,7 +117,7 @@ public class CustomerController {
             description = "Fully replaces the customer's name, email, phone, address, and status. "
                     + "All fields are re-validated as on create. "
                     + "Changing the email to one already used by another customer returns a 409.")
-    @ApiErrorCodes({ErrorCode.CUSTOMER_NOT_FOUND, ErrorCode.CUSTOMER_EMAIL_ALREADY_EXISTS})
+    @ApiErrorCodes({ErrorCode.CUSTOMER_NOT_FOUND, ErrorCode.CUSTOMER_EMAIL_ALREADY_EXISTS, ErrorCode.CUSTOMER_WRITES_FROZEN})
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Customer updated")
     })
@@ -135,7 +135,7 @@ public class CustomerController {
     @DeleteMapping("{id}")
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Delete a customer", description = "Restricted to ADMIN.")
-    @ApiErrorCodes({ErrorCode.CUSTOMER_NOT_FOUND})
+    @ApiErrorCodes({ErrorCode.CUSTOMER_NOT_FOUND, ErrorCode.CUSTOMER_WRITES_FROZEN})
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "Customer deleted")
     })

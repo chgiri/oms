@@ -8,6 +8,7 @@ import com.giri.oms.customer.entity.Customer;
 import com.giri.oms.customer.entity.CustomerStatus;
 import com.giri.oms.customer.exception.CustomerEmailAlreadyExistsException;
 import com.giri.oms.customer.exception.CustomerNotFoundException;
+import com.giri.oms.customer.exception.CustomerWritesFrozenException;
 import com.giri.oms.customer.mapper.CustomerMapper;
 import com.giri.oms.customer.repository.CustomerRepository;
 import com.giri.oms.customer.service.impl.CustomerServiceImpl;
@@ -24,6 +25,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -332,6 +334,51 @@ class CustomerServiceImplTest {
                     "ada", null, CustomerStatus.ACTIVE, PageRequest.of(0, 10));
 
             assertThat(result.getContent()).containsExactly(customerResponse);
+        }
+    }
+
+    @Nested
+    class WritesFrozen {
+
+        // writesFrozen is a @Value-injected field (deliberately not final —
+        // see CustomerServiceImpl's Javadoc on that field for why final
+        // doesn't work here with @RequiredArgsConstructor). @InjectMocks
+        // leaves it at the primitive default (false) since there's no
+        // matching @Mock, which is also exactly the "not currently
+        // mid-cutover" behavior every other test in this class implicitly
+        // relies on. Flip it here via reflection rather than constructing a
+        // second CustomerServiceImpl by hand, so these tests share the same
+        // @Mock setup as everything else. Mirrors ProductServiceImplTest's
+        // identical WritesFrozen block.
+        @BeforeEach
+        void freezeWrites() {
+            ReflectionTestUtils.setField(customerService, "writesFrozen", true);
+        }
+
+        @Test
+        void createCustomer_throwsCustomerWritesFrozenException_andNeverTouchesTheRepository() {
+            assertThatThrownBy(() -> customerService.createCustomer(customerRequest))
+                    .isInstanceOf(CustomerWritesFrozenException.class);
+
+            verifyNoInteractions(customerRepository);
+        }
+
+        @Test
+        void updateCustomer_throwsCustomerWritesFrozenException_beforeEvenLookingUpTheCustomer() {
+            assertThatThrownBy(() -> customerService.updateCustomer(1L, customerRequest))
+                    .isInstanceOf(CustomerWritesFrozenException.class);
+
+            // The freeze check runs before getExistingCustomer() — a frozen
+            // write should never even reveal whether the id exists.
+            verifyNoInteractions(customerRepository);
+        }
+
+        @Test
+        void deleteCustomer_throwsCustomerWritesFrozenException_beforeEvenLookingUpTheCustomer() {
+            assertThatThrownBy(() -> customerService.deleteCustomer(1L))
+                    .isInstanceOf(CustomerWritesFrozenException.class);
+
+            verifyNoInteractions(customerRepository);
         }
     }
 }
