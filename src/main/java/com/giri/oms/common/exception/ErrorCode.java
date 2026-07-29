@@ -85,6 +85,11 @@ public enum ErrorCode {
     // failure modes with different meanings for a caller/retry policy.
     PRODUCT_SERVICE_UNAVAILABLE("E", "PR", "500", HttpStatus.SERVICE_UNAVAILABLE,
             "Product service is currently unavailable (product id: %d) — please try again shortly"),
+    // Stage 3 of the microservices-prep plan (data cutover) — see
+    // ProductWritesFrozenException. Time-boxed to the maintenance window,
+    // never left on outside of an active cutover.
+    PRODUCT_WRITES_FROZEN("E", "PR", "501", HttpStatus.SERVICE_UNAVAILABLE,
+            "Product writes are temporarily frozen for a data migration — please try again shortly"),
 
     // ---- Customer (CU) ----
     CUSTOMER_NOT_FOUND("E", "CU", "100", HttpStatus.NOT_FOUND,

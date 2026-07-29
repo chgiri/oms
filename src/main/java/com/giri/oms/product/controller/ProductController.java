@@ -43,6 +43,7 @@ public class ProductController {
     @PostMapping
     @Operation(summary = "Create a new product",
             description = "Creates a new product in the catalog and returns the saved record, including its generated ID and timestamps.")
+    @ApiErrorCodes({ErrorCode.PRODUCT_WRITES_FROZEN})
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Product created",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
@@ -107,7 +108,7 @@ public class ProductController {
     @PutMapping("{id}")
     @Operation(summary = "Update a product",
             description = "Fully replaces the product's name, description, and price. All fields are re-validated as on create.")
-    @ApiErrorCodes({ErrorCode.PRODUCT_NOT_FOUND})
+    @ApiErrorCodes({ErrorCode.PRODUCT_NOT_FOUND, ErrorCode.PRODUCT_WRITES_FROZEN})
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Product updated")
     })
@@ -125,7 +126,7 @@ public class ProductController {
     @DeleteMapping("{id}")
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Delete a product", description = "Restricted to ADMIN.")
-    @ApiErrorCodes({ErrorCode.PRODUCT_NOT_FOUND})
+    @ApiErrorCodes({ErrorCode.PRODUCT_NOT_FOUND, ErrorCode.PRODUCT_WRITES_FROZEN})
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "Product deleted")
     })

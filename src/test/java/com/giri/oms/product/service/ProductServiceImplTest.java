@@ -10,6 +10,7 @@ import com.giri.oms.product.entity.Product;
 import com.giri.oms.common.exception.InvalidSortFieldException;
 import com.giri.oms.product.entity.ProductStatus;
 import com.giri.oms.product.exception.ProductNotFoundException;
+import com.giri.oms.product.exception.ProductWritesFrozenException;
 import com.giri.oms.product.mapper.ProductMapper;
 import com.giri.oms.product.repository.ProductRepository;
 import com.giri.oms.product.service.impl.ProductServiceImpl;
@@ -24,6 +25,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -257,6 +259,47 @@ class ProductServiceImplTest {
             Page<ProductResponse> result = productService.searchProducts("mouse", null, null, pageable);
 
             assertThat(result.getContent()).containsExactly(productResponse);
+        }
+    }
+
+    @Nested
+    class WritesFrozen {
+
+        // writesFrozen is a @Value-injected final field — @InjectMocks leaves
+        // it at the primitive default (false) since there's no matching @Mock,
+        // which is also exactly the "not currently mid-cutover" behavior every
+        // other test in this class implicitly relies on. Flip it here via
+        // reflection rather than constructing a second ProductServiceImpl by
+        // hand, so these tests share the same @Mock setup as everything else.
+        @BeforeEach
+        void freezeWrites() {
+            ReflectionTestUtils.setField(productService, "writesFrozen", true);
+        }
+
+        @Test
+        void createProduct_throwsProductWritesFrozenException_andNeverTouchesTheRepository() {
+            assertThatThrownBy(() -> productService.createProduct(productRequest))
+                    .isInstanceOf(ProductWritesFrozenException.class);
+
+            verifyNoInteractions(productRepository, outboxService);
+        }
+
+        @Test
+        void updateProduct_throwsProductWritesFrozenException_beforeEvenLookingUpTheProduct() {
+            assertThatThrownBy(() -> productService.updateProduct(1L, productRequest))
+                    .isInstanceOf(ProductWritesFrozenException.class);
+
+            // The freeze check runs before getExistingProduct() — a frozen
+            // write should never even reveal whether the id exists.
+            verifyNoInteractions(productRepository, outboxService);
+        }
+
+        @Test
+        void deleteProduct_throwsProductWritesFrozenException_beforeEvenLookingUpTheProduct() {
+            assertThatThrownBy(() -> productService.deleteProduct(1L))
+                    .isInstanceOf(ProductWritesFrozenException.class);
+
+            verifyNoInteractions(productRepository, outboxService);
         }
     }
 }

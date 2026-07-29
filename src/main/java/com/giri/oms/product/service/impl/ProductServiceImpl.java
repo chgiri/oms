@@ -12,12 +12,14 @@ import com.giri.oms.product.entity.Product;
 import com.giri.oms.product.entity.ProductStatus;
 import com.giri.oms.common.exception.InvalidSortFieldException;
 import com.giri.oms.product.exception.ProductNotFoundException;
+import com.giri.oms.product.exception.ProductWritesFrozenException;
 import com.giri.oms.product.mapper.ProductMapper;
 import com.giri.oms.product.repository.ProductRepository;
 import com.giri.oms.product.service.ProductService;
 import com.giri.oms.product.specification.ProductSpecification;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
@@ -42,12 +44,20 @@ public class ProductServiceImpl implements ProductService {
     private final OutboxService outboxService;
     private final ProductEventFactory productEventFactory;
 
+    // Stage 3 of the microservices-prep plan (data cutover) — see
+    // ProductWritesFrozenException and docs/stage3-data-cutover-runbook.md.
+    // false outside an active cutover window; the runbook is what flips this
+    // to true, and back to false once the migrated data is verified.
+    @Value("${app.product.writes-frozen:false}")
+    private boolean writesFrozen;
+
     private static final Set<String> ALLOWED_SORT_FIELDS =
             Set.of("id", "name", "price", "createdAt", "updatedAt");
 
     @Override
     @Transactional // write operation — overrides the class-level readOnly default
     public ProductResponse createProduct(ProductRequest request) {
+        assertWritesNotFrozen();
         log.debug("Creating product with name: {}", request.getName());
 
         Product product = productMapper.mapToProduct(request);
@@ -87,6 +97,13 @@ public class ProductServiceImpl implements ProductService {
         return PagedResponse.of(responsePage);
     }
 
+    // Stage 3 of the microservices-prep plan — see ProductWritesFrozenException.
+    private void assertWritesNotFrozen() {
+        if (writesFrozen) {
+            throw new ProductWritesFrozenException();
+        }
+    }
+
     private void validateSortField(String sortBy) {
         if (!ALLOWED_SORT_FIELDS.contains(sortBy)) {
             throw new InvalidSortFieldException(sortBy, ALLOWED_SORT_FIELDS);
@@ -97,6 +114,7 @@ public class ProductServiceImpl implements ProductService {
     @Transactional // write operation — overrides the class-level readOnly default
     @CacheEvict(value = CacheConfig.PRODUCTS_CACHE, key = "#productId")
     public ProductResponse updateProduct(Long productId, ProductRequest request) {
+        assertWritesNotFrozen();
         log.debug("Updating product with id: {}", productId);
 
         Product product = getExistingProduct(productId);
@@ -113,6 +131,7 @@ public class ProductServiceImpl implements ProductService {
     @Transactional // write operation — overrides the class-level readOnly default
     @CacheEvict(value = CacheConfig.PRODUCTS_CACHE, key = "#productId")
     public void deleteProduct(Long productId) {
+        assertWritesNotFrozen();
         log.debug("Discontinuing product with id: {}", productId);
 
         // Soft-delete (Phase 1 of the microservices-prep plan) — see the

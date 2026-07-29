@@ -13,6 +13,7 @@ import com.giri.oms.order.exception.OrderNotFoundException;
 import com.giri.oms.payment.exception.IllegalPaymentStateException;
 import com.giri.oms.payment.exception.PaymentNotFoundException;
 import com.giri.oms.product.exception.ProductNotFoundException;
+import com.giri.oms.product.exception.ProductWritesFrozenException;
 import com.giri.oms.productclient.exception.ProductServiceUnavailableException;
 import com.giri.oms.shipment.exception.IllegalShipmentStateException;
 import com.giri.oms.shipment.exception.ShipmentNotFoundException;
@@ -64,6 +65,14 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ProductServiceUnavailableException.class)
     public ResponseEntity<ErrorResponse> handleProductServiceUnavailable(ProductServiceUnavailableException ex, HttpServletRequest request) {
         log.error("product-service unavailable — path: {}, message: {}", request.getRequestURI(), ex.getMessage());
+        return build(codeOf(ex), ex.getMessage(), request);
+    }
+
+    // Stage 3 of the microservices-prep plan (data cutover) — see
+    // ProductWritesFrozenException's Javadoc.
+    @ExceptionHandler(ProductWritesFrozenException.class)
+    public ResponseEntity<ErrorResponse> handleProductWritesFrozen(ProductWritesFrozenException ex, HttpServletRequest request) {
+        log.warn("Product write rejected — writes frozen for data cutover — path: {}", request.getRequestURI());
         return build(codeOf(ex), ex.getMessage(), request);
     }
 
