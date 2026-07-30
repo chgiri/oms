@@ -45,7 +45,7 @@ public class ProductServiceImpl implements ProductService {
     private final ProductEventFactory productEventFactory;
 
     // Stage 3 of the microservices-prep plan (data cutover) — see
-    // ProductWritesFrozenException and docs/stage3-data-cutover-runbook.md.
+    // ProductWritesFrozenException and docs/stage3-data-cutover-runbook-product.md.
     // false outside an active cutover window; the runbook is what flips this
     // to true, and back to false once the migrated data is verified.
     @Value("${app.product.writes-frozen:false}")

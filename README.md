@@ -156,14 +156,14 @@ docker compose up --build
 ```
 
 This starts Postgres, Kafka, Redis, a dev-mode Vault (seeded automatically),
-the app (`web` + `worker` roles), Prometheus, Grafana, Loki/Promtail, and
-Tempo. It does **not** start `product-service`/`customer-service`/
-`shipment-service`, `oms-bff`, or `oms-gateway` — those are separate repos;
-see [Sibling services](#sibling-services-separate-repos) and
-[Microservices extraction status](#microservices-extraction-status) above.
-If you're exercising `ProductClient`/`CustomerClient` against a real
-product-service/customer-service instance, run those separately and point
-`PRODUCT_SERVICE_URL`/`CUSTOMER_SERVICE_URL` at them.
+the app (`web` + `worker` roles), Prometheus, Grafana, Loki/Promtail, Tempo,
+`oms-bff`, `oms-gateway`, `product-service`, and `customer-service` — the
+whole stack in one shot, given sibling checkouts of `oms-bff`, `oms-gateway`,
+`product-service`, and `customer-service` (see
+[Sibling services](#sibling-services-separate-repos) above for the expected
+directory layout). It does **not** start `shipment-service` — that
+extraction hasn't reached a docker-compose wiring step yet (see
+[Microservices extraction status](#microservices-extraction-status) above).
 
 - API: http://localhost:8080
 - Swagger UI: http://localhost:8080/docs

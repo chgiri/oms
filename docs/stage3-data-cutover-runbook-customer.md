@@ -3,7 +3,7 @@
 Phase 4 (Customer extraction) of the microservices-prep plan. This is the
 maintenance-window procedure for migrating `oms_customer.customers` from
 oms-main into customer-service's own database. Mirrors
-`stage3-data-cutover-runbook.md` (Product) exactly — see that document if
+`stage3-data-cutover-runbook-product.md` (Product) exactly — see that document if
 anything here is ambiguous, since the two are meant to stay in lockstep.
 
 **Read this in full before starting the window.** Steps are numbered but

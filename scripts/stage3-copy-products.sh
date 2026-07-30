@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Stage 3 of the microservices-prep plan (Phase 4, Product extraction):
 # one-time copy of oms_product.products (oms-main) into products
-# (product-service's own database). See docs/stage3-data-cutover-runbook.md
+# (product-service's own database). See docs/stage3-data-cutover-runbook-product.md
 # for the full maintenance-window procedure this script is one step of —
 # do not run this on its own without following that runbook, in particular
 # the step confirming app.product.writes-frozen=true has taken effect on

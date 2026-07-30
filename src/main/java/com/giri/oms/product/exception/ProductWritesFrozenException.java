@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
  * (create/update/delete) when {@code app.product.writes-frozen=true} — the
  * deliberate freeze this runbook uses to guarantee the row set copied to
  * product-service is complete and won't be missing anything written after
- * the copy started. See {@code docs/stage3-data-cutover-runbook.md}.
+ * the copy started. See {@code docs/stage3-data-cutover-runbook-product.md}.
  * <p>
  * Deliberately NOT reused for anything else — this is a narrow,
  * time-boxed maintenance-window signal, not a general "service busy"
