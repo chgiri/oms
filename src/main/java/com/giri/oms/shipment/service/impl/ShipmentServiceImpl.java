@@ -11,12 +11,14 @@ import com.giri.oms.shipment.entity.ShipmentStatus;
 import com.giri.oms.shipment.entity.ShippingCarrier;
 import com.giri.oms.shipment.exception.IllegalShipmentStateException;
 import com.giri.oms.shipment.exception.ShipmentNotFoundException;
+import com.giri.oms.shipment.exception.ShipmentWritesFrozenException;
 import com.giri.oms.shipment.mapper.ShipmentMapper;
 import com.giri.oms.shipment.repository.ShipmentRepository;
 import com.giri.oms.shipment.service.ShipmentService;
 import com.giri.oms.shipment.specification.ShipmentSpecification;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -43,6 +45,16 @@ public class ShipmentServiceImpl implements ShipmentService {
     private final ShipmentMapper shipmentMapper;
     private final Clock clock;
 
+    // Stage 3 of the microservices-prep plan (data cutover) — see
+    // ShipmentWritesFrozenException and docs/stage3-data-cutover-runbook-shipment.md.
+    // false outside an active cutover window; the runbook is what flips this
+    // to true, and — unlike Product/Customer's flag — it's checked here AND
+    // in ShipmentAutoCreationServiceImpl, since Shipment is the first of the
+    // three extracted modules with a write path reachable from Kafka as well
+    // as REST.
+    @Value("${app.shipment.writes-frozen:false}")
+    private boolean writesFrozen;
+
     private static final Set<String> ALLOWED_SORT_FIELDS =
             Set.of("id", "status", "carrier", "shippedAt", "deliveredAt", "createdAt", "updatedAt");
 
@@ -66,6 +78,7 @@ public class ShipmentServiceImpl implements ShipmentService {
     @Transactional // write operation — overrides the class-level readOnly default
     public ShipmentResponse createShipment(ShipmentRequest request) {
         log.debug("Creating shipment for order id: {}", request.getOrderId());
+        assertWritesNotFrozen();
 
         // Existence-only check — OrderService.getOrderById throws OrderNotFoundException
         // itself if the order doesn't exist, same pattern as OrderServiceImpl's own
@@ -145,6 +158,7 @@ public class ShipmentServiceImpl implements ShipmentService {
     @Transactional // write operation — overrides the class-level readOnly default
     public ShipmentResponse updateShipmentStatus(Long shipmentId, ShipmentStatus newStatus, String trackingNumber) {
         log.debug("Updating shipment id: {} status to: {}", shipmentId, newStatus);
+        assertWritesNotFrozen();
 
         Shipment shipment = getExistingShipment(shipmentId);
         ShipmentStatus currentStatus = shipment.getStatus();
@@ -177,6 +191,7 @@ public class ShipmentServiceImpl implements ShipmentService {
     @Transactional // write operation — overrides the class-level readOnly default
     public void deleteShipment(Long shipmentId) {
         log.debug("Deleting shipment with id: {}", shipmentId);
+        assertWritesNotFrozen();
 
         Shipment shipment = getExistingShipment(shipmentId);
         if (!DELETABLE_STATUSES.contains(shipment.getStatus())) {
@@ -209,6 +224,13 @@ public class ShipmentServiceImpl implements ShipmentService {
                     log.warn("Shipment not found with id: {}", shipmentId);
                     return new ShipmentNotFoundException(shipmentId);
                 });
+    }
+
+    // Stage 3 of the microservices-prep plan — see ShipmentWritesFrozenException.
+    private void assertWritesNotFrozen() {
+        if (writesFrozen) {
+            throw new ShipmentWritesFrozenException();
+        }
     }
 
 }

@@ -20,6 +20,18 @@ import tools.jackson.databind.json.JsonMapper;
  * topic-strategy note on OrderSagaEventConsumer) — a third independent
  * subscriber alongside the inventory and order-saga groups.
  *
+ * <p><b>Phase 4 (Shipment extraction) note:</b> shipment-service's own copy
+ * of this consumer uses the SAME consumer group id
+ * ({@code app.kafka.consumer.shipment-service-group-id}, default
+ * {@code oms-shipment-service}) on purpose, so the handoff during Stage 3's
+ * cutover carries over cleanly from the last committed offset. This ALSO
+ * means the two must never run concurrently against a live group — Kafka
+ * would split the topic's partitions between them rather than have both
+ * process every message, silently routing some orders' shipments into
+ * oms-main's database and others into shipment-service's. See
+ * docs/stage3-data-cutover-runbook-shipment.md for the required sequencing
+ * (this consumer fully stopped before shipment-service's own starts).
+ *
  * <p>Guarded by app.process.role (see application.properties) — only active
  * on a "worker" process, or on any process at all if the property is unset.
  * Set app.process.role=web on an instance to keep it API-only.

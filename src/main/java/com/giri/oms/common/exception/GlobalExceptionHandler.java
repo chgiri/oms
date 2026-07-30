@@ -15,6 +15,7 @@ import com.giri.oms.payment.exception.IllegalPaymentStateException;
 import com.giri.oms.payment.exception.PaymentNotFoundException;
 import com.giri.oms.product.exception.ProductNotFoundException;
 import com.giri.oms.product.exception.ProductWritesFrozenException;
+import com.giri.oms.shipment.exception.ShipmentWritesFrozenException;
 import com.giri.oms.productclient.exception.ProductServiceUnavailableException;
 import com.giri.oms.shipment.exception.IllegalShipmentStateException;
 import com.giri.oms.shipment.exception.ShipmentNotFoundException;
@@ -82,6 +83,17 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(CustomerWritesFrozenException.class)
     public ResponseEntity<ErrorResponse> handleCustomerWritesFrozen(CustomerWritesFrozenException ex, HttpServletRequest request) {
         log.warn("Customer write rejected — writes frozen for data cutover — path: {}", request.getRequestURI());
+        return build(codeOf(ex), ex.getMessage(), request);
+    }
+
+    // Same reasoning as handleProductWritesFrozen above — see
+    // ShipmentWritesFrozenException's Javadoc. Note this exception can also
+    // originate from ShipmentAutoCreationServiceImpl (a Kafka listener, not
+    // a request) — DefaultErrorHandler catches it there instead of this
+    // handler, which only ever sees the REST-originated case.
+    @ExceptionHandler(ShipmentWritesFrozenException.class)
+    public ResponseEntity<ErrorResponse> handleShipmentWritesFrozen(ShipmentWritesFrozenException ex, HttpServletRequest request) {
+        log.warn("Shipment write rejected — writes frozen for data cutover — path: {}", request.getRequestURI());
         return build(codeOf(ex), ex.getMessage(), request);
     }
 

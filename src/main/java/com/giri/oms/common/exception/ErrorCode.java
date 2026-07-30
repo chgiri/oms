@@ -130,6 +130,15 @@ public enum ErrorCode {
     // description only.
     ILLEGAL_SHIPMENT_STATE("E", "SH", "101", HttpStatus.CONFLICT,
             "Operation conflicts with the shipment's current status"),
+    // Stage 3 of the microservices-prep plan (data cutover) — see
+    // ShipmentWritesFrozenException. Time-boxed to the maintenance window,
+    // never left on outside of an active cutover. Unlike
+    // PRODUCT_WRITES_FROZEN/CUSTOMER_WRITES_FROZEN, this guards a write path
+    // reachable two ways — the REST endpoints AND OrderConfirmedShipmentConsumer's
+    // auto-creation on the Kafka side — see docs/stage3-data-cutover-runbook-shipment.md
+    // for why both need to be stopped, not just this flag.
+    SHIPMENT_WRITES_FROZEN("E", "SH", "501", HttpStatus.SERVICE_UNAVAILABLE,
+            "Shipment writes are temporarily frozen for a data migration — please try again shortly"),
 
     // ---- Inventory (IN) ----
     INVENTORY_NOT_FOUND("E", "IN", "100", HttpStatus.NOT_FOUND,

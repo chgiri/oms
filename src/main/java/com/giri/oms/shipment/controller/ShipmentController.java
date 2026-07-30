@@ -63,7 +63,7 @@ public class ShipmentController {
                                     }
                                     """)))
     })
-    @ApiErrorCodes({ErrorCode.ORDER_NOT_FOUND})
+    @ApiErrorCodes({ErrorCode.ORDER_NOT_FOUND, ErrorCode.SHIPMENT_WRITES_FROZEN})
     public ResponseEntity<ShipmentResponse> createShipment(@Valid @RequestBody ShipmentRequest shipmentRequest) {
         log.info("POST " + API_PREFIX + "/shipments — creating shipment for order id: {}", shipmentRequest.getOrderId());
         ShipmentResponse savedShipment = shipmentService.createShipment(shipmentRequest);
@@ -119,7 +119,7 @@ public class ShipmentController {
                     + "(typically supplied when moving to SHIPPED); omitting it leaves any existing tracking "
                     + "number on the shipment unchanged. shippedAt and deliveredAt are stamped automatically "
                     + "the first time the shipment reaches SHIPPED or DELIVERED respectively.")
-    @ApiErrorCodes({ErrorCode.SHIPMENT_NOT_FOUND, ErrorCode.ILLEGAL_SHIPMENT_STATE})
+    @ApiErrorCodes({ErrorCode.SHIPMENT_NOT_FOUND, ErrorCode.ILLEGAL_SHIPMENT_STATE, ErrorCode.SHIPMENT_WRITES_FROZEN})
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Shipment status updated")
     })
@@ -140,7 +140,7 @@ public class ShipmentController {
     @Operation(summary = "Delete a shipment",
             description = "Restricted to ADMIN. Only shipments in PENDING or RETURNED status can be deleted — "
                     + "once a shipment is in transit or delivered, its record is kept for the audit trail instead.")
-    @ApiErrorCodes({ErrorCode.SHIPMENT_NOT_FOUND, ErrorCode.ILLEGAL_SHIPMENT_STATE})
+    @ApiErrorCodes({ErrorCode.SHIPMENT_NOT_FOUND, ErrorCode.ILLEGAL_SHIPMENT_STATE, ErrorCode.SHIPMENT_WRITES_FROZEN})
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "Shipment deleted")
     })
