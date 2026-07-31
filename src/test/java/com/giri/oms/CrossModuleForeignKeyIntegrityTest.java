@@ -12,19 +12,24 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Phase 2 step 6 of the microservices-prep plan: V19 dropped the five
+ * Phase 2 step 6 of the microservices-prep plan: V19 dropped the
  * cross-module FK constraints (fk_orders_customer, fk_order_items_product,
- * fk_inventory_product, fk_payments_order, fk_shipments_order) — Postgres no
- * longer rejects an orders.customer_id, order_items.product_id,
- * inventory.product_id, payments.order_id, or shipments.order_id that points
- * at a row which doesn't exist. Application-level validation (OrderServiceImpl,
- * InventoryServiceImpl, PaymentServiceImpl, ShipmentServiceImpl /
- * ShipmentAutoCreationServiceImpl) is what prevents a *new* orphan from being
- * created going forward — this test is the one-time check the plan calls for
- * before relying on that alone: it proves the detection query itself is
- * correct (it really does flag a dangling reference, not just trivially pass
- * on empty tables) and, run against a real pre-migration dataset, is what you'd
- * use to confirm nothing was already orphaned before V19 ran.
+ * fk_inventory_product, fk_payments_order, and — historically — fk_shipments_order)
+ * — Postgres no longer rejects an orders.customer_id, order_items.product_id,
+ * inventory.product_id, or payments.order_id that points at a row which
+ * doesn't exist. Application-level validation (OrderServiceImpl,
+ * InventoryServiceImpl, PaymentServiceImpl) is what prevents a *new* orphan
+ * from being created going forward — this test is the one-time check the
+ * plan calls for before relying on that alone: it proves the detection query
+ * itself is correct (it really does flag a dangling reference, not just
+ * trivially pass on empty tables) and, run against a real pre-migration
+ * dataset, is what you'd use to confirm nothing was already orphaned before
+ * V19 ran.
+ *
+ * The shipments.order_id case this test used to cover (ShipmentsOrderId) was
+ * removed along with the rest of the shipment module at Stage 5 — V22
+ * dropped the oms_shipment schema entirely once shipment-service's cutover
+ * was confirmed stable, so there's no longer a table here to check against.
  *
  * fk_order_items_order (order_items.order_id -> orders.id) is intentionally
  * out of scope: it was never dropped (Order/OrderItem stay in the same
@@ -54,8 +59,8 @@ class CrossModuleForeignKeyIntegrityTest extends AbstractIntegrationTest {
     @BeforeEach
     void setUp() {
         // Children first, in dependency order, so the deletes themselves never
-        // trip the FK that's still live (fk_order_items_order).
-        jdbcTemplate.update("DELETE FROM oms_shipment.shipments");
+        // trip the FK that's still live (fk_order_items_order). oms_shipment
+        // is no longer among these — see the class Javadoc's Stage 5 note.
         jdbcTemplate.update("DELETE FROM oms_payment.payments");
         jdbcTemplate.update("DELETE FROM oms_order.order_items");
         jdbcTemplate.update("DELETE FROM oms_inventory.inventory");
@@ -213,39 +218,6 @@ class CrossModuleForeignKeyIntegrityTest extends AbstractIntegrationTest {
         @Test
         void detectsOrphan_whenOrderIdReferencesNoExistingOrder() {
             insertPayment(1L, 999L);
-
-            assertThat(orphanCount(ORPHAN_QUERY)).isEqualTo(1);
-        }
-    }
-
-    @Nested
-    class ShipmentsOrderId {
-
-        private static final String ORPHAN_QUERY = """
-                SELECT COUNT(*) FROM oms_shipment.shipments s
-                LEFT JOIN oms_order.orders o ON s.order_id = o.id
-                WHERE o.id IS NULL
-                """;
-
-        private void insertShipment(long id, long orderId) {
-            jdbcTemplate.update("""
-                    INSERT INTO oms_shipment.shipments (id, order_id, carrier, status, created_at, updated_at)
-                    VALUES (?, ?, 'UPS', 'PENDING', now(), now())
-                    """, id, orderId);
-        }
-
-        @Test
-        void noOrphans_whenEveryShipmentReferencesAnExistingOrder() {
-            insertCustomer(1L);
-            insertOrder(1L, 1L);
-            insertShipment(1L, 1L);
-
-            assertThat(orphanCount(ORPHAN_QUERY)).isZero();
-        }
-
-        @Test
-        void detectsOrphan_whenOrderIdReferencesNoExistingOrder() {
-            insertShipment(1L, 999L);
 
             assertThat(orphanCount(ORPHAN_QUERY)).isEqualTo(1);
         }

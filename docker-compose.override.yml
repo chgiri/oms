@@ -29,6 +29,12 @@ services:
       # this line is what makes it also resolve on Linux.
       - "host.docker.internal:host-gateway"
 
+  shipment-service:
+    environment:
+      AUTH_SERVICE_JWKS_URI: http://host.docker.internal:8080/.well-known/jwks.json
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
   # --- If `bff` moves back into Docker while `app` stays in IntelliJ,
   # it needs this too (bff calls oms-main directly over WebClient, not
   # back through the gateway — see oms-bff's WebClientConfig): ---

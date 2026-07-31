@@ -73,10 +73,12 @@ kubectl apply -k .
   yet — see the note at the top of `05-hpa-web.yaml` for exactly what that
   would take.
 - **`oms-worker`**: KEDA, `minReplicaCount: 1` / `maxReplicaCount: 8`, on
-  whichever of 4 triggers asks for the most replicas:
-  - Consumer lag on each of the 3 Kafka consumer groups
-    (`oms-inventory-service`, `oms-order-service`, `oms-shipment-service`)
-    on the `oms.order.events` topic.
+  whichever of 3 triggers asks for the most replicas:
+  - Consumer lag on each of the 2 Kafka consumer groups
+    (`oms-inventory-service`, `oms-order-service`) on the `oms.order.events`
+    topic. `oms-shipment-service` used to be a third group here until Stage 5
+    of the microservices-prep plan moved that consumer into shipment-service's
+    own deployable — see `07-scaledobject-worker.yaml`'s comment.
   - Row count in `oms_messaging.outbox_events` where `status = 'PENDING'`,
     queried directly against Postgres.
 

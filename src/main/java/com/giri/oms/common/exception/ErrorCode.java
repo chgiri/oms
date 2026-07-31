@@ -124,19 +124,25 @@ public enum ErrorCode {
             "Operation conflicts with the payment's current status"),
 
     // ---- Shipment (SH) ----
+    // RETIRED as of Stage 5 (Phase 4 microservices-prep plan) — the shipment
+    // package (and every exception below) was deleted from this codebase
+    // once shipment-service's cutover was confirmed stable; nothing in this
+    // repo throws these anymore. Kept per this class's own append-only
+    // policy (never reassign/renumber a published code) rather than
+    // deleted outright — a client that logged ESH100/ESH101/ESH501 from
+    // this API historically should still find them documented here. All
+    // three codes are still live, unchanged, in shipment-service's own
+    // ErrorCode — that service is the current and only source of them now.
     SHIPMENT_NOT_FOUND("E", "SH", "100", HttpStatus.NOT_FOUND,
             "Shipment not found with id: %d"),
     // See ILLEGAL_ORDER_STATE note — same situation for shipments. Representative
     // description only.
     ILLEGAL_SHIPMENT_STATE("E", "SH", "101", HttpStatus.CONFLICT,
             "Operation conflicts with the shipment's current status"),
-    // Stage 3 of the microservices-prep plan (data cutover) — see
-    // ShipmentWritesFrozenException. Time-boxed to the maintenance window,
-    // never left on outside of an active cutover. Unlike
-    // PRODUCT_WRITES_FROZEN/CUSTOMER_WRITES_FROZEN, this guards a write path
-    // reachable two ways — the REST endpoints AND OrderConfirmedShipmentConsumer's
-    // auto-creation on the Kafka side — see docs/stage3-data-cutover-runbook-shipment.md
-    // for why both need to be stopped, not just this flag.
+    // Stage 3 of the microservices-prep plan (data cutover) — this guarded
+    // ShipmentWritesFrozenException, now deleted along with the rest of the
+    // shipment package (see the RETIRED note above). No longer reachable
+    // from this codebase at all.
     SHIPMENT_WRITES_FROZEN("E", "SH", "501", HttpStatus.SERVICE_UNAVAILABLE,
             "Shipment writes are temporarily frozen for a data migration — please try again shortly"),
 

@@ -5,8 +5,12 @@ import java.util.UUID;
 
 /**
  * Published by the order module (see OrderServiceImpl.updateOrderStatus) when
- * an order transitions to CONFIRMED. Consumed by the shipment module's
- * OrderConfirmedShipmentConsumer to auto-create the order's shipment.
+ * an order transitions to CONFIRMED. Historically consumed in-process by this
+ * codebase's own shipment module to auto-create the order's shipment; as of
+ * Stage 5 of the microservices-prep plan that module has been extracted into
+ * shipment-service, which now consumes this same event (same topic, same
+ * contract, unchanged) via its own copy of OrderConfirmedShipmentConsumer —
+ * see docs/stage3-data-cutover-runbook-shipment.md.
  *
  * {@code schemaVersion} is {@link EventSchemaVersion#V1} for every event
  * published today — see that class for the compatibility policy this field

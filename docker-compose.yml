@@ -220,8 +220,10 @@ services:
       - oms-network
 
   # Same image, same code as `app` — only APP_PROCESS_ROLE differs. Runs the
-  # 3 order-events Kafka consumers (inventory reservation, order-saga status
-  # transitions, shipment auto-creation) and the outbox poller, nothing else.
+  # 2 order-events Kafka consumers (inventory reservation, order-saga status
+  # transitions) and the outbox poller, nothing else. Shipment auto-creation
+  # used to be a third consumer here — Stage 5 of the microservices-prep
+  # plan moved it into shipment-service's own worker process.
   # This is what makes independently scaling worker replicas
   # (`docker compose up -d --scale app-worker=3`) an actual scaling decision
   # instead of scaling one monolithic process that also handles HTTP traffic.
@@ -479,6 +481,10 @@ services:
       OMS_MONOLITH_URI: http://app:8080
       OMS_JWKS_URI: http://app:8080/.well-known/jwks.json
       OMS_BFF_URI: http://bff:8095
+      # Points the shipment route (see oms-gateway's application.properties
+      # routes[1]) at shipment-service's in-network service name — same
+      # pattern as OMS_MONOLITH_URI/OMS_BFF_URI above.
+      OMS_SHIPMENT_SERVICE_URI: http://shipment-service:8080
       REDIS_HOST: redis
       REDIS_PORT: 6379
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:4200}
@@ -498,6 +504,11 @@ services:
       vault-init:
         condition: service_completed_successfully
       bff:
+        condition: service_healthy
+      # gateway now routes /api/v1/shipments/** here directly (see
+      # oms-gateway's application.properties routes[1]) — needs shipment-service
+      # up, not just started, same reasoning as its app/bff dependencies above.
+      shipment-service:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8091/actuator/health"]

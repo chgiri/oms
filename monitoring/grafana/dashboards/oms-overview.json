@@ -561,7 +561,7 @@
           "mode": "multi"
         }
       },
-      "description": "Groups: oms-inventory-service, oms-order-service, oms-shipment-service (see application.properties). Legend uses client_id since that's the label the Kafka client binder exposes; correlate against KAFKA_CONSUMER_GROUP / *_CONSUMER_GROUP env vars if it isn't self-evident."
+      "description": "Groups: oms-inventory-service, oms-order-service (see application.properties). oms-shipment-service used to be a third here until Stage 5 of the microservices-prep plan moved that consumer into shipment-service's own deployable — this panel's query is scoped to application=\"oms\", so it will simply show nothing for that group now rather than anything misleading; shipment-service needs its own equivalent panel once it has this same metrics wiring. Legend uses client_id since that's the label the Kafka client binder exposes; correlate against KAFKA_CONSUMER_GROUP / *_CONSUMER_GROUP env vars if it isn't self-evident."
     },
     {
       "id": 14,

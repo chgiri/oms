@@ -13,8 +13,8 @@ do-everything process, whether or not that's actually where the load was.
 | Value | Behavior |
 |---|---|
 | unset | Everything runs — today's behavior, unchanged. Nothing to do if you don't care about this. |
-| `web` | HTTP API only. The 3 `@KafkaListener` consumers and the outbox poller (`OutboxPublisher.publishPendingEvents`) don't start. |
-| `worker` | The 3 consumers and the outbox poller run. Tomcat still starts too (see below) unless you opt out of it separately. |
+| `web` | HTTP API only. The 2 `@KafkaListener` consumers and the outbox poller (`OutboxPublisher.publishPendingEvents`) don't start. |
+| `worker` | The 2 consumers and the outbox poller run. Tomcat still starts too (see below) unless you opt out of it separately. |
 
 Set it via the `APP_PROCESS_ROLE` environment variable (Spring's relaxed
 binding maps it to `app.process.role` automatically — there's no key for it
@@ -23,8 +23,12 @@ in `application.properties`, see the comment there for why).
 Guarded components:
 - `OrderCreatedInventoryConsumer` (reserves stock on `OrderCreated`)
 - `OrderSagaEventConsumer` (drives order status off inventory/payment outcomes)
-- `OrderConfirmedShipmentConsumer` (auto-creates a shipment on `OrderConfirmed`)
 - `OutboxPublisher` (the `@Scheduled` poller that flushes outbox rows to Kafka)
+
+`OrderConfirmedShipmentConsumer` (auto-created a shipment on `OrderConfirmed`)
+used to be a third guarded consumer here — as of Stage 5 of the
+microservices-prep plan it's been extracted into shipment-service's own
+deployable, which has the equivalent web/worker split for its own consumer.
 
 A `web` instance can still safely call `OutboxService.enqueue(...)` from an
 HTTP request — that just writes a `PENDING` row. It relies on some `worker`

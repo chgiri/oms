@@ -1,7 +1,9 @@
 # Same image, same code as oms-web — only APP_PROCESS_ROLE differs, exactly
-# like docker-compose.yml's app/app-worker pair. Runs the 3 order-events
-# Kafka consumers (inventory reservation, order-saga status transitions,
-# shipment auto-creation) and the outbox poller. No Service is defined for
+# like docker-compose.yml's app/app-worker pair. Runs the 2 order-events
+# Kafka consumers (inventory reservation, order-saga status transitions)
+# and the outbox poller. Shipment auto-creation used to be a third consumer
+# here, until Stage 5 of the microservices-prep plan moved it into
+# shipment-service's own worker deployment. No Service is defined for
 # this Deployment anywhere in this directory, and none should be — nothing
 # should route HTTP traffic here even though Tomcat is still listening
 # (see docs/process-roles.md's "Optional: skip Tomcat entirely" section for

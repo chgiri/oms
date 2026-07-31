@@ -9,7 +9,7 @@ import org.springframework.modulith.docs.Documenter;
  *
  * ApplicationModules.of(OmsApplication.class) treats every direct sub-package
  * of com.giri.oms (auth, customer, inventory, order, payment, product,
- * shipment, security, common, messaging) as its own application module. By
+ * security, common, messaging) as its own application module. By
  * default, only types sitting directly in a module's root package are that
  * module's public API — everything in a sub-package (entity, repository,
  * service.impl, mapper, specification, controller, ...) is internal and
@@ -35,15 +35,24 @@ import org.springframework.modulith.docs.Documenter;
  * module OPEN. Fix the dependency: add or extend a method on the target
  * module's public service interface and call that instead.
  *
- * Inventory→Product, Payment→Order, and Shipment→Order all used to reach
- * directly into product.entity/product.repository and order.entity/
- * order.repository respectively. All three now go through ProductService /
- * OrderService only, and the owning entity (Inventory, Payment, Shipment)
- * stores the foreign id as a plain Long column instead of a JPA @ManyToOne —
- * see Order.customerId for the original example of that pattern. Payment's
- * one wrinkle: it needed to check the order's status, but OrderStatus itself
- * lives in order.entity (never exposed), so OrderService exposes a narrow
+ * Inventory→Product and Payment→Order both used to reach directly into
+ * product.entity/product.repository and order.entity/order.repository
+ * respectively. Both now go through ProductService/OrderService only, and
+ * the owning entity (Inventory, Payment) stores the foreign id as a plain
+ * Long column instead of a JPA @ManyToOne — see Order.customerId for the
+ * original example of that pattern. Payment's one wrinkle: it needed to
+ * check the order's status, but OrderStatus itself lives in order.entity
+ * (never exposed), so OrderService exposes a narrow
  * assertAwaitingPayment(Long) instead of leaking the enum.
+ *
+ * Shipment used to be a fourth module here, with the exact same
+ * Shipment→Order coupling described above (a plain orderId Long column,
+ * validated via OrderService rather than a JPA relation). It's gone now —
+ * fully extracted into shipment-service as of Stage 5 of the
+ * microservices-prep plan — which is exactly what that pattern was for:
+ * a module already only reaching its neighbor through a public service
+ * interface, with no direct entity/repository coupling, has nothing left to
+ * untangle when it's time to move it out into its own deployable.
  */
 class ModularityTests {
 

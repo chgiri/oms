@@ -9,10 +9,18 @@
 # outbox depth via a plain SQL query — so no app-side metrics work is
 # needed to wire this up.
 #
-# Four triggers, OR'd together (KEDA takes the max replica count any
-# trigger asks for): one per Kafka consumer group used by the 3
+# Three triggers, OR'd together (KEDA takes the max replica count any
+# trigger asks for): one per Kafka consumer group used by the 2
 # @KafkaListener consumers, plus one for outbox_events. A burst on any
 # single one scales the worker up.
+#
+# There used to be a fourth trigger here — oms-shipment-service, for
+# OrderConfirmedShipmentConsumer — until Stage 5 of the microservices-prep
+# plan moved that consumer into shipment-service's own deployable. That
+# service now needs its own equivalent ScaledObject (see its own k8s/, once
+# Stage 7 gets to it) — scaling oms-main's worker off a consumer group it
+# has no member in anymore would just be dead weight (always-zero lag),
+# not a soft failure, so it's removed rather than left in place unused.
 apiVersion: keda.sh/v1alpha1
 kind: TriggerAuthentication
 metadata:
