@@ -74,12 +74,10 @@ public class OrderController {
                                     }
                                     """)))
     })
-    // PRODUCT_SERVICE_UNAVAILABLE / CUSTOMER_SERVICE_UNAVAILABLE: neither reachable yet —
-    // createOrder resolves products and customers via the in-process ProductService/
-    // CustomerService today, not ProductClientImpl/CustomerClientImpl (that swap is Stage 4 of
-    // the microservices-prep plan, for both). Documented here ahead of time since this is the
-    // endpoint that will surface them once that wiring lands, and GlobalExceptionHandler already
-    // handles both now.
+    // PRODUCT_SERVICE_UNAVAILABLE / CUSTOMER_SERVICE_UNAVAILABLE: both reachable now —
+    // createOrder resolves products and customers via ProductClient/CustomerClient (Stage 4
+    // of the microservices-prep plan, for both), real network calls to product-service/
+    // customer-service that can genuinely fail this way.
     @ApiErrorCodes({ErrorCode.CUSTOMER_NOT_FOUND, ErrorCode.PRODUCT_NOT_FOUND, ErrorCode.PRODUCT_SERVICE_UNAVAILABLE, ErrorCode.CUSTOMER_SERVICE_UNAVAILABLE})
     public ResponseEntity<OrderResponse> createOrder(@Valid @RequestBody OrderRequest orderRequest) {
         log.info("POST " + API_PREFIX + "/orders — creating order for customer id: {}", orderRequest.getCustomerId());

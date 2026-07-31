@@ -46,6 +46,15 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
+  # Same reasoning as product-service above — customer-service is also a
+  # resource-server-only verifier (see its own security.SecurityConfig), not
+  # an issuer, so it's the identical fix for the identical reason.
+  customer-service:
+    environment:
+      AUTH_SERVICE_JWKS_URI: http://host.docker.internal:8080/.well-known/jwks.json
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
   # --- If `bff` moves back into Docker while `app` stays in IntelliJ,
   # it needs this too (bff calls oms-main directly over WebClient, not
   # back through the gateway — see oms-bff's WebClientConfig): ---

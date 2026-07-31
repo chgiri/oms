@@ -2,8 +2,8 @@ package com.giri.oms.order.service.impl;
 
 import com.giri.oms.common.dto.PagedResponse;
 import com.giri.oms.common.exception.InvalidSortFieldException;
-import com.giri.oms.customer.dto.CustomerResponse;
-import com.giri.oms.customer.service.CustomerService;
+import com.giri.oms.customerclient.dto.CustomerClientResponse;
+import com.giri.oms.customerclient.service.CustomerClient;
 import com.giri.oms.messaging.event.EventType;
 import com.giri.oms.messaging.event.OrderCancelledEvent;
 import com.giri.oms.messaging.event.OrderCancelledEventFactory;
@@ -52,7 +52,11 @@ import java.util.UUID;
 public class OrderServiceImpl implements OrderService {
 
     private final OrderRepository orderRepository;
-    private final CustomerService customerService;
+    // Stage 4 of the microservices-prep plan: was CustomerService (in-process
+    // call into the customer module) through Stage 3 — now CustomerClient, a
+    // real HTTP call to customer-service. Same shift, same reasoning, as
+    // productClient below.
+    private final CustomerClient customerClient;
     // Stage 4 of the microservices-prep plan: was ProductService (in-process
     // call into the product module) through Stage 3 — now ProductClient, a
     // real HTTP call to product-service. See getExistingProduct below for
@@ -101,11 +105,11 @@ public class OrderServiceImpl implements OrderService {
     public OrderResponse createOrder(OrderRequest request) {
         log.debug("Creating order for customer id: {}", request.getCustomerId());
 
-        CustomerResponse customer = getExistingCustomer(request.getCustomerId());
+        CustomerClientResponse customer = getExistingCustomer(request.getCustomerId());
 
         Order order = new Order();
-        order.setCustomerId(customer.getId());
-        order.setCustomerName(customer.getFirstName() + " " + customer.getLastName());
+        order.setCustomerId(customer.id());
+        order.setCustomerName(customer.firstName() + " " + customer.lastName());
         order.setStatus(OrderStatus.PENDING);
 
         BigDecimal totalAmount = BigDecimal.ZERO;
@@ -342,15 +346,30 @@ public class OrderServiceImpl implements OrderService {
                 });
     }
 
-    // CustomerService/ProductClient already throw their own *NotFoundException
-    // when the id doesn't resolve (see CustomerServiceImpl for customer,
+    // CustomerClient/ProductClient already throw their own *NotFoundException
+    // when the id doesn't resolve (see CustomerClientImpl for customer,
     // ProductClientImpl for product — Stage 4 of the microservices-prep plan
-    // moved the latter to a real network call, but not the not-found
-    // contract) — no need to duplicate that check here, just add
+    // moved both to a real network call, but neither changed its
+    // not-found contract) — no need to duplicate that check here, just add
     // order-placement context to the log trail.
-    private CustomerResponse getExistingCustomer(Long customerId) {
-        log.debug("Resolving customer id: {} via CustomerService while placing order", customerId);
-        return customerService.getCustomerById(customerId);
+    //
+    // Stage 4 of the microservices-prep plan: this used to be a same-JVM
+    // in-process call — CustomerNotFoundException was CustomerServiceImpl
+    // rejecting an invalid id. It's now a real network call, and
+    // CustomerClient (see customerclient.service.impl.CustomerClientImpl)
+    // deliberately preserves the exact same throws-on-not-found contract —
+    // still throws com.giri.oms.customer.exception.CustomerNotFoundException
+    // for a genuine 404, so that part of this method's behavior, and the
+    // comment above about not needing to duplicate the not-found check, is
+    // unchanged. What's NEW here that didn't exist before: CustomerClient can
+    // also throw CustomerServiceUnavailableException if customer-service is
+    // unreachable/slow/erroring — see that exception's Javadoc and Stage 0's
+    // resilience decision (fail closed, no fallback — createOrder simply
+    // fails and the caller retries, same as any other 503). Same shift, same
+    // reasoning, as getExistingProduct below.
+    private CustomerClientResponse getExistingCustomer(Long customerId) {
+        log.debug("Resolving customer id: {} via CustomerClient while placing order", customerId);
+        return customerClient.getCustomer(customerId);
     }
 
     // Stage 4 of the microservices-prep plan: this used to be a same-JVM

@@ -1,9 +1,9 @@
 package com.giri.oms.messaging.outbox;
 
 import com.giri.oms.common.AbstractIntegrationTest;
-import com.giri.oms.customer.entity.Customer;
-import com.giri.oms.customer.entity.CustomerStatus;
 import com.giri.oms.customer.repository.CustomerRepository;
+import com.giri.oms.customerclient.dto.CustomerClientResponse;
+import com.giri.oms.customerclient.service.CustomerClient;
 import com.giri.oms.messaging.config.KafkaAppProperties;
 import com.giri.oms.messaging.event.EventType;
 import com.giri.oms.messaging.event.OrderCreatedEvent;
@@ -44,6 +44,11 @@ class OrderCreatedOutboxIntegrationTest extends AbstractIntegrationTest {
     @Autowired
     private OrderService orderService;
 
+    // Stage 4 of the microservices-prep plan: the test itself no longer
+    // creates Customer rows through this (see customerClient mock below) —
+    // kept only for cleanUp()'s defensive deleteAll(), per the existing note
+    // there about this shared Postgres container leaking state across test
+    // classes.
     @Autowired
     private CustomerRepository customerRepository;
 
@@ -79,6 +84,12 @@ class OrderCreatedOutboxIntegrationTest extends AbstractIntegrationTest {
     @MockitoBean
     private ProductClient productClient;
 
+    // Same reasoning as productClient above, for the customer side of Stage
+    // 4 — OrderServiceImpl now calls CustomerClient instead of the
+    // in-process CustomerService.
+    @MockitoBean
+    private CustomerClient customerClient;
+
     @BeforeEach
     void setUp() {
         cleanUp();
@@ -105,7 +116,12 @@ class OrderCreatedOutboxIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void createOrder_persistsOutboxEvent_andPublisherSendsOrderCreatedToKafka() throws Exception {
-        Customer customer = customerRepository.save(customer("Grace", "Hopper", "grace@example.com"));
+        // No real Customer row needed anymore (Stage 4) — OrderServiceImpl
+        // resolves customer data via the mocked CustomerClient below, not
+        // CustomerRepository, same as productId below for the product side.
+        Long customerId = 1L;
+        when(customerClient.getCustomer(customerId))
+                .thenReturn(new CustomerClientResponse(customerId, "Grace", "Hopper"));
 
         // No real Product row needed anymore (Stage 4) — OrderServiceImpl
         // resolves product data via the mocked ProductClient below, not
@@ -114,7 +130,7 @@ class OrderCreatedOutboxIntegrationTest extends AbstractIntegrationTest {
         when(productClient.getProduct(productId))
                 .thenReturn(new ProductClientResponse(productId, "Mechanical Keyboard", new BigDecimal("89.99")));
 
-        OrderRequest request = new OrderRequest(customer.getId(), List.of(new OrderItemRequest(productId, 2)));
+        OrderRequest request = new OrderRequest(customerId, List.of(new OrderItemRequest(productId, 2)));
 
         OrderResponse createdOrder = orderService.createOrder(request);
 
@@ -132,7 +148,7 @@ class OrderCreatedOutboxIntegrationTest extends AbstractIntegrationTest {
 
         OrderCreatedEvent payload = objectMapper.readValue(outboxEvent.getPayload(), OrderCreatedEvent.class);
         assertThat(payload.orderId()).isEqualTo(createdOrder.getId());
-        assertThat(payload.customerId()).isEqualTo(customer.getId());
+        assertThat(payload.customerId()).isEqualTo(customerId);
         assertThat(payload.items()).hasSize(1);
         assertThat(payload.items().get(0).productId()).isEqualTo(productId);
 
@@ -180,14 +196,5 @@ class OrderCreatedOutboxIntegrationTest extends AbstractIntegrationTest {
             }
         }
         throw new AssertionError("No Kafka record received for key " + expectedKey);
-    }
-
-    private Customer customer(String firstName, String lastName, String email) {
-        Customer customer = new Customer();
-        customer.setFirstName(firstName);
-        customer.setLastName(lastName);
-        customer.setEmail(email);
-        customer.setStatus(CustomerStatus.ACTIVE);
-        return customer;
     }
 }
