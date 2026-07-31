@@ -107,18 +107,23 @@ Practically, this means:
 
 ## Sibling services (separate repos)
 
-Beyond the three extraction targets above, two other services sit around
-oms-main and are **not** part of this repository:
+Five services sit around oms-main and are **not** part of this repository —
+all five are referenced from `docker-compose.yml` as sibling checkouts,
+expected at `../<repo-name>` relative to this repo (`../oms-bff`,
+`../oms-gateway`, `../product-service`, `../customer-service`,
+`../shipment-service`), each with its own Dockerfile and README that this
+one doesn't attempt to duplicate:
 
 - **`oms-bff`** — a GraphQL BFF in front of oms-main, for frontend
   consumption patterns REST doesn't fit well (see `bruno/graphql/`).
 - **`oms-gateway`** — a Spring Cloud Gateway sitting at the edge: JWT
   validation, Redis-backed rate limiting, and CORS, in front of oms-main.
-
-Both are referenced from `docker-compose.yml` as sibling checkouts (expected
-at `../oms-bff` and `../oms-gateway` relative to this repo) with their own
-Dockerfiles and READMEs — this README doesn't attempt to document them
-beyond that pointer.
+- **`product-service`**, **`customer-service`**, **`shipment-service`** —
+  the three Phase 4 extraction targets from the
+  [Microservices extraction status](#microservices-extraction-status)
+  table above. Each is a fully independent, already-deployable service;
+  "sibling repo" here doesn't imply "finished cutting over" — see that
+  table for what's actually done per module.
 
 ## Tech stack
 
@@ -157,13 +162,10 @@ docker compose up --build
 
 This starts Postgres, Kafka, Redis, a dev-mode Vault (seeded automatically),
 the app (`web` + `worker` roles), Prometheus, Grafana, Loki/Promtail, Tempo,
-`oms-bff`, `oms-gateway`, `product-service`, and `customer-service` — the
-whole stack in one shot, given sibling checkouts of `oms-bff`, `oms-gateway`,
-`product-service`, and `customer-service` (see
-[Sibling services](#sibling-services-separate-repos) above for the expected
-directory layout). It does **not** start `shipment-service` — that
-extraction hasn't reached a docker-compose wiring step yet (see
-[Microservices extraction status](#microservices-extraction-status) above).
+`oms-bff`, `oms-gateway`, `product-service`, `customer-service`, and
+`shipment-service` — the whole stack in one shot, given sibling checkouts of
+all five (see [Sibling services](#sibling-services-separate-repos) above for
+the expected directory layout).
 
 - API: http://localhost:8080
 - Swagger UI: http://localhost:8080/docs

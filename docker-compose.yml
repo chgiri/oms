@@ -656,6 +656,86 @@ services:
     networks:
       - oms-network
 
+  # --- Phase 4 (microservices-prep plan): Shipment extraction ---------------
+  # NOT folded in from shipment-service's own docker-compose.snippet.yml —
+  # that file is actually a copy of customer-service's snippet (customer-db,
+  # customer-service, CUSTOMER_DB_* throughout), not shipment-specific.
+  # Worth fixing at the source; this block was derived directly from
+  # shipment-service's own application.properties and Dockerfile instead
+  # (its DB_PORT default of 5435 is what fixed the host port below — that's
+  # not a random pick, it's shipment-service's own dev-mode default already
+  # anticipating this slot), same pattern as product-service/customer-service
+  # otherwise. No redis wiring — like customer-service, shipment-service has
+  # no caching (no redis dependency in its pom.xml).
+  shipment-db:
+    image: postgres:16-alpine
+    container_name: oms-shipment-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: shipment_service
+      POSTGRES_USER: ${SHIPMENT_DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${SHIPMENT_DB_PASSWORD:-postgres}
+    ports:
+      - "5435:5432" # next in the sequence: 5432 main, 5433 product, 5434 customer
+    volumes:
+      - shipment-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${SHIPMENT_DB_USERNAME:-postgres}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - oms-network
+
+  shipment-service:
+    image: shipment-service:${SHIPMENT_SERVICE_VERSION:-local}
+    build:
+      # Sibling checkout, not a nested copy — same Factor-I reasoning as
+      # product-service/customer-service above. Expects the same
+      # sibling-directory layout:
+      #   dev/oms-main/            <- this docker-compose.yml
+      #   dev/shipment-service/    <- cloned separately, next to it
+      context: ../shipment-service
+      dockerfile: Dockerfile
+      args:
+        GIT_SHA: ${GIT_SHA:-unknown}
+        APP_VERSION: ${SHIPMENT_SERVICE_VERSION:-local}
+    container_name: oms-shipment-service
+    restart: unless-stopped
+    depends_on:
+      shipment-db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      # shipment-service verifies JWTs against app's JWKS endpoint (see its
+      # own security.SecurityConfig) — needs app up, not just started, same
+      # as product-service/customer-service above depending on it for the
+      # identical reason.
+      app:
+        condition: service_healthy
+    environment:
+      DB_HOST: shipment-db
+      DB_PORT: 5432
+      DB_NAME: shipment_service
+      DB_USERNAME: ${SHIPMENT_DB_USERNAME:-postgres}
+      DB_PASSWORD: ${SHIPMENT_DB_PASSWORD:-postgres}
+      # INTERNAL listener (9092), not EXTERNAL (29092) — same fix as
+      # product-service/customer-service above.
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      AUTH_SERVICE_JWKS_URI: http://app:8080/.well-known/jwks.json
+      OTLP_TRACING_ENDPOINT: http://tempo:4318/v1/traces
+    ports:
+      - "8084:8080" # next in the sequence: 8082 product, 8083 customer
+      - "8094:8081" # management/actuator port — 8090-8093 already taken (gateway, customer, product)
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8081/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      start_period: 45s
+      retries: 5
+    networks:
+      - oms-network
+
 networks:
   oms-network:
     driver: bridge
@@ -669,3 +749,4 @@ volumes:
   oms-tempo-data:
   product-db-data:
   customer-db-data:
+  shipment-db-data:
