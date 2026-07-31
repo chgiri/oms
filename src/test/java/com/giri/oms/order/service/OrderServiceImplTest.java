@@ -22,9 +22,10 @@ import com.giri.oms.order.exception.OrderNotFoundException;
 import com.giri.oms.order.mapper.OrderMapper;
 import com.giri.oms.order.repository.OrderRepository;
 import com.giri.oms.order.service.impl.OrderServiceImpl;
-import com.giri.oms.product.dto.ProductResponse;
 import com.giri.oms.product.exception.ProductNotFoundException;
-import com.giri.oms.product.service.ProductService;
+import com.giri.oms.productclient.dto.ProductClientResponse;
+import com.giri.oms.productclient.exception.ProductServiceUnavailableException;
+import com.giri.oms.productclient.service.ProductClient;
 import com.giri.oms.messaging.event.EventType;
 import com.giri.oms.messaging.event.OrderCreatedEvent;
 import com.giri.oms.messaging.event.EventSchemaVersion;
@@ -59,8 +60,11 @@ import static org.mockito.Mockito.*;
 
 /**
  * Pure unit tests — no Spring context, no DB. Repository, CustomerService,
- * ProductService, and mapper are all mocked so these run in milliseconds and
- * only exercise OrderServiceImpl's own logic.
+ * ProductClient, and mapper are all mocked so these run in milliseconds and
+ * only exercise OrderServiceImpl's own logic. ProductClient (Stage 4 of the
+ * microservices-prep plan) is a real network call in production — see the
+ * ProductServiceUnavailable nested class below for coverage of what happens
+ * when that call fails, which didn't exist as a failure mode before Stage 4.
  */
 @ExtendWith(MockitoExtension.class)
 class OrderServiceImplTest {
@@ -72,7 +76,7 @@ class OrderServiceImplTest {
     private CustomerService customerService;
 
     @Mock
-    private ProductService productService;
+    private ProductClient productClient;
 
     @Mock
     private OrderMapper orderMapper;
@@ -93,7 +97,7 @@ class OrderServiceImplTest {
     private OrderServiceImpl orderService;
 
     private CustomerResponse customer;
-    private ProductResponse product;
+    private ProductClientResponse product;
     private Order order;
     private OrderRequest orderRequest;
     private OrderResponse orderResponse;
@@ -106,15 +110,12 @@ class OrderServiceImplTest {
         customer.setLastName("Lovelace");
         customer.setEmail("ada@example.com");
 
-        product = new ProductResponse();
-        product.setId(1L);
-        product.setName("Wireless Mouse");
-        product.setPrice(new BigDecimal("25.99"));
+        product = new ProductClientResponse(1L, "Wireless Mouse", new BigDecimal("25.99"));
 
         OrderItem orderItem = new OrderItem();
         orderItem.setId(1L);
-        orderItem.setProductId(product.getId());
-        orderItem.setProductName(product.getName());
+        orderItem.setProductId(product.id());
+        orderItem.setProductName(product.name());
         orderItem.setQuantity(3);
         orderItem.setUnitPrice(new BigDecimal("25.99"));
         orderItem.setSubtotal(new BigDecimal("77.97"));
@@ -154,7 +155,7 @@ class OrderServiceImplTest {
             when(orderCreatedEventFactory.topic()).thenReturn("oms.order.events");
             when(orderCreatedEventFactory.partitionKey(1L)).thenReturn("1");
             when(customerService.getCustomerById(1L)).thenReturn(customer);
-            when(productService.getProductById(1L)).thenReturn(product);
+            when(productClient.getProduct(1L)).thenReturn(product);
             when(orderRepository.save(any(Order.class))).thenReturn(order);
             when(orderCreatedEventFactory.create(eq(1L), eq(1L), eq("PENDING"), eq(new BigDecimal("77.97")),
                     anyList(), any(UUID.class))).thenReturn(
@@ -173,10 +174,7 @@ class OrderServiceImplTest {
 
         @Test
         void computesTotalAmountAsSumOfLineItemSubtotals() {
-            ProductResponse keyboard = new ProductResponse();
-            keyboard.setId(2L);
-            keyboard.setName("Mechanical Keyboard");
-            keyboard.setPrice(new BigDecimal("89.99"));
+            ProductClientResponse keyboard = new ProductClientResponse(2L, "Mechanical Keyboard", new BigDecimal("89.99"));
 
             OrderRequest multiItemRequest = new OrderRequest(1L, List.of(
                     new OrderItemRequest(1L, 2),   // 2 * 25.99 = 51.98
@@ -184,8 +182,8 @@ class OrderServiceImplTest {
             ));
 
             when(customerService.getCustomerById(1L)).thenReturn(customer);
-            when(productService.getProductById(1L)).thenReturn(product);
-            when(productService.getProductById(2L)).thenReturn(keyboard);
+            when(productClient.getProduct(1L)).thenReturn(product);
+            when(productClient.getProduct(2L)).thenReturn(keyboard);
             when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
             when(orderCreatedEventFactory.create(any(), eq(1L), eq("PENDING"), eq(new BigDecimal("141.97")),
                     anyList(), any(UUID.class))).thenReturn(
@@ -217,12 +215,34 @@ class OrderServiceImplTest {
         @Test
         void throwsProductNotFoundException_whenAnItemsProductDoesNotExist() {
             when(customerService.getCustomerById(1L)).thenReturn(customer);
-            when(productService.getProductById(99L)).thenThrow(new ProductNotFoundException(99L));
+            when(productClient.getProduct(99L)).thenThrow(new ProductNotFoundException(99L));
             orderRequest.setItems(List.of(new OrderItemRequest(99L, 1)));
 
             assertThatThrownBy(() -> orderService.createOrder(orderRequest))
                     .isInstanceOf(ProductNotFoundException.class)
                     .hasMessageContaining("99");
+
+            verify(orderRepository, never()).save(any());
+            verify(outboxService, never()).enqueue(any(), any(), any(), any(), any(), any(), any());
+        }
+
+        // Stage 4 of the microservices-prep plan: new failure mode that
+        // simply didn't exist before ProductClient was a real network call —
+        // see ProductServiceUnavailableException's Javadoc and Stage 0's
+        // resilience decision (fail closed, no fallback). This is
+        // deliberately its own test, not just an extra assertion tacked onto
+        // the not-found test above: 404 and "product-service is down" are
+        // different exception types with different meanings, and this
+        // confirms createOrder doesn't swallow or reinterpret the latter as
+        // the former (or as a generic 500).
+        @Test
+        void propagatesProductServiceUnavailableException_whenProductServiceIsUnreachable() {
+            when(customerService.getCustomerById(1L)).thenReturn(customer);
+            when(productClient.getProduct(1L))
+                    .thenThrow(new ProductServiceUnavailableException(1L, new RuntimeException("connection refused")));
+
+            assertThatThrownBy(() -> orderService.createOrder(orderRequest))
+                    .isInstanceOf(ProductServiceUnavailableException.class);
 
             verify(orderRepository, never()).save(any());
             verify(outboxService, never()).enqueue(any(), any(), any(), any(), any(), any(), any());

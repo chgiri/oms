@@ -9,7 +9,7 @@ import org.springframework.modulith.docs.Documenter;
  *
  * ApplicationModules.of(OmsApplication.class) treats every direct sub-package
  * of com.giri.oms (auth, customer, inventory, order, payment, product,
- * security, common, messaging) as its own application module. By
+ * productclient, security, common, messaging) as its own application module. By
  * default, only types sitting directly in a module's root package are that
  * module's public API — everything in a sub-package (entity, repository,
  * service.impl, mapper, specification, controller, ...) is internal and
@@ -44,6 +44,17 @@ import org.springframework.modulith.docs.Documenter;
  * check the order's status, but OrderStatus itself lives in order.entity
  * (never exposed), so OrderService exposes a narrow
  * assertAwaitingPayment(Long) instead of leaking the enum.
+ *
+ * Order→Product and Inventory→Product (the "both now go through
+ * ProductService" sentence above) changed again as of Phase 4 Stage 4 of the
+ * microservices-prep plan: OrderServiceImpl/InventoryServiceImpl no longer
+ * depend on the product module's service interface at all — they go through
+ * productclient.service.ProductClient instead, a real HTTP call to the
+ * now-separately-deployed product-service. product is still a module here
+ * (its own controller/service still exist and are still exercised by their
+ * own tests) but nothing else in this codebase depends on it anymore; it's
+ * slated for removal in a future stage, the same way shipment was (see
+ * below).
  *
  * Shipment used to be a fourth module here, with the exact same
  * Shipment→Order coupling described above (a plain orderId Long column,

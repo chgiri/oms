@@ -12,8 +12,9 @@ import com.giri.oms.order.dto.OrderRequest;
 import com.giri.oms.order.dto.OrderResponse;
 import com.giri.oms.order.repository.OrderRepository;
 import com.giri.oms.order.service.OrderService;
-import com.giri.oms.product.entity.Product;
 import com.giri.oms.product.repository.ProductRepository;
+import com.giri.oms.productclient.dto.ProductClientResponse;
+import com.giri.oms.productclient.service.ProductClient;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -24,6 +25,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.math.BigDecimal;
@@ -34,6 +36,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.when;
 
 @SpringBootTest
 class OrderCreatedOutboxIntegrationTest extends AbstractIntegrationTest {
@@ -44,6 +47,10 @@ class OrderCreatedOutboxIntegrationTest extends AbstractIntegrationTest {
     @Autowired
     private CustomerRepository customerRepository;
 
+    // Stage 4 of the microservices-prep plan: the test itself no longer
+    // creates Product rows through this (see productClient mock below) — kept
+    // only for cleanUp()'s defensive deleteAll(), per the existing note there
+    // about this shared Postgres container leaking state across test classes.
     @Autowired
     private ProductRepository productRepository;
 
@@ -61,6 +68,16 @@ class OrderCreatedOutboxIntegrationTest extends AbstractIntegrationTest {
 
     @Autowired
     private JsonMapper objectMapper;
+
+    // Stage 4 of the microservices-prep plan: OrderServiceImpl now calls
+    // ProductClient (a real HTTP call to product-service) instead of the
+    // in-process ProductService. This test's Postgres/Kafka/Redis Testcontainers
+    // (see AbstractIntegrationTest) have no product-service alongside them, so
+    // without this mock, createOrder() below would fail with
+    // ProductServiceUnavailableException (connection refused) rather than
+    // exercising the outbox/Kafka behavior this test actually cares about.
+    @MockitoBean
+    private ProductClient productClient;
 
     @BeforeEach
     void setUp() {
@@ -89,9 +106,15 @@ class OrderCreatedOutboxIntegrationTest extends AbstractIntegrationTest {
     @Test
     void createOrder_persistsOutboxEvent_andPublisherSendsOrderCreatedToKafka() throws Exception {
         Customer customer = customerRepository.save(customer("Grace", "Hopper", "grace@example.com"));
-        Product product = productRepository.save(product("Mechanical Keyboard", "89.99"));
 
-        OrderRequest request = new OrderRequest(customer.getId(), List.of(new OrderItemRequest(product.getId(), 2)));
+        // No real Product row needed anymore (Stage 4) — OrderServiceImpl
+        // resolves product data via the mocked ProductClient below, not
+        // ProductRepository, so a plain id is enough to build the request.
+        Long productId = 1L;
+        when(productClient.getProduct(productId))
+                .thenReturn(new ProductClientResponse(productId, "Mechanical Keyboard", new BigDecimal("89.99")));
+
+        OrderRequest request = new OrderRequest(customer.getId(), List.of(new OrderItemRequest(productId, 2)));
 
         OrderResponse createdOrder = orderService.createOrder(request);
 
@@ -111,7 +134,7 @@ class OrderCreatedOutboxIntegrationTest extends AbstractIntegrationTest {
         assertThat(payload.orderId()).isEqualTo(createdOrder.getId());
         assertThat(payload.customerId()).isEqualTo(customer.getId());
         assertThat(payload.items()).hasSize(1);
-        assertThat(payload.items().get(0).productId()).isEqualTo(product.getId());
+        assertThat(payload.items().get(0).productId()).isEqualTo(productId);
 
         outboxPublisher.publishPendingEvents();
 
@@ -166,12 +189,5 @@ class OrderCreatedOutboxIntegrationTest extends AbstractIntegrationTest {
         customer.setEmail(email);
         customer.setStatus(CustomerStatus.ACTIVE);
         return customer;
-    }
-
-    private Product product(String name, String price) {
-        Product product = new Product();
-        product.setName(name);
-        product.setPrice(new BigDecimal(price));
-        return product;
     }
 }

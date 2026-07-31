@@ -35,6 +35,17 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
+  # Same reasoning as shipment-service above: product-service only verifies
+  # tokens (see its security.SecurityConfig), it doesn't issue them — it
+  # needs to reach oms-main's JWKS endpoint to validate a signature at all,
+  # and localhost inside the container means the container itself, not the
+  # IntelliJ-run oms-main on the host.
+  product-service:
+    environment:
+      AUTH_SERVICE_JWKS_URI: http://host.docker.internal:8080/.well-known/jwks.json
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
   # --- If `bff` moves back into Docker while `app` stays in IntelliJ,
   # it needs this too (bff calls oms-main directly over WebClient, not
   # back through the gateway — see oms-bff's WebClientConfig): ---

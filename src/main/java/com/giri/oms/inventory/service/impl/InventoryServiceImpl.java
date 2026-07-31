@@ -16,8 +16,8 @@ import com.giri.oms.inventory.repository.InventoryRepository;
 import com.giri.oms.inventory.repository.ProductRefRepository;
 import com.giri.oms.inventory.service.InventoryService;
 import com.giri.oms.inventory.specification.InventorySpecification;
-import com.giri.oms.product.dto.ProductResponse;
-import com.giri.oms.product.service.ProductService;
+import com.giri.oms.productclient.dto.ProductClientResponse;
+import com.giri.oms.productclient.service.ProductClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -41,7 +41,10 @@ import java.util.Set;
 public class InventoryServiceImpl implements InventoryService {
 
     private final InventoryRepository inventoryRepository;
-    private final ProductService productService;
+    // Stage 4 of the microservices-prep plan: was ProductService (in-process)
+    // through Stage 3 — now ProductClient, a real HTTP call to
+    // product-service. See getExistingProduct below.
+    private final ProductClient productClient;
     private final ProductRefRepository productRefRepository;
     private final InventoryMapper inventoryMapper;
     private final DistributedLockService distributedLockService;
@@ -85,7 +88,7 @@ public class InventoryServiceImpl implements InventoryService {
     }
 
     private InventoryResponse doCreateInventory(InventoryRequest request) {
-        ProductResponse product = getExistingProduct(request.getProductId());
+        ProductClientResponse product = getExistingProduct(request.getProductId());
 
         if (inventoryRepository.existsByProductIdAndLocation(request.getProductId(), request.getLocation())) {
             log.warn("Attempted to create duplicate inventory record for product id: {} at location: {}",
@@ -94,11 +97,11 @@ public class InventoryServiceImpl implements InventoryService {
         }
 
         Inventory inventory = inventoryMapper.mapToInventory(request);
-        inventory.setProductId(product.getId());
+        inventory.setProductId(product.id());
         Inventory savedInventory = inventoryRepository.save(inventory);
 
         log.info(InventoryConstants.INVENTORY_CREATED_LOG, savedInventory.getId());
-        return inventoryMapper.mapToInventoryResponse(savedInventory, product.getName());
+        return inventoryMapper.mapToInventoryResponse(savedInventory, product.name());
     }
 
     @Override
@@ -130,9 +133,10 @@ public class InventoryServiceImpl implements InventoryService {
 
     // Resolves the product's name from the local product_ref replica for each
     // record — see the note on InventoryMapper for why this isn't done in the
-    // mapper itself. Deliberately NOT a live ProductService call: this runs once
+    // mapper itself. Deliberately NOT a live ProductClient call: this runs once
     // per row on every listing/search page, which is exactly the N+1-once-Product-
-    // is-a-separate-service problem the microservices-prep plan flagged — see
+    // is-a-separate-service problem the microservices-prep plan flagged (now a
+    // real network call as of Stage 4, not just a hypothetical) — see
     // ProductRef's Javadoc and ProductEventInventoryConsumer.
     private InventoryResponse mapToInventoryResponse(Inventory inventory) {
         String productName = resolveProductName(inventory.getProductId());
@@ -221,16 +225,16 @@ public class InventoryServiceImpl implements InventoryService {
         // it changed — its name is needed for the response either way, and validating
         // it here (rather than only when productChanged) keeps a stale/unknown
         // productId on an otherwise-unchanged request from silently sneaking through.
-        ProductResponse product = getExistingProduct(request.getProductId());
+        ProductClientResponse product = getExistingProduct(request.getProductId());
         if (productChanged) {
-            inventory.setProductId(product.getId());
+            inventory.setProductId(product.id());
         }
 
         inventoryMapper.mapToInventory(request, inventory);
         Inventory updatedInventory = inventoryRepository.save(inventory);
 
         log.info(InventoryConstants.INVENTORY_UPDATED_LOG, updatedInventory.getId());
-        return inventoryMapper.mapToInventoryResponse(updatedInventory, product.getName());
+        return inventoryMapper.mapToInventoryResponse(updatedInventory, product.name());
     }
 
     @Override
@@ -266,9 +270,16 @@ public class InventoryServiceImpl implements InventoryService {
                 });
     }
 
-    private ProductResponse getExistingProduct(Long productId) {
-        log.debug("Resolving product id: {} via ProductService while managing inventory", productId);
-        return productService.getProductById(productId);
+    // Stage 4 of the microservices-prep plan: same throws-on-not-found
+    // contract as before (still com.giri.oms.product.exception.ProductNotFoundException
+    // for a genuine 404 — see ProductClientImpl), but this is now a real
+    // network call and can also throw ProductServiceUnavailableException if
+    // product-service is unreachable — see that exception's Javadoc and
+    // Stage 0's resilience decision (fail closed, no fallback: createInventory/
+    // updateInventory simply fail and the caller retries).
+    private ProductClientResponse getExistingProduct(Long productId) {
+        log.debug("Resolving product id: {} via ProductClient while managing inventory", productId);
+        return productClient.getProduct(productId);
     }
 
 }

@@ -26,8 +26,8 @@ import com.giri.oms.order.mapper.OrderMapper;
 import com.giri.oms.order.repository.OrderRepository;
 import com.giri.oms.order.service.OrderService;
 import com.giri.oms.order.specification.OrderSpecification;
-import com.giri.oms.product.dto.ProductResponse;
-import com.giri.oms.product.service.ProductService;
+import com.giri.oms.productclient.dto.ProductClientResponse;
+import com.giri.oms.productclient.service.ProductClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -53,7 +53,11 @@ public class OrderServiceImpl implements OrderService {
 
     private final OrderRepository orderRepository;
     private final CustomerService customerService;
-    private final ProductService productService;
+    // Stage 4 of the microservices-prep plan: was ProductService (in-process
+    // call into the product module) through Stage 3 — now ProductClient, a
+    // real HTTP call to product-service. See getExistingProduct below for
+    // what that changes about this class's failure modes.
+    private final ProductClient productClient;
     private final OrderMapper orderMapper;
     private final OutboxService outboxService;
     private final OrderCreatedEventFactory orderCreatedEventFactory;
@@ -106,14 +110,14 @@ public class OrderServiceImpl implements OrderService {
 
         BigDecimal totalAmount = BigDecimal.ZERO;
         for (OrderItemRequest itemRequest : request.getItems()) {
-            ProductResponse product = getExistingProduct(itemRequest.getProductId());
+            ProductClientResponse product = getExistingProduct(itemRequest.getProductId());
 
-            BigDecimal unitPrice = product.getPrice();
+            BigDecimal unitPrice = product.price();
             BigDecimal subtotal = unitPrice.multiply(BigDecimal.valueOf(itemRequest.getQuantity()));
 
             OrderItem item = new OrderItem();
-            item.setProductId(product.getId());
-            item.setProductName(product.getName());
+            item.setProductId(product.id());
+            item.setProductName(product.name());
             item.setQuantity(itemRequest.getQuantity());
             item.setUnitPrice(unitPrice);
             item.setSubtotal(subtotal);
@@ -338,18 +342,33 @@ public class OrderServiceImpl implements OrderService {
                 });
     }
 
-    // CustomerService/ProductService already throw their own *NotFoundException
-    // when the id doesn't resolve (see CustomerServiceImpl/ProductServiceImpl) —
-    // no need to duplicate that check here, just add order-placement context to
-    // the log trail.
+    // CustomerService/ProductClient already throw their own *NotFoundException
+    // when the id doesn't resolve (see CustomerServiceImpl for customer,
+    // ProductClientImpl for product — Stage 4 of the microservices-prep plan
+    // moved the latter to a real network call, but not the not-found
+    // contract) — no need to duplicate that check here, just add
+    // order-placement context to the log trail.
     private CustomerResponse getExistingCustomer(Long customerId) {
         log.debug("Resolving customer id: {} via CustomerService while placing order", customerId);
         return customerService.getCustomerById(customerId);
     }
 
-    private ProductResponse getExistingProduct(Long productId) {
-        log.debug("Resolving product id: {} via ProductService while placing order", productId);
-        return productService.getProductById(productId);
+    // Stage 4 of the microservices-prep plan: this used to be a same-JVM
+    // in-process call — ProductNotFoundException was ProductServiceImpl
+    // rejecting an invalid id. It's now a real network call, and
+    // ProductClient (see productclient.service.impl.ProductClientImpl)
+    // deliberately preserves the exact same throws-on-not-found contract —
+    // still throws com.giri.oms.product.exception.ProductNotFoundException
+    // for a genuine 404, so that part of this method's behavior, and the
+    // comment above about not needing to duplicate the not-found check,
+    // is unchanged. What's NEW here that didn't exist before: ProductClient
+    // can also throw ProductServiceUnavailableException if product-service
+    // is unreachable/slow/erroring — see that exception's Javadoc and Stage
+    // 0's resilience decision (fail closed, no fallback — createOrder simply
+    // fails and the caller retries, same as any other 503).
+    private ProductClientResponse getExistingProduct(Long productId) {
+        log.debug("Resolving product id: {} via ProductClient while placing order", productId);
+        return productClient.getProduct(productId);
     }
 
 }

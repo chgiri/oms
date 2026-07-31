@@ -13,9 +13,10 @@ import com.giri.oms.inventory.mapper.InventoryMapper;
 import com.giri.oms.inventory.repository.InventoryRepository;
 import com.giri.oms.inventory.repository.ProductRefRepository;
 import com.giri.oms.inventory.service.impl.InventoryServiceImpl;
-import com.giri.oms.product.dto.ProductResponse;
 import com.giri.oms.product.exception.ProductNotFoundException;
-import com.giri.oms.product.service.ProductService;
+import com.giri.oms.productclient.dto.ProductClientResponse;
+import com.giri.oms.productclient.exception.ProductServiceUnavailableException;
+import com.giri.oms.productclient.service.ProductClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -44,12 +45,15 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 /**
- * Pure unit tests — no Spring context, no DB. Repository, ProductService,
+ * Pure unit tests — no Spring context, no DB. Repository, ProductClient,
  * ProductRefRepository, and mapper are all mocked so these run in
  * milliseconds and only exercise InventoryServiceImpl's own logic.
- * ProductService is only stubbed in write-path tests (create/update) —
- * read paths (getById/getAll/search) resolve the product name from
+ * ProductClient is only stubbed in write-path tests (create/update) — read
+ * paths (getById/getAll/search) resolve the product name from
  * ProductRefRepository instead, see InventoryServiceImpl.resolveProductName.
+ * ProductClient is a real network call in production as of Stage 4 of the
+ * microservices-prep plan — see the ProductServiceUnavailable-flavored tests
+ * below for what happens when that call fails.
  */
 @ExtendWith(MockitoExtension.class)
 class InventoryServiceImplTest {
@@ -58,7 +62,7 @@ class InventoryServiceImplTest {
     private InventoryRepository inventoryRepository;
 
     @Mock
-    private ProductService productService;
+    private ProductClient productClient;
 
     @Mock
     private ProductRefRepository productRefRepository;
@@ -72,7 +76,7 @@ class InventoryServiceImplTest {
     @InjectMocks
     private InventoryServiceImpl inventoryService;
 
-    private ProductResponse product;
+    private ProductClientResponse product;
     private ProductRef productRef;
     private Inventory inventory;
     private InventoryRequest inventoryRequest;
@@ -89,10 +93,7 @@ class InventoryServiceImplTest {
                     return action.get();
                 });
 
-        product = new ProductResponse();
-        product.setId(1L);
-        product.setName("Wireless Mouse");
-        product.setPrice(new BigDecimal("25.99"));
+        product = new ProductClientResponse(1L, "Wireless Mouse", new BigDecimal("25.99"));
 
         productRef = new ProductRef(1L, "Wireless Mouse", LocalDateTime.now());
 
@@ -123,7 +124,7 @@ class InventoryServiceImplTest {
 
         @Test
         void savesAndReturnsMappedResponse() {
-            when(productService.getProductById(1L)).thenReturn(product);
+            when(productClient.getProduct(1L)).thenReturn(product);
             when(inventoryRepository.existsByProductIdAndLocation(1L, "WH-EAST-01")).thenReturn(false);
             when(inventoryMapper.mapToInventory(inventoryRequest)).thenReturn(inventory);
             when(inventoryRepository.save(inventory)).thenReturn(inventory);
@@ -137,7 +138,7 @@ class InventoryServiceImplTest {
 
         @Test
         void throwsProductNotFoundException_whenProductDoesNotExist() {
-            when(productService.getProductById(99L)).thenThrow(new ProductNotFoundException(99L));
+            when(productClient.getProduct(99L)).thenThrow(new ProductNotFoundException(99L));
             inventoryRequest.setProductId(99L);
 
             assertThatThrownBy(() -> inventoryService.createInventory(inventoryRequest))
@@ -147,9 +148,23 @@ class InventoryServiceImplTest {
             verify(inventoryRepository, never()).save(any());
         }
 
+        // Stage 4 of the microservices-prep plan: see
+        // OrderServiceImplTest's matching test for why this is worth its own
+        // case rather than folding into the not-found test above.
+        @Test
+        void propagatesProductServiceUnavailableException_whenProductServiceIsUnreachable() {
+            when(productClient.getProduct(1L))
+                    .thenThrow(new ProductServiceUnavailableException(1L, new RuntimeException("connection refused")));
+
+            assertThatThrownBy(() -> inventoryService.createInventory(inventoryRequest))
+                    .isInstanceOf(ProductServiceUnavailableException.class);
+
+            verify(inventoryRepository, never()).save(any());
+        }
+
         @Test
         void throwsInventoryAlreadyExistsException_whenProductLocationPairIsTaken() {
-            when(productService.getProductById(1L)).thenReturn(product);
+            when(productClient.getProduct(1L)).thenReturn(product);
             when(inventoryRepository.existsByProductIdAndLocation(1L, "WH-EAST-01")).thenReturn(true);
 
             assertThatThrownBy(() -> inventoryService.createInventory(inventoryRequest))
@@ -183,7 +198,7 @@ class InventoryServiceImplTest {
             InventoryResponse result = inventoryService.getInventoryById(1L);
 
             assertThat(result).isEqualTo(inventoryResponse);
-            verifyNoInteractions(productService);
+            verifyNoInteractions(productClient);
         }
 
         @Test
@@ -243,7 +258,7 @@ class InventoryServiceImplTest {
         @Test
         void updatesAndReturnsMappedResponse_whenInventoryExists() {
             when(inventoryRepository.findById(1L)).thenReturn(Optional.of(inventory));
-            when(productService.getProductById(1L)).thenReturn(product);
+            when(productClient.getProduct(1L)).thenReturn(product);
             when(inventoryRepository.save(inventory)).thenReturn(inventory);
             when(inventoryMapper.mapToInventoryResponse(inventory, "Wireless Mouse")).thenReturn(inventoryResponse);
 
@@ -269,7 +284,7 @@ class InventoryServiceImplTest {
             // request matches the existing record's product+location exactly — should NOT
             // trigger the duplicate check against itself
             when(inventoryRepository.findById(1L)).thenReturn(Optional.of(inventory));
-            when(productService.getProductById(1L)).thenReturn(product);
+            when(productClient.getProduct(1L)).thenReturn(product);
             when(inventoryRepository.save(inventory)).thenReturn(inventory);
             when(inventoryMapper.mapToInventoryResponse(inventory, "Wireless Mouse")).thenReturn(inventoryResponse);
 
@@ -309,10 +324,33 @@ class InventoryServiceImplTest {
             changedProductRequest.setReorderLevel(20);
 
             when(inventoryRepository.existsByProductIdAndLocation(99L, "WH-EAST-01")).thenReturn(false);
-            when(productService.getProductById(99L)).thenThrow(new ProductNotFoundException(99L));
+            when(productClient.getProduct(99L)).thenThrow(new ProductNotFoundException(99L));
 
             assertThatThrownBy(() -> inventoryService.updateInventory(1L, changedProductRequest))
                     .isInstanceOf(ProductNotFoundException.class);
+
+            verify(inventoryRepository, never()).save(any());
+        }
+
+        // Stage 4 of the microservices-prep plan — see CreateInventory's
+        // matching test above.
+        @Test
+        void propagatesProductServiceUnavailableException_whenProductServiceIsUnreachable() {
+            when(inventoryRepository.findById(1L)).thenReturn(Optional.of(inventory));
+
+            InventoryRequest changedProductRequest = new InventoryRequest();
+            changedProductRequest.setProductId(99L);
+            changedProductRequest.setLocation("WH-EAST-01");
+            changedProductRequest.setQuantityAvailable(120);
+            changedProductRequest.setQuantityReserved(15);
+            changedProductRequest.setReorderLevel(20);
+
+            when(inventoryRepository.existsByProductIdAndLocation(99L, "WH-EAST-01")).thenReturn(false);
+            when(productClient.getProduct(99L))
+                    .thenThrow(new ProductServiceUnavailableException(99L, new RuntimeException("connection refused")));
+
+            assertThatThrownBy(() -> inventoryService.updateInventory(1L, changedProductRequest))
+                    .isInstanceOf(ProductServiceUnavailableException.class);
 
             verify(inventoryRepository, never()).save(any());
         }
