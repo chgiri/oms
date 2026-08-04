@@ -1,5 +1,13 @@
 # Stage 3 data cutover runbook — Shipment
 
+> **STATUS: EXECUTED.** This cutover has been run and confirmed stable —
+> shipment-service's database is now the sole source of truth for shipment
+> data, and Stage 5 (deleting the `shipment` package and dropping
+> `oms_shipment` via `V22__drop_oms_shipment_schema.sql`) has been completed
+> in oms-main. This document is kept as a historical record of the procedure
+> that was followed, and as the template Product/Customer's own cutovers
+> are expected to follow — it is not a pending task.
+
 Phase 4 (Shipment extraction) of the microservices-prep plan. This is the
 maintenance-window procedure for migrating `oms_shipment.shipments` from
 oms-main into shipment-service's own database.

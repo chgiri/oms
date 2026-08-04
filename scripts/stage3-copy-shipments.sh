@@ -1,6 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# STATUS: EXECUTED. This has already been run successfully as part of
+# Shipment's Stage 3 cutover, which is complete — Stage 5 has since deleted
+# the shipment package from oms-main entirely (including
+# app.shipment.writes-frozen and OrderConfirmedShipmentConsumer, both
+# referenced below as they existed AT THE TIME this ran) and dropped
+# oms_shipment itself (V22__drop_oms_shipment_schema.sql). This script can
+# no longer be run again against oms-main in its current state — the source
+# schema/table/module it reads from don't exist anymore. Kept as a historical
+# record of the exact procedure that was followed, and as the template
+# Product/Customer's own copy scripts are expected to follow when their turn
+# comes.
+#
 # Stage 3 of the microservices-prep plan (Phase 4, Shipment extraction):
 # one-time copy of oms_shipment.shipments (oms-main) into shipments
 # (shipment-service's own database). See
