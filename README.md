@@ -36,11 +36,13 @@ below before assuming any given module is still owned here.
   since these events are now a real cross-deployable contract, not just an
   internal DTO.
 - **Resilient service clients (`productclient`, `customerclient`)** —
-  RestClient-based clients with Resilience4j circuit-breaker/retry/timeout,
-  used by `OrderServiceImpl`/`InventoryServiceImpl` ahead of Stage 4's
-  cutover (see below). Deliberately no fallback/stale-data path — a
-  service being unreachable fails the calling request rather than silently
-  serving stale data.
+  RestClient-based clients with Resilience4j circuit-breaker/retry/timeout.
+  `OrderServiceImpl`/`InventoryServiceImpl` call these exclusively now
+  (Stage 4 is done — see below); the in-process `ProductService`/
+  `CustomerService` code they used to call is superseded, still present in
+  this repo only until each module's own Stage 5. Deliberately no
+  fallback/stale-data path — a service being unreachable fails the calling
+  request rather than silently serving stale data.
 - **Distributed tracing (OpenTelemetry + Tempo)** — every HTTP request and
   Kafka produce/consume gets a span via Micrometer Tracing's OTel bridge,
   exported to Tempo and viewable in Grafana. Trace/span IDs are stamped into
@@ -71,45 +73,57 @@ below before assuming any given module is still owned here.
 ## Microservices extraction status
 
 This repo is executing a staged plan to pull Product, Customer, and Shipment
-out into their own deployables. **Shipment has fully cut over — oms-main no
-longer contains that module at all.** Product and Customer have not
-finished cutting over yet — oms-main still holds the authoritative
-implementation and data for both. Don't assume a module is "done" just
-because a sibling service repo exists for it; Shipment is the only one
-that's actually finished as of this table.
+out into their own deployables. **All three have had their data cutover
+executed (Stage 3) and confirmed stable.** Shipment has gone all the way
+through Stage 5 — oms-main no longer contains that module at all. Product
+and Customer have completed Stage 4 (oms-main now calls their clients
+instead of the in-process services) but not yet Stage 5 — their code (and
+now-superseded database tables) still physically exist in this repo,
+kept around until each is deleted in its own turn.
 
-| Module | Sibling service repo | Scaffold + API contract (Stages 1-2) | Data cutover runbook (Stage 3) | Call sites swapped in oms-main (Stage 4) | Removed from oms-main (Stage 5) |
+| Module | Sibling service repo | Stages 1-2 | Stage 3 (data cutover) | Stage 4 (call sites swapped in oms-main) | Stage 5 (removed from oms-main) |
 |---|---|---|---|---|---|
-| Product | `product-service` | Done | [`docs/stage3-data-cutover-runbook-product.md`](docs/stage3-data-cutover-runbook-product.md) | Not yet | Not yet |
-| Customer | `customer-service` | Done | [`docs/stage3-data-cutover-runbook-customer.md`](docs/stage3-data-cutover-runbook-customer.md) | Not yet | Not yet |
-| Shipment | `shipment-service` | Done | [`docs/stage3-data-cutover-runbook-shipment.md`](docs/stage3-data-cutover-runbook-shipment.md) | N/A — see note | **Done** |
+| Product | `product-service` | Done | **Executed** — [runbook](docs/stage3-data-cutover-runbook-product.md) | **Done** | Not yet |
+| Customer | `customer-service` | Done | **Executed** — [runbook](docs/stage3-data-cutover-runbook-customer.md) | **Done** | Not yet |
+| Shipment | `shipment-service` | Done | **Executed** — [runbook](docs/stage3-data-cutover-runbook-shipment.md) | N/A — see note | **Done** |
 
 Practically, this means:
 
-- `ProductClient`/`CustomerClient` (in `productclient`/`customerclient`)
-  already exist and are fully built, but `OrderServiceImpl`/
-  `InventoryServiceImpl` still call the in-process `ProductService`/
-  `CustomerService` — the clients aren't wired in as the live path yet.
-- The `stage3-*` runbooks are the maintenance-window procedures for copying
-  each module's data into its own service's database and (for Product/
-  Customer) cutting `OrderServiceImpl` over to the client. Shipment had no
-  equivalent Stage 4 deploy — nothing in oms-main called `ShipmentService`
-  synchronously, so there was no in-process call site to swap;
-  shipment-service's own `OrderClient` (calling back out to oms-main) has
-  covered that since Stage 2.
+- `OrderServiceImpl`/`InventoryServiceImpl` now call `ProductClient`/
+  `CustomerClient` (in `productclient`/`customerclient`) for everything —
+  the in-process `ProductService`/`CustomerService` code paths are no
+  longer reachable from either of those classes. The `product`/`customer`
+  packages themselves are still physically present in this repo, but only
+  because Stage 5 (deletion) hasn't run for them yet — not because
+  anything still calls into them.
+- The three `stage3-*` runbooks (linked above) are all marked **EXECUTED**
+  at the top of each document — they're historical records of the
+  maintenance-window procedure that was followed, not pending tasks. Same
+  for their matching `scripts/stage3-copy-*.sh` — each one now carries an
+  "already run" banner too.
+- Shipment had no Stage 4 deploy of its own to begin with — nothing in
+  oms-main ever called `ShipmentService` synchronously, so there was no
+  in-process call site to swap; shipment-service's own `OrderClient`
+  (calling back out to oms-main) has covered the one thing Shipment needed
+  since Stage 2.
 - Shipment had a wrinkle Product/Customer don't: `OrderConfirmedShipmentConsumer`
   auto-created shipments off a Kafka event, not just REST — its cutover
-  runbook has an extra step (stopping oms-main's consumer group membership
+  runbook had an extra step (stopping oms-main's consumer group membership
   entirely before shipment-service's own copy started) that the Product/
   Customer runbooks don't need. Read that runbook's intro before assuming
   the pattern is identical when Product/Customer eventually reach their own
   Stage 5.
-- `app.product.writes-frozen` / `app.customer.writes-frozen` (Product/
-  Customer's maintenance-window freeze flags, both still default `false`)
-  are still live in this codebase. Shipment's equivalent
+- `app.product.writes-frozen` / `app.customer.writes-frozen` are both still
+  present in `application.properties`, defaulting to `false` — but per each
+  runbook's own Step 8, once a cutover is confirmed stable the flag is meant
+  to be left `true` **permanently** in every real environment from that
+  point forward (the `false` default only matters for a fresh/local
+  environment that's never been through the cutover). Don't read the
+  property default as "writes aren't frozen in production" — check the
+  actual deployed value instead. Shipment's equivalent
   (`app.shipment.writes-frozen`, `ShipmentWritesFrozenException`) no longer
-  exists here — it was deleted along with the rest of the shipment package
-  at Stage 5, since there's nothing left in this repo for it to guard.
+  exists here at all — it was deleted along with the rest of the shipment
+  package at Stage 5, since there's nothing left in this repo for it to guard.
 - `ErrorCode`'s `SH100`/`SH101`/`SH501` entries (`SHIPMENT_NOT_FOUND`/
   `ILLEGAL_SHIPMENT_STATE`/`SHIPMENT_WRITES_FROZEN`) are still present in
   `ErrorCode.java`, marked retired in a comment there — kept per that
@@ -285,10 +299,10 @@ Loki/Tempo setup and the pre-built OMS Overview dashboard.
 ```
 src/main/java/com/giri/oms/
 ├── auth/              # authentication, JWT issuing/verification
-├── customer/          # still owned here — see extraction status above
-├── customerclient/    # resilient client for customer-service, not yet wired into OrderServiceImpl
-├── product/           # still owned here — see extraction status above
-├── productclient/     # resilient client for product-service, not yet wired into OrderServiceImpl/InventoryServiceImpl
+├── customer/          # superseded (Stage 4 done) but not yet deleted — see extraction status above
+├── customerclient/    # resilient client for customer-service — this IS the live path now (OrderServiceImpl)
+├── product/           # superseded (Stage 4 done) but not yet deleted — see extraction status above
+├── productclient/     # resilient client for product-service — this IS the live path now (OrderServiceImpl/InventoryServiceImpl)
 ├── inventory/
 ├── order/
 ├── payment/

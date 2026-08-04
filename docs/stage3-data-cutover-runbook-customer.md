@@ -1,5 +1,13 @@
 # Stage 3 data cutover runbook — Customer
 
+> **STATUS: EXECUTED.** This cutover has been run and confirmed stable —
+> customer-service's database is now the sole source of truth for customer
+> data, and Stage 4 (`OrderServiceImpl` now calls `CustomerClient` instead
+> of the in-process `CustomerService`) has been completed in oms-main.
+> Stage 5 (deleting the `customer` package from oms-main) has not happened
+> yet — this document is kept as a historical record of the procedure that
+> was followed, not a pending task.
+
 Phase 4 (Customer extraction) of the microservices-prep plan. This is the
 maintenance-window procedure for migrating `oms_customer.customers` from
 oms-main into customer-service's own database. Mirrors

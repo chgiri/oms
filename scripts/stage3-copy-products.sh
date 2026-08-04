@@ -1,6 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# STATUS: EXECUTED. This has already been run successfully as part of
+# Product's Stage 3 cutover, which is complete — Stage 4
+# (OrderServiceImpl/InventoryServiceImpl now call ProductClient) has since
+# been completed in oms-main too. Stage 5 (deleting the product package
+# from oms-main) has not happened yet, so app.product.writes-frozen and the
+# oms_product schema referenced below are both still live in oms-main as of
+# this note. Kept as a historical record of the procedure that was
+# followed — re-running this against the current state would fail the
+# script's own non-empty-target pre-flight check regardless.
+#
 # Stage 3 of the microservices-prep plan (Phase 4, Product extraction):
 # one-time copy of oms_product.products (oms-main) into products
 # (product-service's own database). See docs/stage3-data-cutover-runbook-product.md
