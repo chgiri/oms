@@ -1,6 +1,6 @@
 package com.giri.oms.productclient.service.impl;
 
-import com.giri.oms.product.exception.ProductNotFoundException;
+import com.giri.oms.productclient.exception.ProductNotFoundException;
 import com.giri.oms.productclient.dto.ProductClientResponse;
 import com.giri.oms.productclient.exception.ProductServiceUnavailableException;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;

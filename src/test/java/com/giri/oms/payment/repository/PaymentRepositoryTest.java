@@ -11,8 +11,6 @@ import com.giri.oms.order.repository.OrderRepository;
 import com.giri.oms.payment.entity.Payment;
 import com.giri.oms.payment.entity.PaymentMethod;
 import com.giri.oms.payment.entity.PaymentStatus;
-import com.giri.oms.product.entity.Product;
-import com.giri.oms.product.repository.ProductRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -48,24 +46,25 @@ class PaymentRepositoryTest extends AbstractIntegrationTest {
     @Autowired
     private CustomerRepository customerRepository;
 
-    @Autowired
-    private ProductRepository productRepository;
-
     private Order order1;
     private Order order2;
+
+    // Stage 5 of the microservices-prep plan: no real Product row needed
+    // anymore — same reasoning as OrderRepositoryTest's identical constants.
+    private static final Long MOUSE_ID = 1L;
+    private static final String MOUSE_NAME = "Wireless Mouse";
+    private static final BigDecimal MOUSE_PRICE = new BigDecimal("25.99");
 
     @BeforeEach
     void setUp() {
         paymentRepository.deleteAll();
         orderRepository.deleteAll();
         customerRepository.deleteAll();
-        productRepository.deleteAll();
 
         Customer ada = customerRepository.save(customer("Ada", "Lovelace", "ada@example.com"));
-        Product mouse = productRepository.save(product("Wireless Mouse", "25.99"));
 
-        order1 = orderRepository.save(order(ada, "77.97", mouse, 3));
-        order2 = orderRepository.save(order(ada, "25.99", mouse, 1));
+        order1 = orderRepository.save(order(ada, "77.97", 3));
+        order2 = orderRepository.save(order(ada, "25.99", 1));
 
         paymentRepository.save(payment(order1, "77.97", PaymentMethod.CREDIT_CARD, PaymentStatus.PENDING));
         paymentRepository.save(payment(order1, "77.97", PaymentMethod.CREDIT_CARD, PaymentStatus.FAILED));
@@ -81,14 +80,7 @@ class PaymentRepositoryTest extends AbstractIntegrationTest {
         return customer;
     }
 
-    private Product product(String name, String price) {
-        Product product = new Product();
-        product.setName(name);
-        product.setPrice(new BigDecimal(price));
-        return product;
-    }
-
-    private Order order(Customer customer, String total, Product product, int quantity) {
+    private Order order(Customer customer, String total, int quantity) {
         Order order = new Order();
         order.setCustomerId(customer.getId());
         order.setCustomerName(customer.getFirstName() + " " + customer.getLastName());
@@ -96,11 +88,11 @@ class PaymentRepositoryTest extends AbstractIntegrationTest {
         order.setTotalAmount(new BigDecimal(total));
 
         OrderItem item = new OrderItem();
-        item.setProductId(product.getId());
-        item.setProductName(product.getName());
+        item.setProductId(MOUSE_ID);
+        item.setProductName(MOUSE_NAME);
         item.setQuantity(quantity);
-        item.setUnitPrice(product.getPrice());
-        item.setSubtotal(product.getPrice().multiply(BigDecimal.valueOf(quantity)));
+        item.setUnitPrice(MOUSE_PRICE);
+        item.setSubtotal(MOUSE_PRICE.multiply(BigDecimal.valueOf(quantity)));
         order.addItem(item);
 
         return order;

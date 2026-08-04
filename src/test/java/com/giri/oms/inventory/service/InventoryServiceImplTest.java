@@ -13,7 +13,7 @@ import com.giri.oms.inventory.mapper.InventoryMapper;
 import com.giri.oms.inventory.repository.InventoryRepository;
 import com.giri.oms.inventory.repository.ProductRefRepository;
 import com.giri.oms.inventory.service.impl.InventoryServiceImpl;
-import com.giri.oms.product.exception.ProductNotFoundException;
+import com.giri.oms.productclient.exception.ProductNotFoundException;
 import com.giri.oms.productclient.dto.ProductClientResponse;
 import com.giri.oms.productclient.exception.ProductServiceUnavailableException;
 import com.giri.oms.productclient.service.ProductClient;

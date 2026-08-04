@@ -377,7 +377,7 @@ public class OrderServiceImpl implements OrderService {
     // rejecting an invalid id. It's now a real network call, and
     // ProductClient (see productclient.service.impl.ProductClientImpl)
     // deliberately preserves the exact same throws-on-not-found contract —
-    // still throws com.giri.oms.product.exception.ProductNotFoundException
+    // still throws com.giri.oms.productclient.exception.ProductNotFoundException
     // for a genuine 404, so that part of this method's behavior, and the
     // comment above about not needing to duplicate the not-found check,
     // is unchanged. What's NEW here that didn't exist before: ProductClient

@@ -23,7 +23,7 @@ import com.giri.oms.order.exception.OrderNotFoundException;
 import com.giri.oms.order.mapper.OrderMapper;
 import com.giri.oms.order.repository.OrderRepository;
 import com.giri.oms.order.service.impl.OrderServiceImpl;
-import com.giri.oms.product.exception.ProductNotFoundException;
+import com.giri.oms.productclient.exception.ProductNotFoundException;
 import com.giri.oms.productclient.dto.ProductClientResponse;
 import com.giri.oms.productclient.exception.ProductServiceUnavailableException;
 import com.giri.oms.productclient.service.ProductClient;

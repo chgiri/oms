@@ -1,13 +1,5 @@
 # Stage 3 data cutover runbook — Product
 
-> **STATUS: EXECUTED.** This cutover has been run and confirmed stable —
-> product-service's database is now the sole source of truth for product
-> data, and Stage 4 (`OrderServiceImpl`/`InventoryServiceImpl` now call
-> `ProductClient` instead of the in-process `ProductService`) has been
-> completed in oms-main. Stage 5 (deleting the `product` package from
-> oms-main) has not happened yet — this document is kept as a historical
-> record of the procedure that was followed, not a pending task.
-
 Phase 4 (Product extraction) of the microservices-prep plan. This is the
 maintenance-window procedure for migrating `oms_product.products` from
 oms-main into product-service's own database.

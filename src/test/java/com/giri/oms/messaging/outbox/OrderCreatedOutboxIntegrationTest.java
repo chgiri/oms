@@ -12,7 +12,6 @@ import com.giri.oms.order.dto.OrderRequest;
 import com.giri.oms.order.dto.OrderResponse;
 import com.giri.oms.order.repository.OrderRepository;
 import com.giri.oms.order.service.OrderService;
-import com.giri.oms.product.repository.ProductRepository;
 import com.giri.oms.productclient.dto.ProductClientResponse;
 import com.giri.oms.productclient.service.ProductClient;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -51,13 +50,6 @@ class OrderCreatedOutboxIntegrationTest extends AbstractIntegrationTest {
     // classes.
     @Autowired
     private CustomerRepository customerRepository;
-
-    // Stage 4 of the microservices-prep plan: the test itself no longer
-    // creates Product rows through this (see productClient mock below) — kept
-    // only for cleanUp()'s defensive deleteAll(), per the existing note there
-    // about this shared Postgres container leaking state across test classes.
-    @Autowired
-    private ProductRepository productRepository;
 
     @Autowired
     private OrderRepository orderRepository;
@@ -99,9 +91,11 @@ class OrderCreatedOutboxIntegrationTest extends AbstractIntegrationTest {
     // automatic transactional rollback after each test — data committed by
     // createOrder() is real and persists in the shared Postgres container
     // (see AbstractIntegrationTest) beyond this test class's own run. Without
-    // this, the Product/Order/OrderItem rows created here leak into whichever
-    // test class Maven happens to run next, causing FK-constraint failures
-    // there (e.g. ProductRepositoryTest's deleteAll() in @BeforeEach).
+    // this, the Order/OrderItem rows created here leak into whichever test
+    // class Maven happens to run next (Customer's own equivalent leak risk
+    // is why CustomerRepository is still autowired below, purely for this
+    // defensive cleanup — Product has no such repository left to clean as
+    // of Stage 5, since product-service owns that data now).
     @AfterEach
     void tearDown() {
         cleanUp();
@@ -111,7 +105,6 @@ class OrderCreatedOutboxIntegrationTest extends AbstractIntegrationTest {
         outboxEventRepository.deleteAll();
         orderRepository.deleteAll();
         customerRepository.deleteAll();
-        productRepository.deleteAll();
     }
 
     @Test

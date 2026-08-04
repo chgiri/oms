@@ -45,9 +45,11 @@ import java.time.LocalDateTime;
  * - At-least-once delivery: redelivery is handled by these upserts already
  *   being idempotent (same event replayed twice just overwrites with the
  *   same value).
- * - Ordering: ProductEventFactory partitions by product id, so all events for
- *   one product are processed in order and never concurrently by two
- *   instances in this group.
+ * - Ordering: partitioned by product id (see product-service's own
+ *   ProductEventFactory, which now owns producing onto this topic as of
+ *   Stage 5 — see this codebase's messaging.config.KafkaConfig for the
+ *   topic itself), so all events for one product are processed in order and
+ *   never concurrently by two instances in this group.
  * - Offset commit: nothing here throws for a business-level reason the way
  *   InsufficientStockException does for reservations, so there's no
  *   catch-and-continue case to call out — any failure propagates to the

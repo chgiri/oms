@@ -50,11 +50,15 @@ import org.springframework.modulith.docs.Documenter;
  * microservices-prep plan: OrderServiceImpl/InventoryServiceImpl no longer
  * depend on the product module's service interface at all — they go through
  * productclient.service.ProductClient instead, a real HTTP call to the
- * now-separately-deployed product-service. product is still a module here
- * (its own controller/service still exist and are still exercised by their
- * own tests) but nothing else in this codebase depends on it anymore; it's
- * slated for removal in a future stage, the same way shipment was (see
- * below).
+ * now-separately-deployed product-service. product is gone now as of Stage 5
+ * — same pattern as Shipment below, and the same reasoning: a module already
+ * only reachable through a public service interface (ProductClient by that
+ * point, not even product's own ProductService) had nothing left to untangle
+ * once it was time to delete it. One wrinkle Shipment didn't have: product's
+ * ProductNotFoundException couldn't be deleted outright — ProductClient's own
+ * not-found contract still throws it, so it was relocated to
+ * productclient.exception.ProductNotFoundException rather than removed (see
+ * that class's own Javadoc).
  *
  * Shipment used to be a fourth module here, with the exact same
  * Shipment→Order coupling described above (a plain orderId Long column,

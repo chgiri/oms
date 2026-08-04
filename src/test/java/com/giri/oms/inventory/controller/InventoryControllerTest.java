@@ -7,7 +7,7 @@ import com.giri.oms.inventory.dto.InventoryResponse;
 import com.giri.oms.inventory.exception.InventoryAlreadyExistsException;
 import com.giri.oms.inventory.exception.InventoryNotFoundException;
 import com.giri.oms.inventory.service.InventoryService;
-import com.giri.oms.product.exception.ProductNotFoundException;
+import com.giri.oms.productclient.exception.ProductNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;

@@ -32,9 +32,12 @@ public class KafkaConfig {
     }
 
     // Phase 1 of the microservices-prep plan — see EventType's Product*
-    // constants and messaging/event/ProductEventFactory. No consumer group
-    // reads this yet, but the topic (and its DLT, for when one does) still
-    // needs to exist for the outbox publisher to produce onto it.
+    // constants. As of Stage 5, this topic's producer is product-service's
+    // own local outbox (see that repo's messaging.event.ProductEventFactory),
+    // not anything in this codebase — inventory.consumer.ProductEventInventoryConsumer
+    // is still this app's own reader of it, keeping inventory's product_ref
+    // replica in sync. Still needs to exist here (and its DLT) purely so
+    // that consumer and its topic/DLT config have somewhere to point.
     @Bean
     NewTopic productEventsTopic(KafkaAppProperties kafkaAppProperties) {
         return TopicBuilder.name(kafkaAppProperties.topics().productEvents())

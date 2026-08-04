@@ -1,16 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# STATUS: EXECUTED. This has already been run successfully as part of
-# Customer's Stage 3 cutover, which is complete — Stage 4 (OrderServiceImpl
-# now calls CustomerClient) has since been completed in oms-main too. Stage 5
-# (deleting the customer package from oms-main) has not happened yet, so
-# app.customer.writes-frozen and the oms_customer schema referenced below
-# are both still live in oms-main as of this note. Kept as a historical
-# record of the procedure that was followed — re-running this against the
-# current state would fail the script's own non-empty-target pre-flight
-# check regardless.
-#
 # Stage 3 of the microservices-prep plan (Phase 4, Customer extraction):
 # one-time copy of oms_customer.customers (oms-main) into customers
 # (customer-service's own database). See

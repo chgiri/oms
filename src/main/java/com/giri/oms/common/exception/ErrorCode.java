@@ -75,6 +75,15 @@ public enum ErrorCode {
             "An unexpected error occurred. Please try again later."),
 
     // ---- Product (PR) ----
+    // Stage 5 of the microservices-prep plan deleted the product package
+    // itself, but unlike Shipment's equivalent section (see below), NOT all
+    // three codes below retired with it — PRODUCT_NOT_FOUND and
+    // PRODUCT_SERVICE_UNAVAILABLE are still very much live: they're part of
+    // productclient.service.ProductClient's contract now (see
+    // ProductClientImpl and productclient.exception.ProductNotFoundException,
+    // which the original product.exception.ProductNotFoundException was
+    // relocated to rather than deleted). Only PRODUCT_WRITES_FROZEN actually
+    // has no thrower left anywhere in this codebase — see its own note below.
     PRODUCT_NOT_FOUND("E", "PR", "100", HttpStatus.NOT_FOUND,
             "Product not found with id: %d"),
     // Stage 2 of the microservices-prep plan: thrown by productclient's
@@ -85,9 +94,14 @@ public enum ErrorCode {
     // failure modes with different meanings for a caller/retry policy.
     PRODUCT_SERVICE_UNAVAILABLE("E", "PR", "500", HttpStatus.SERVICE_UNAVAILABLE,
             "Product service is currently unavailable (product id: %d) — please try again shortly"),
-    // Stage 3 of the microservices-prep plan (data cutover) — see
-    // ProductWritesFrozenException. Time-boxed to the maintenance window,
-    // never left on outside of an active cutover.
+    // RETIRED as of Stage 5 — ProductWritesFrozenException (and the whole
+    // product package with it) is gone; nothing in this codebase throws this
+    // anymore. Kept per this class's own append-only policy, same reasoning
+    // as SHIPMENT_WRITES_FROZEN below — a client that logged EPR501
+    // historically should still find it documented here. product-service's
+    // own write path never had an equivalent freeze mechanism to begin with
+    // (that concern was specific to oms-main's in-process write path during
+    // the cutover window, not something product-service needs going forward).
     PRODUCT_WRITES_FROZEN("E", "PR", "501", HttpStatus.SERVICE_UNAVAILABLE,
             "Product writes are temporarily frozen for a data migration — please try again shortly"),
 

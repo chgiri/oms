@@ -12,7 +12,7 @@ import com.giri.oms.order.entity.OrderStatus;
 import com.giri.oms.order.exception.IllegalOrderStateException;
 import com.giri.oms.order.exception.OrderNotFoundException;
 import com.giri.oms.order.service.OrderService;
-import com.giri.oms.product.exception.ProductNotFoundException;
+import com.giri.oms.productclient.exception.ProductNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;

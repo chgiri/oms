@@ -1,7 +1,6 @@
 package com.giri.oms.common.config;
 
 import com.giri.oms.inventory.dto.InventoryResponse;
-import com.giri.oms.product.dto.ProductResponse;
 import org.redisson.api.RedissonClient;
 import org.redisson.config.Config;
 import org.springframework.boot.cache.autoconfigure.RedisCacheManagerBuilderCustomizer;
@@ -24,9 +23,14 @@ import java.time.Duration;
  * same view and the same invalidation.
  *
  * Cache names/TTLs here correspond to the {@code @Cacheable} annotations on
- * ProductServiceImpl and InventoryServiceImpl — read-mostly, id-keyed lookups are what
- * benefit from caching; paginated/search results are deliberately NOT cached since their
- * key space is unbounded and they change too often to be worth it.
+ * InventoryServiceImpl — read-mostly, id-keyed lookups are what benefit from caching;
+ * paginated/search results are deliberately NOT cached since their key space is unbounded
+ * and they change too often to be worth it.
+ *
+ * PRODUCTS_CACHE (for ProductServiceImpl's own @Cacheable) was removed here as of Stage 5
+ * of the microservices-prep plan, along with the product package itself — product-service
+ * now owns that caching decision independently (see that repo's own Redis config, if any).
+ * This class only backs caching for what's still in-process in this codebase.
  *
  * Each cache is bound to its own {@link JacksonJsonRedisSerializer}, typed to the exact
  * DTO it stores, rather than sharing one polymorphic {@code GenericJacksonJsonRedisSerializer}
@@ -44,7 +48,6 @@ import java.time.Duration;
 @EnableCaching
 public class CacheConfig {
 
-    public static final String PRODUCTS_CACHE = "products";
     public static final String INVENTORY_CACHE = "inventory";
 
     @Bean
@@ -52,12 +55,6 @@ public class CacheConfig {
         RedisCacheConfiguration base = RedisCacheConfiguration.defaultCacheConfig()
                 .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
                 .disableCachingNullValues();
-
-        RedisCacheConfiguration productsConfig = base
-                .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(
-                        new JacksonJsonRedisSerializer<>(ProductResponse.class)))
-                // Products change rarely (price/name edits) — safe to cache longer.
-                .entryTtl(Duration.ofMinutes(15));
 
         RedisCacheConfiguration inventoryConfig = base
                 .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(
@@ -67,7 +64,6 @@ public class CacheConfig {
                 .entryTtl(Duration.ofMinutes(2));
 
         return builder -> builder
-                .withCacheConfiguration(PRODUCTS_CACHE, productsConfig)
                 .withCacheConfiguration(INVENTORY_CACHE, inventoryConfig);
     }
 }

@@ -5,7 +5,7 @@ import com.giri.oms.productclient.dto.ProductClientResponse;
 /**
  * The monolith's client to product-service. Deliberately shaped like
  * {@code ProductService.getProductById} (same single method, same
- * throws-on-not-found contract via {@link com.giri.oms.product.exception.ProductNotFoundException})
+ * throws-on-not-found contract via {@link com.giri.oms.productclient.exception.ProductNotFoundException})
  * so that swapping a call site from the in-process ProductService to this
  * (Stage 4 of the microservices-prep plan) is close to a one-line change,
  * not a rewrite of the caller's error handling.
@@ -13,7 +13,7 @@ import com.giri.oms.productclient.dto.ProductClientResponse;
 public interface ProductClient {
 
     /**
-     * @throws com.giri.oms.product.exception.ProductNotFoundException product-service
+     * @throws com.giri.oms.productclient.exception.ProductNotFoundException product-service
      *         returned 404 — the product genuinely doesn't exist. Never retried,
      *         never counted against the circuit breaker (see ProductClientImpl).
      * @throws com.giri.oms.productclient.exception.ProductServiceUnavailableException

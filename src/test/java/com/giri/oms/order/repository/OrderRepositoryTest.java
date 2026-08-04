@@ -7,8 +7,6 @@ import com.giri.oms.customer.repository.CustomerRepository;
 import com.giri.oms.order.entity.Order;
 import com.giri.oms.order.entity.OrderItem;
 import com.giri.oms.order.entity.OrderStatus;
-import com.giri.oms.product.entity.Product;
-import com.giri.oms.product.repository.ProductRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,26 +39,30 @@ class OrderRepositoryTest extends AbstractIntegrationTest {
     @Autowired
     private CustomerRepository customerRepository;
 
-    @Autowired
-    private ProductRepository productRepository;
-
     private Customer ada;
     private Customer alan;
-    private Product mouse;
+
+    // Stage 5 of the microservices-prep plan: no real Product row needed
+    // anymore — order_items.product_id has had its FK dropped since Phase 2
+    // (V19__drop_cross_module_fk_constraints.sql), and product now lives
+    // entirely in product-service's own database, unreachable from this
+    // @DataJpaTest slice anyway. A plain id/name/price is enough to build
+    // the OrderItem snapshot fields these tests actually exercise.
+    private static final Long MOUSE_ID = 1L;
+    private static final String MOUSE_NAME = "Wireless Mouse";
+    private static final BigDecimal MOUSE_PRICE = new BigDecimal("25.99");
 
     @BeforeEach
     void setUp() {
         orderRepository.deleteAll();
         customerRepository.deleteAll();
-        productRepository.deleteAll();
 
         ada = customerRepository.save(customer("Ada", "Lovelace", "ada@example.com"));
         alan = customerRepository.save(customer("Alan", "Turing", "alan@example.com"));
-        mouse = productRepository.save(product("Wireless Mouse", "25.99"));
 
-        orderRepository.save(order(ada, OrderStatus.PENDING, "77.97", mouse, 3));
-        orderRepository.save(order(ada, OrderStatus.DELIVERED, "25.99", mouse, 1));
-        orderRepository.save(order(alan, OrderStatus.CANCELLED, "51.98", mouse, 2));
+        orderRepository.save(order(ada, OrderStatus.PENDING, "77.97", 3));
+        orderRepository.save(order(ada, OrderStatus.DELIVERED, "25.99", 1));
+        orderRepository.save(order(alan, OrderStatus.CANCELLED, "51.98", 2));
     }
 
     private Customer customer(String firstName, String lastName, String email) {
@@ -72,14 +74,7 @@ class OrderRepositoryTest extends AbstractIntegrationTest {
         return customer;
     }
 
-    private Product product(String name, String price) {
-        Product product = new Product();
-        product.setName(name);
-        product.setPrice(new BigDecimal(price));
-        return product;
-    }
-
-    private Order order(Customer customer, OrderStatus status, String total, Product product, int quantity) {
+    private Order order(Customer customer, OrderStatus status, String total, int quantity) {
         Order order = new Order();
         order.setCustomerId(customer.getId());
         order.setCustomerName(customer.getFirstName() + " " + customer.getLastName());
@@ -87,11 +82,11 @@ class OrderRepositoryTest extends AbstractIntegrationTest {
         order.setTotalAmount(new BigDecimal(total));
 
         OrderItem item = new OrderItem();
-        item.setProductId(product.getId());
-        item.setProductName(product.getName());
+        item.setProductId(MOUSE_ID);
+        item.setProductName(MOUSE_NAME);
         item.setQuantity(quantity);
-        item.setUnitPrice(product.getPrice());
-        item.setSubtotal(product.getPrice().multiply(BigDecimal.valueOf(quantity)));
+        item.setUnitPrice(MOUSE_PRICE);
+        item.setSubtotal(MOUSE_PRICE.multiply(BigDecimal.valueOf(quantity)));
         order.addItem(item);
 
         return order;

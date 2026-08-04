@@ -10,14 +10,17 @@ below before assuming any given module is still owned here.
 
 ## Features
 
-- **Domain modules** — `auth`, `customer`, `product`, `inventory`, `order`,
-  `payment`, each with its own controller/service/repository/DTO layers,
-  plus `productclient`/`customerclient` (resilient HTTP clients for the two
-  modules already extracted — see below). `shipment` used to be here too —
-  as of Stage 5 of the microservices-prep plan it's been fully removed;
-  order confirmation still triggers shipment creation exactly as before,
-  just now handled entirely by shipment-service reacting to the same
-  `OrderConfirmed` Kafka event.
+- **Domain modules** — `auth`, `customer`, `inventory`, `order`, `payment`,
+  each with its own controller/service/repository/DTO layers, plus
+  `productclient`/`customerclient` (resilient HTTP clients — `productclient`
+  calls out to product-service, `customerclient` to customer-service; see
+  below). `product` used to be here too, alongside `customer` — as of Stage
+  5 of the microservices-prep plan it's been fully removed, the same way
+  `shipment` was: `OrderServiceImpl`/`InventoryServiceImpl` reach
+  product-service exclusively through `productclient` now, with no
+  in-process module left to reach into. `customer` is next in line for the
+  same treatment, once it reaches its own Stage 5 — see
+  [Microservices extraction status](#microservices-extraction-status) below.
 - **Module boundaries enforced by Spring Modulith** — `ModularityTests`
   fails the build if any module reaches into another's `entity`/`repository`
   package directly instead of going through its public service interface.
@@ -36,13 +39,11 @@ below before assuming any given module is still owned here.
   since these events are now a real cross-deployable contract, not just an
   internal DTO.
 - **Resilient service clients (`productclient`, `customerclient`)** —
-  RestClient-based clients with Resilience4j circuit-breaker/retry/timeout.
-  `OrderServiceImpl`/`InventoryServiceImpl` call these exclusively now
-  (Stage 4 is done — see below); the in-process `ProductService`/
-  `CustomerService` code they used to call is superseded, still present in
-  this repo only until each module's own Stage 5. Deliberately no
-  fallback/stale-data path — a service being unreachable fails the calling
-  request rather than silently serving stale data.
+  RestClient-based clients with Resilience4j circuit-breaker/retry/timeout,
+  used by `OrderServiceImpl`/`InventoryServiceImpl` ahead of Stage 4's
+  cutover (see below). Deliberately no fallback/stale-data path — a
+  service being unreachable fails the calling request rather than silently
+  serving stale data.
 - **Distributed tracing (OpenTelemetry + Tempo)** — every HTTP request and
   Kafka produce/consume gets a span via Micrometer Tracing's OTel bridge,
   exported to Tempo and viewable in Grafana. Trace/span IDs are stamped into
@@ -73,72 +74,77 @@ below before assuming any given module is still owned here.
 ## Microservices extraction status
 
 This repo is executing a staged plan to pull Product, Customer, and Shipment
-out into their own deployables. **All three have had their data cutover
-executed (Stage 3) and confirmed stable.** Shipment has gone all the way
-through Stage 5 — oms-main no longer contains that module at all. Product
-and Customer have completed Stage 4 (oms-main now calls their clients
-instead of the in-process services) but not yet Stage 5 — their code (and
-now-superseded database tables) still physically exist in this repo,
-kept around until each is deleted in its own turn.
+out into their own deployables. **Product and Shipment have fully cut
+over — oms-main no longer contains either module at all.** Customer has not
+finished cutting over yet — oms-main still holds the authoritative
+implementation and data for it (though `OrderServiceImpl` already calls out
+to `CustomerClient`/customer-service for reads at order-creation time — see
+Stage 4 below). Don't assume a module is "done" just because a sibling
+service repo exists for it; Product and Shipment are the only ones actually
+finished as of this table.
 
-| Module | Sibling service repo | Stages 1-2 | Stage 3 (data cutover) | Stage 4 (call sites swapped in oms-main) | Stage 5 (removed from oms-main) |
+| Module | Sibling service repo | Scaffold + API contract (Stages 1-2) | Data cutover runbook (Stage 3) | Call sites swapped in oms-main (Stage 4) | Removed from oms-main (Stage 5) |
 |---|---|---|---|---|---|
-| Product | `product-service` | Done | **Executed** — [runbook](docs/stage3-data-cutover-runbook-product.md) | **Done** | Not yet |
-| Customer | `customer-service` | Done | **Executed** — [runbook](docs/stage3-data-cutover-runbook-customer.md) | **Done** | Not yet |
-| Shipment | `shipment-service` | Done | **Executed** — [runbook](docs/stage3-data-cutover-runbook-shipment.md) | N/A — see note | **Done** |
+| Product | `product-service` | Done | [`docs/stage3-data-cutover-runbook-product.md`](docs/stage3-data-cutover-runbook-product.md) | **Done** | **Done** |
+| Customer | `customer-service` | Done | [`docs/stage3-data-cutover-runbook-customer.md`](docs/stage3-data-cutover-runbook-customer.md) | **Done** | Not yet |
+| Shipment | `shipment-service` | Done | [`docs/stage3-data-cutover-runbook-shipment.md`](docs/stage3-data-cutover-runbook-shipment.md) | N/A — see note | **Done** |
 
 Practically, this means:
 
-- `OrderServiceImpl`/`InventoryServiceImpl` now call `ProductClient`/
-  `CustomerClient` (in `productclient`/`customerclient`) for everything —
-  the in-process `ProductService`/`CustomerService` code paths are no
-  longer reachable from either of those classes. The `product`/`customer`
-  packages themselves are still physically present in this repo, but only
-  because Stage 5 (deletion) hasn't run for them yet — not because
-  anything still calls into them.
-- The three `stage3-*` runbooks (linked above) are all marked **EXECUTED**
-  at the top of each document — they're historical records of the
-  maintenance-window procedure that was followed, not pending tasks. Same
-  for their matching `scripts/stage3-copy-*.sh` — each one now carries an
-  "already run" banner too.
-- Shipment had no Stage 4 deploy of its own to begin with — nothing in
-  oms-main ever called `ShipmentService` synchronously, so there was no
-  in-process call site to swap; shipment-service's own `OrderClient`
-  (calling back out to oms-main) has covered the one thing Shipment needed
-  since Stage 2.
+- `ProductClient` (in `productclient`) is fully wired in as the live path —
+  `OrderServiceImpl`/`InventoryServiceImpl` call product-service for every
+  product lookup, not an in-process module. `CustomerClient` (in
+  `customerclient`) is the same story for `OrderServiceImpl`'s customer
+  lookups. Neither module's own controller/service exists in oms-main
+  anymore for Product; Customer's still does (admin CRUD, the writes-frozen
+  guard), just no longer in `OrderServiceImpl`'s call path.
+- The `stage3-*` runbooks are the maintenance-window procedures for copying
+  each module's data into its own service's database and (for Product/
+  Customer) cutting `OrderServiceImpl` over to the client. Shipment had no
+  equivalent Stage 4 deploy — nothing in oms-main called `ShipmentService`
+  synchronously, so there was no in-process call site to swap;
+  shipment-service's own `OrderClient` (calling back out to oms-main) has
+  covered that since Stage 2.
 - Shipment had a wrinkle Product/Customer don't: `OrderConfirmedShipmentConsumer`
   auto-created shipments off a Kafka event, not just REST — its cutover
-  runbook had an extra step (stopping oms-main's consumer group membership
+  runbook has an extra step (stopping oms-main's consumer group membership
   entirely before shipment-service's own copy started) that the Product/
   Customer runbooks don't need. Read that runbook's intro before assuming
-  the pattern is identical when Product/Customer eventually reach their own
-  Stage 5.
-- `app.product.writes-frozen` / `app.customer.writes-frozen` are both still
-  present in `application.properties`, defaulting to `false` — but per each
-  runbook's own Step 8, once a cutover is confirmed stable the flag is meant
-  to be left `true` **permanently** in every real environment from that
-  point forward (the `false` default only matters for a fresh/local
-  environment that's never been through the cutover). Don't read the
-  property default as "writes aren't frozen in production" — check the
-  actual deployed value instead. Shipment's equivalent
-  (`app.shipment.writes-frozen`, `ShipmentWritesFrozenException`) no longer
-  exists here at all — it was deleted along with the rest of the shipment
-  package at Stage 5, since there's nothing left in this repo for it to guard.
-- `ErrorCode`'s `SH100`/`SH101`/`SH501` entries (`SHIPMENT_NOT_FOUND`/
-  `ILLEGAL_SHIPMENT_STATE`/`SHIPMENT_WRITES_FROZEN`) are still present in
-  `ErrorCode.java`, marked retired in a comment there — kept per that
-  class's own append-only policy (never reassign or remove a published
-  code) even though nothing in this repo throws them anymore.
-  shipment-service's own `ErrorCode` is the current, sole owner of those
-  same codes now.
-- `ModularityTests` still treats `product` and `customer` as regular
-  internal modules — that only changes once each finishes its own Stage 5.
-  `shipment` is no longer one of the modules it enforces boundaries for at
-  all, since the package doesn't exist in this repo anymore.
-- The `oms_shipment` Postgres schema itself is dropped by
-  `V22__drop_oms_shipment_schema.sql` — `V7`'s original `CREATE TABLE`
-  stays in the migration history untouched, same as every other historical
-  migration in this project; only the live schema was removed.
+  the pattern is identical when Customer eventually reaches its own Stage 5.
+- Product had its own wrinkle Shipment didn't: `product.exception.ProductNotFoundException`
+  couldn't just be deleted at Stage 5 — `ProductClient`'s own not-found
+  contract depends on it (see `ProductClientImpl`). It was relocated to
+  `productclient.exception.ProductNotFoundException` instead, not removed.
+  Same `ErrorCode.PRODUCT_NOT_FOUND` (`EPR100`, unchanged) either way — this
+  only moved which Java package owns the class, not the wire-level contract
+  a caller sees. Watch for the same wrinkle when Customer reaches Stage 5:
+  `CustomerClientImpl` has the identical dependency on
+  `customer.exception.CustomerNotFoundException` today.
+- `app.customer.writes-frozen` (Customer's maintenance-window freeze flag,
+  still defaults `false`) is still live in this codebase. Product's
+  equivalent (`app.product.writes-frozen`, `ProductWritesFrozenException`)
+  no longer exists here — removed along with the rest of the `product`
+  package at Stage 5, same as Shipment's equivalent was.
+- `ErrorCode`'s `PR501` (`PRODUCT_WRITES_FROZEN`) and `SH100`/`SH101`/`SH501`
+  (`SHIPMENT_NOT_FOUND`/`ILLEGAL_SHIPMENT_STATE`/`SHIPMENT_WRITES_FROZEN`)
+  entries are all still present in `ErrorCode.java`, marked retired in a
+  comment there — kept per that class's own append-only policy (never
+  reassign or remove a published code) even though nothing in this repo
+  throws them anymore. Unlike Shipment's three, though, Product's other two
+  codes (`PR100`/`PRODUCT_NOT_FOUND`, `PR500`/`PRODUCT_SERVICE_UNAVAILABLE`)
+  are NOT retired — they're still very much alive, just owned by
+  `productclient` now instead of the deleted `product` package. See
+  `ErrorCode.java`'s own comment on the Product block for the full
+  explanation of that split.
+- `ModularityTests` still treats `customer` as a regular internal module —
+  that only changes once it finishes its own Stage 5. `product` and
+  `shipment` are no longer modules it enforces boundaries for at all, since
+  neither package exists in this repo anymore.
+- The `oms_product` Postgres schema itself is dropped by
+  `V23__drop_oms_product_schema.sql`, the same way `V22` dropped
+  `oms_shipment` — `V1__init_schema.sql`'s original `CREATE TABLE` stays in
+  the migration history untouched, same as every other historical migration
+  in this project; only the live schema was removed.
 - **Cross-repo follow-up, not fixable from this repo:** `bruno/graphql/`'s
   `OrderDetail`/`OrderDetailMinimal` queries (oms-bff's GraphQL schema, not
   oms-main's own API) still select a `shipment` field on an order. If
@@ -263,11 +269,11 @@ A few configuration groups worth knowing about beyond the basics:
   `localhost:8082`/`localhost:8083` for local dev.
 - **Tracing** — `management.otlp.tracing.endpoint` (defaults to a local
   Tempo/OTLP collector) and `management.tracing.sampling.probability`.
-- **Cutover freeze flags** — `app.product.writes-frozen` /
-  `app.customer.writes-frozen`, both `false` outside an active maintenance
-  window — see the stage3 runbooks in `docs/`. Shipment's equivalent
-  (`app.shipment.writes-frozen`) no longer exists in this codebase — it was
-  removed along with the rest of the shipment package at Stage 5.
+- **Cutover freeze flags** — `app.customer.writes-frozen`, `false` outside
+  an active maintenance window — see the stage3 runbooks in `docs/`.
+  Product's and Shipment's equivalents (`app.product.writes-frozen`,
+  `app.shipment.writes-frozen`) no longer exist in this codebase — both were
+  removed along with their respective packages at Stage 5.
 
 ## Testing
 
@@ -299,10 +305,9 @@ Loki/Tempo setup and the pre-built OMS Overview dashboard.
 ```
 src/main/java/com/giri/oms/
 ├── auth/              # authentication, JWT issuing/verification
-├── customer/          # superseded (Stage 4 done) but not yet deleted — see extraction status above
-├── customerclient/    # resilient client for customer-service — this IS the live path now (OrderServiceImpl)
-├── product/           # superseded (Stage 4 done) but not yet deleted — see extraction status above
-├── productclient/     # resilient client for product-service — this IS the live path now (OrderServiceImpl/InventoryServiceImpl)
+├── customer/          # still owned here — see extraction status above
+├── customerclient/    # resilient client for customer-service, wired into OrderServiceImpl as of Stage 4
+├── productclient/     # resilient client for product-service, wired into OrderServiceImpl/InventoryServiceImpl as of Stage 4
 ├── inventory/
 ├── order/
 ├── payment/
@@ -311,9 +316,13 @@ src/main/java/com/giri/oms/
 └── security/          # JWKS endpoint
 ```
 
-There's no `shipment/` here anymore — as of Stage 5 of the
-microservices-prep plan it's been fully extracted into shipment-service; see
+There's no `product/` or `shipment/` here anymore — as of Stage 5 of the
+microservices-prep plan both have been fully extracted, into product-service
+and shipment-service respectively; see
 [Microservices extraction status](#microservices-extraction-status) above.
+`productclient` stayed (it's the client, not the module) — same reasoning
+`customerclient` will stay once `customer` eventually goes through its own
+Stage 5.
 
 Each domain module follows the same layout: `controller/`, `service/`
 (+ `service/impl/`), `repository/`, `entity/`, `dto/`, `mapper/`,

@@ -2,8 +2,6 @@ package com.giri.oms.inventory.repository;
 
 import com.giri.oms.common.AbstractIntegrationTest;
 import com.giri.oms.inventory.entity.Inventory;
-import com.giri.oms.product.entity.Product;
-import com.giri.oms.product.repository.ProductRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,7 +11,6 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
@@ -36,35 +33,28 @@ class InventoryRepositoryTest extends AbstractIntegrationTest {
     @Autowired
     private InventoryRepository inventoryRepository;
 
-    @Autowired
-    private ProductRepository productRepository;
-
-    private Product mouse;
-    private Product keyboard;
+    // Stage 5 of the microservices-prep plan: no real Product rows needed
+    // anymore — inventory.product_id has had its FK dropped since Phase 2
+    // (V19__drop_cross_module_fk_constraints.sql), and product now lives
+    // entirely in product-service's own database, unreachable from this
+    // @DataJpaTest slice anyway. Plain ids are enough for every query these
+    // tests exercise (all filter/join on productId, none read back a
+    // product's own name/price).
+    private static final Long mouseId = 1L;
+    private static final Long keyboardId = 2L;
 
     @BeforeEach
     void setUp() {
         inventoryRepository.deleteAll();
-        productRepository.deleteAll();
 
-        mouse = productRepository.save(product("Wireless Mouse", "25.99"));
-        keyboard = productRepository.save(product("Mechanical Keyboard", "89.99"));
-
-        inventoryRepository.save(inventory(mouse, "WH-EAST-01", 120, 15, 20));   // healthy stock
-        inventoryRepository.save(inventory(mouse, "WH-WEST-02", 5, 0, 20));      // low stock (available <= reorder)
-        inventoryRepository.save(inventory(keyboard, "WH-EAST-01", 40, 5, 10));  // healthy stock
+        inventoryRepository.save(inventory(mouseId, "WH-EAST-01", 120, 15, 20));   // healthy stock
+        inventoryRepository.save(inventory(mouseId, "WH-WEST-02", 5, 0, 20));      // low stock (available <= reorder)
+        inventoryRepository.save(inventory(keyboardId, "WH-EAST-01", 40, 5, 10));  // healthy stock
     }
 
-    private Product product(String name, String price) {
-        Product product = new Product();
-        product.setName(name);
-        product.setPrice(new BigDecimal(price));
-        return product;
-    }
-
-    private Inventory inventory(Product product, String location, int available, int reserved, int reorderLevel) {
+    private Inventory inventory(Long productId, String location, int available, int reserved, int reorderLevel) {
         Inventory inventory = new Inventory();
-        inventory.setProductId(product.getId());
+        inventory.setProductId(productId);
         inventory.setLocation(location);
         inventory.setQuantityAvailable(available);
         inventory.setQuantityReserved(reserved);
@@ -74,7 +64,7 @@ class InventoryRepositoryTest extends AbstractIntegrationTest {
 
     @Test
     void findByProductIdAndLocation_returnsMatchingRecord() {
-        Optional<Inventory> result = inventoryRepository.findByProductIdAndLocation(mouse.getId(), "WH-EAST-01");
+        Optional<Inventory> result = inventoryRepository.findByProductIdAndLocation(mouseId, "WH-EAST-01");
 
         assertThat(result).isPresent();
         assertThat(result.get().getQuantityAvailable()).isEqualTo(120);
@@ -82,8 +72,8 @@ class InventoryRepositoryTest extends AbstractIntegrationTest {
 
     @Test
     void existsByProductIdAndLocation_trueWhenPairExists() {
-        assertThat(inventoryRepository.existsByProductIdAndLocation(mouse.getId(), "WH-EAST-01")).isTrue();
-        assertThat(inventoryRepository.existsByProductIdAndLocation(mouse.getId(), "WH-NORTH-03")).isFalse();
+        assertThat(inventoryRepository.existsByProductIdAndLocation(mouseId, "WH-EAST-01")).isTrue();
+        assertThat(inventoryRepository.existsByProductIdAndLocation(mouseId, "WH-NORTH-03")).isFalse();
     }
 
     @Test
@@ -95,14 +85,14 @@ class InventoryRepositoryTest extends AbstractIntegrationTest {
 
     @Test
     void findByProductId_returnsAllLocationsForThatProduct() {
-        List<Inventory> results = inventoryRepository.findByProductId(mouse.getId());
+        List<Inventory> results = inventoryRepository.findByProductId(mouseId);
 
         assertThat(results).hasSize(2);
     }
 
     @Test
     void uniqueConstraint_rejectsDuplicateProductLocationPair() {
-        Inventory duplicate = inventory(mouse, "WH-EAST-01", 10, 0, 5);
+        Inventory duplicate = inventory(mouseId, "WH-EAST-01", 10, 0, 5);
 
         assertThatThrownBy(() -> inventoryRepository.saveAndFlush(duplicate))
                 .isInstanceOf(DataIntegrityViolationException.class);
@@ -111,7 +101,7 @@ class InventoryRepositoryTest extends AbstractIntegrationTest {
     @Test
     void searchInventory_filtersOnAllProvidedCriteria() {
         Page<Inventory> results = inventoryRepository.searchInventory(
-                mouse.getId(), "east", false, PageRequest.of(0, 10));
+                mouseId, "east", false, PageRequest.of(0, 10));
 
         assertThat(results.getContent()).hasSize(1);
         assertThat(results.getContent().get(0).getLocation()).isEqualTo("WH-EAST-01");

@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
  * response, or the circuit breaker being open (see
  * productclient.config.ProductClientConfig and the resilience4j.* properties
  * it's configured from). Deliberately distinct from
- * {@link com.giri.oms.product.exception.ProductNotFoundException}, which
+ * {@link com.giri.oms.productclient.exception.ProductNotFoundException}, which
  * ProductClientImpl throws instead for a 404 — that's a legitimate business
  * rejection ("this product id doesn't exist"), not a service-health problem,
  * and per Stage 0 of the microservices-prep plan's resilience decision, the

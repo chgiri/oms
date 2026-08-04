@@ -271,7 +271,7 @@ public class InventoryServiceImpl implements InventoryService {
     }
 
     // Stage 4 of the microservices-prep plan: same throws-on-not-found
-    // contract as before (still com.giri.oms.product.exception.ProductNotFoundException
+    // contract as before (still com.giri.oms.productclient.exception.ProductNotFoundException
     // for a genuine 404 — see ProductClientImpl), but this is now a real
     // network call and can also throw ProductServiceUnavailableException if
     // product-service is unreachable — see that exception's Javadoc and
