@@ -185,6 +185,31 @@ services:
       # tempo service above. Same reasoning as KAFKA_BOOTSTRAP_SERVERS: don't
       # point this at localhost from inside the app container.
       OTLP_TRACING_ENDPOINT: http://tempo:4318/v1/traces
+      # Container-internal port (8080), not the host-published one
+      # (8082/8083) — same reasoning as KAFKA_BOOTSTRAP_SERVERS/OTLP_TRACING_ENDPOINT
+      # above: don't point this at localhost from inside the app container.
+      # Was missing entirely until now — app.productclient.base-url /
+      # app.customerclient.base-url's own defaults (application.properties)
+      # silently fell back to localhost:8082/8083 without this, which
+      # doesn't resolve to anything from inside this container. Both
+      # OrderServiceImpl call sites (createOrder resolving the product and
+      # the customer) need this.
+      #
+      # Deliberately NOT added to depends_on below, unlike postgres/kafka/
+      # redis — product-service and customer-service both already
+      # depends_on: app (service_healthy), for JWT verification against
+      # this app's JWKS endpoint (see their own compose blocks). Adding the
+      # reverse here would be a genuine cycle — app waiting on
+      # product-service waiting on app — which Compose can't resolve, not
+      # just an ordering inconvenience. Instead this leans on
+      # ProductClientImpl's/CustomerClientImpl's existing resilience4j retry
+      # + circuit-breaker config (see the resilience4j.* properties in
+      # application.properties — both already record ResourceAccessException,
+      # i.e. connection-refused, as retryable) to absorb whatever
+      # startup-ordering gap exists, rather than trying to enforce an
+      # ordering that can't structurally exist.
+      PRODUCT_SERVICE_URL: http://product-service:8080
+      CUSTOMER_SERVICE_URL: http://customer-service:8080
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
       DEFAULT_ADMIN_USERNAME: ${DEFAULT_ADMIN_USERNAME:-admin}
       # DB_PASSWORD, REDIS_PASSWORD, JWT_PRIVATE_KEY, JWT_PUBLIC_KEY and
@@ -264,6 +289,19 @@ services:
       REDIS_PORT: 6379
       # Same reasoning as `app` above — see its comment.
       OTLP_TRACING_ENDPOINT: http://tempo:4318/v1/traces
+      # Only PRODUCT_SERVICE_URL, not CUSTOMER_SERVICE_URL — CustomerClient
+      # is only called from OrderServiceImpl.createOrder, which is
+      # HTTP-triggered (`app`'s web role) and never runs here.
+      # InventoryServiceImpl (via OrderCreatedInventoryConsumer, which does
+      # run here) uses ProductClient though, so this one's needed. See
+      # `app`'s own comment on this var for why it was missing and what it
+      # fixes.
+      #
+      # Unlike `app` above, this one DOES go in depends_on below — safe to,
+      # no cycle: product-service depends on `app` being healthy (JWKS),
+      # never on `app-worker`, so app-worker -> product-service is a
+      # one-directional edge.
+      PRODUCT_SERVICE_URL: http://product-service:8080
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
       DEFAULT_ADMIN_USERNAME: ${DEFAULT_ADMIN_USERNAME:-admin}
       # Same Vault handoff as `app` above — see that service's comment.
@@ -280,6 +318,11 @@ services:
         condition: service_healthy
       vault-init:
         condition: service_completed_successfully
+      # Safe to add here (unlike `app`'s depends_on above) — see the comment
+      # on PRODUCT_SERVICE_URL above for why there's no cycle in this
+      # direction.
+      product-service:
+        condition: service_healthy
     healthcheck:
       # Port 8081, not 8080 — see the management.server.port comment on
       # `app`'s ports: block above; same reasoning applies here.
