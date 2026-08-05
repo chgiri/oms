@@ -31,6 +31,17 @@ import static org.assertj.core.api.Assertions.assertThat;
  * dropped the oms_shipment schema entirely once shipment-service's cutover
  * was confirmed stable, so there's no longer a table here to check against.
  *
+ * The order_items.product_id and inventory.product_id cases this test used
+ * to cover (OrderItemsProductId, InventoryProductId) are gone for the same
+ * reason: Product went through Stage 5 too, and oms_product.products no
+ * longer exists in this database at all — there's nothing left here to
+ * LEFT JOIN against. Those two relationships aren't unchecked now, they're
+ * checked a different way: ProductClient (productclient.service) validates
+ * the id synchronously at write time, and there is, by construction, no
+ * local table this test could query to catch a cross-database orphan even
+ * if it wanted to — that would need a check running against product-service's
+ * own database, not this one.
+ *
  * fk_order_items_order (order_items.order_id -> orders.id) is intentionally
  * out of scope: it was never dropped (Order/OrderItem stay in the same
  * future service — see V19's comment), and Postgres still enforces it.
@@ -60,12 +71,12 @@ class CrossModuleForeignKeyIntegrityTest extends AbstractIntegrationTest {
     void setUp() {
         // Children first, in dependency order, so the deletes themselves never
         // trip the FK that's still live (fk_order_items_order). oms_shipment
-        // is no longer among these — see the class Javadoc's Stage 5 note.
+        // and oms_product are no longer among these — see the class Javadoc's
+        // Stage 5 note.
         jdbcTemplate.update("DELETE FROM oms_payment.payments");
         jdbcTemplate.update("DELETE FROM oms_order.order_items");
         jdbcTemplate.update("DELETE FROM oms_inventory.inventory");
         jdbcTemplate.update("DELETE FROM oms_order.orders");
-        jdbcTemplate.update("DELETE FROM oms_product.products");
         jdbcTemplate.update("DELETE FROM oms_customer.customers");
     }
 
@@ -74,13 +85,6 @@ class CrossModuleForeignKeyIntegrityTest extends AbstractIntegrationTest {
                 INSERT INTO oms_customer.customers (id, first_name, last_name, email, status, created_at, updated_at)
                 VALUES (?, 'Jane', 'Doe', ?, 'ACTIVE', now(), now())
                 """, id, "jane.doe." + id + "@example.com");
-    }
-
-    private void insertProduct(long id) {
-        jdbcTemplate.update("""
-                INSERT INTO oms_product.products (id, name, price, status, created_at, updated_at)
-                VALUES (?, 'Widget', 9.99, 'ACTIVE', now(), now())
-                """, id);
     }
 
     private void insertOrder(long id, long customerId) {
@@ -117,74 +121,6 @@ class CrossModuleForeignKeyIntegrityTest extends AbstractIntegrationTest {
             // No customer 999 exists — only possible to insert this now that
             // fk_orders_customer is gone (see V19).
             insertOrder(1L, 999L);
-
-            assertThat(orphanCount(ORPHAN_QUERY)).isEqualTo(1);
-        }
-    }
-
-    @Nested
-    class OrderItemsProductId {
-
-        private static final String ORPHAN_QUERY = """
-                SELECT COUNT(*) FROM oms_order.order_items oi
-                LEFT JOIN oms_product.products p ON oi.product_id = p.id
-                WHERE p.id IS NULL
-                """;
-
-        private void insertOrderItem(long id, long orderId, long productId) {
-            jdbcTemplate.update("""
-                    INSERT INTO oms_order.order_items (id, order_id, product_id, product_name, quantity, unit_price, subtotal, created_at, updated_at)
-                    VALUES (?, ?, ?, 'Widget', 2, 9.99, 19.98, now(), now())
-                    """, id, orderId, productId);
-        }
-
-        @Test
-        void noOrphans_whenEveryOrderItemReferencesAnExistingProduct() {
-            insertCustomer(1L);
-            insertOrder(1L, 1L);
-            insertProduct(1L);
-            insertOrderItem(1L, 1L, 1L);
-
-            assertThat(orphanCount(ORPHAN_QUERY)).isZero();
-        }
-
-        @Test
-        void detectsOrphan_whenProductIdReferencesNoExistingProduct() {
-            insertCustomer(1L);
-            insertOrder(1L, 1L);
-            insertOrderItem(1L, 1L, 999L);
-
-            assertThat(orphanCount(ORPHAN_QUERY)).isEqualTo(1);
-        }
-    }
-
-    @Nested
-    class InventoryProductId {
-
-        private static final String ORPHAN_QUERY = """
-                SELECT COUNT(*) FROM oms_inventory.inventory i
-                LEFT JOIN oms_product.products p ON i.product_id = p.id
-                WHERE p.id IS NULL
-                """;
-
-        private void insertInventory(long id, long productId) {
-            jdbcTemplate.update("""
-                    INSERT INTO oms_inventory.inventory (id, product_id, location, quantity_available, quantity_reserved, reorder_level, created_at, updated_at)
-                    VALUES (?, ?, 'WH-EAST-01', 100, 0, 10, now(), now())
-                    """, id, productId);
-        }
-
-        @Test
-        void noOrphans_whenEveryInventoryRecordReferencesAnExistingProduct() {
-            insertProduct(1L);
-            insertInventory(1L, 1L);
-
-            assertThat(orphanCount(ORPHAN_QUERY)).isZero();
-        }
-
-        @Test
-        void detectsOrphan_whenProductIdReferencesNoExistingProduct() {
-            insertInventory(1L, 999L);
 
             assertThat(orphanCount(ORPHAN_QUERY)).isEqualTo(1);
         }
