@@ -172,7 +172,11 @@ oms-main and are **not** part of this repository:
 - **`oms-bff`** — a GraphQL BFF in front of oms-main, for frontend
   consumption patterns REST doesn't fit well (see `bruno/graphql/`).
 - **`oms-gateway`** — a Spring Cloud Gateway sitting at the edge: JWT
-  validation, Redis-backed rate limiting, and CORS, in front of oms-main.
+  validation, Redis-backed rate limiting, and CORS, in front of the whole
+  system — not just oms-main. It path-routes to product-service,
+  customer-service, and shipment-service directly (`/api/v1/products/**`,
+  `/api/v1/customers/**`, `/api/v1/shipments/**`), falling through to
+  oms-main for everything else still owned there.
 
 Both are referenced from `docker-compose.yml` as sibling checkouts (expected
 at `../oms-bff` and `../oms-gateway` relative to this repo) with their own
