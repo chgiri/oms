@@ -553,6 +553,15 @@ services:
       # up, not just started, same reasoning as its app/bff dependencies above.
       shipment-service:
         condition: service_healthy
+      # Same reasoning, for routes[2]/routes[3] — /api/v1/products/** and
+      # /api/v1/customers/** now route here directly too. No cycle risk
+      # adding these (unlike `app`'s own depends_on further up in this
+      # file) — product-service/customer-service depend on `app` being
+      # healthy for JWT verification, never on `gateway`.
+      product-service:
+        condition: service_healthy
+      customer-service:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8091/actuator/health"]
       interval: 15s

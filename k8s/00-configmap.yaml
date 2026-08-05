@@ -28,6 +28,23 @@ data:
   REDIS_HOST: "redis"       # replace with your managed Redis host/Service name
   REDIS_PORT: "6379"
 
+  # Same reasoning as docker-compose.yml's app/app-worker services — must
+  # resolve in-cluster, not localhost (management.otlp.tracing.endpoint's
+  # own default in application.properties is localhost:4318, which is wrong
+  # here). Assumes a Service named "tempo" in this namespace; replace if
+  # your tracing backend's Service is named differently or lives elsewhere.
+  OTLP_TRACING_ENDPOINT: "http://tempo:4318/v1/traces"
+
+  # Same reasoning, and the same gap docker-compose.yml had until it was
+  # fixed — app.productclient.base-url / app.customerclient.base-url
+  # (application.properties) fall back to localhost without these, which
+  # doesn't resolve from inside a pod. Assumes Services named exactly
+  # "product-service" and "customer-service" in this namespace — replace if
+  # those repos' own k8s manifests end up naming things differently (they
+  # don't have k8s/ directories of their own yet as of this ConfigMap).
+  PRODUCT_SERVICE_URL: "http://product-service:8080"
+  CUSTOMER_SERVICE_URL: "http://customer-service:8080"
+
   JWT_EXPIRATION_MS: "86400000"
   DEFAULT_ADMIN_USERNAME: "admin"
 
