@@ -74,20 +74,21 @@ below before assuming any given module is still owned here.
 ## Microservices extraction status
 
 This repo is executing a staged plan to pull Product, Customer, and Shipment
-out into their own deployables. **Product and Shipment have fully cut
-over — oms-main no longer contains either module at all.** Customer has not
-finished cutting over yet — oms-main still holds the authoritative
-implementation and data for it (though `OrderServiceImpl` already calls out
-to `CustomerClient`/customer-service for reads at order-creation time — see
-Stage 4 below). Don't assume a module is "done" just because a sibling
-service repo exists for it; Product and Shipment are the only ones actually
-finished as of this table.
+out into their own deployables. **All three have had their data cutover
+executed (Stage 3) and confirmed stable.** Product and Shipment have gone
+all the way through Stage 5 — oms-main no longer contains either module at
+all. Customer has completed Stage 4 (`OrderServiceImpl` already calls out
+to `CustomerClient`/customer-service for reads at order-creation time) but
+not yet Stage 5 — oms-main still holds its authoritative implementation and
+data, kept around until it's deleted in its own turn. Don't assume a module
+is "done" just because a sibling service repo exists for it; Product and
+Shipment are the only ones actually finished as of this table.
 
 | Module | Sibling service repo | Scaffold + API contract (Stages 1-2) | Data cutover runbook (Stage 3) | Call sites swapped in oms-main (Stage 4) | Removed from oms-main (Stage 5) |
 |---|---|---|---|---|---|
-| Product | `product-service` | Done | [`docs/stage3-data-cutover-runbook-product.md`](docs/stage3-data-cutover-runbook-product.md) | **Done** | **Done** |
-| Customer | `customer-service` | Done | [`docs/stage3-data-cutover-runbook-customer.md`](docs/stage3-data-cutover-runbook-customer.md) | **Done** | Not yet |
-| Shipment | `shipment-service` | Done | [`docs/stage3-data-cutover-runbook-shipment.md`](docs/stage3-data-cutover-runbook-shipment.md) | N/A — see note | **Done** |
+| Product | `product-service` | Done | **Executed** — [runbook](docs/stage3-data-cutover-runbook-product.md) | **Done** | **Done** |
+| Customer | `customer-service` | Done | **Executed** — [runbook](docs/stage3-data-cutover-runbook-customer.md) | **Done** | Not yet |
+| Shipment | `shipment-service` | Done | **Executed** — [runbook](docs/stage3-data-cutover-runbook-shipment.md) | N/A — see note | **Done** |
 
 Practically, this means:
 
@@ -105,6 +106,11 @@ Practically, this means:
   synchronously, so there was no in-process call site to swap;
   shipment-service's own `OrderClient` (calling back out to oms-main) has
   covered that since Stage 2.
+- All three `stage3-*` runbooks (linked above) are marked **EXECUTED** at
+  the top of each document — they're historical records of the
+  maintenance-window procedure that was followed for each module, not
+  pending tasks. Same for their matching `scripts/stage3-copy-*.sh` — each
+  one now carries an "already run" banner too.
 - Shipment had a wrinkle Product/Customer don't: `OrderConfirmedShipmentConsumer`
   auto-created shipments off a Kafka event, not just REST — its cutover
   runbook has an extra step (stopping oms-main's consumer group membership
@@ -121,10 +127,16 @@ Practically, this means:
   `CustomerClientImpl` has the identical dependency on
   `customer.exception.CustomerNotFoundException` today.
 - `app.customer.writes-frozen` (Customer's maintenance-window freeze flag,
-  still defaults `false`) is still live in this codebase. Product's
-  equivalent (`app.product.writes-frozen`, `ProductWritesFrozenException`)
-  no longer exists here — removed along with the rest of the `product`
-  package at Stage 5, same as Shipment's equivalent was.
+  still defaults `false`) is still live in this codebase — but per the
+  Customer runbook's own Step 8, once its cutover is confirmed stable the
+  flag is meant to be left `true` **permanently** in every real environment
+  from that point forward (the `false` default only matters for a
+  fresh/local environment that's never been through the cutover). Don't
+  read the property default as "writes aren't frozen in production" — check
+  the actual deployed value instead. Product's equivalent
+  (`app.product.writes-frozen`, `ProductWritesFrozenException`) no longer
+  exists here — removed along with the rest of the `product` package at
+  Stage 5, same as Shipment's equivalent was.
 - `ErrorCode`'s `PR501` (`PRODUCT_WRITES_FROZEN`) and `SH100`/`SH101`/`SH501`
   (`SHIPMENT_NOT_FOUND`/`ILLEGAL_SHIPMENT_STATE`/`SHIPMENT_WRITES_FROZEN`)
   entries are all still present in `ErrorCode.java`, marked retired in a
