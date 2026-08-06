@@ -1,6 +1,6 @@
 package com.giri.oms.customerclient.service.impl;
 
-import com.giri.oms.customer.exception.CustomerNotFoundException;
+import com.giri.oms.customerclient.exception.CustomerNotFoundException;
 import com.giri.oms.customerclient.dto.CustomerClientResponse;
 import com.giri.oms.customerclient.exception.CustomerServiceUnavailableException;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;

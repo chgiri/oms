@@ -2,7 +2,7 @@ package com.giri.oms.order.controller;
 
 import tools.jackson.databind.json.JsonMapper;
 import com.giri.oms.common.dto.PagedResponse;
-import com.giri.oms.customer.exception.CustomerNotFoundException;
+import com.giri.oms.customerclient.exception.CustomerNotFoundException;
 import com.giri.oms.order.dto.OrderItemRequest;
 import com.giri.oms.order.dto.OrderItemResponse;
 import com.giri.oms.order.dto.OrderRequest;

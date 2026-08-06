@@ -1,9 +1,6 @@
 package com.giri.oms.payment.repository;
 
 import com.giri.oms.common.AbstractIntegrationTest;
-import com.giri.oms.customer.entity.Customer;
-import com.giri.oms.customer.entity.CustomerStatus;
-import com.giri.oms.customer.repository.CustomerRepository;
 import com.giri.oms.order.entity.Order;
 import com.giri.oms.order.entity.OrderItem;
 import com.giri.oms.order.entity.OrderStatus;
@@ -43,11 +40,12 @@ class PaymentRepositoryTest extends AbstractIntegrationTest {
     @Autowired
     private OrderRepository orderRepository;
 
-    @Autowired
-    private CustomerRepository customerRepository;
-
     private Order order1;
     private Order order2;
+
+    // Stage 5 of the microservices-prep plan: no real Customer row needed
+    // anymore either — same reasoning as MOUSE_ID/etc. below for Product.
+    private static final Long ADA_ID = 1L;
 
     // Stage 5 of the microservices-prep plan: no real Product row needed
     // anymore — same reasoning as OrderRepositoryTest's identical constants.
@@ -59,31 +57,19 @@ class PaymentRepositoryTest extends AbstractIntegrationTest {
     void setUp() {
         paymentRepository.deleteAll();
         orderRepository.deleteAll();
-        customerRepository.deleteAll();
 
-        Customer ada = customerRepository.save(customer("Ada", "Lovelace", "ada@example.com"));
-
-        order1 = orderRepository.save(order(ada, "77.97", 3));
-        order2 = orderRepository.save(order(ada, "25.99", 1));
+        order1 = orderRepository.save(order("77.97", 3));
+        order2 = orderRepository.save(order("25.99", 1));
 
         paymentRepository.save(payment(order1, "77.97", PaymentMethod.CREDIT_CARD, PaymentStatus.PENDING));
         paymentRepository.save(payment(order1, "77.97", PaymentMethod.CREDIT_CARD, PaymentStatus.FAILED));
         paymentRepository.save(payment(order2, "25.99", PaymentMethod.PAYPAL, PaymentStatus.COMPLETED));
     }
 
-    private Customer customer(String firstName, String lastName, String email) {
-        Customer customer = new Customer();
-        customer.setFirstName(firstName);
-        customer.setLastName(lastName);
-        customer.setEmail(email);
-        customer.setStatus(CustomerStatus.ACTIVE);
-        return customer;
-    }
-
-    private Order order(Customer customer, String total, int quantity) {
+    private Order order(String total, int quantity) {
         Order order = new Order();
-        order.setCustomerId(customer.getId());
-        order.setCustomerName(customer.getFirstName() + " " + customer.getLastName());
+        order.setCustomerId(ADA_ID);
+        order.setCustomerName("Ada Lovelace");
         order.setStatus(OrderStatus.PENDING);
         order.setTotalAmount(new BigDecimal(total));
 

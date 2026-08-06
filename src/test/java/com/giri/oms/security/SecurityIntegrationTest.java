@@ -4,8 +4,9 @@ import com.giri.oms.auth.dto.LoginRequest;
 import com.giri.oms.auth.dto.RegisterRequest;
 import com.giri.oms.auth.entity.Role;
 import com.giri.oms.common.AbstractIntegrationTest;
-import com.giri.oms.customer.dto.CustomerRequest;
-import com.giri.oms.customer.entity.CustomerStatus;
+import com.giri.oms.inventory.dto.InventoryRequest;
+import com.giri.oms.productclient.dto.ProductClientResponse;
+import com.giri.oms.productclient.service.ProductClient;
 import tools.jackson.databind.json.JsonMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,11 +14,16 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.context.TestPropertySource;
 
+import java.math.BigDecimal;
+
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -40,6 +46,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * shared for the whole test JVM run (see AbstractIntegrationTest). Production
  * behavior and any future dedicated rate-limit test are unaffected — this only
  * applies within this class.
+ *
+ * Uses `/api/v1/inventory` as its stand-in "some authenticated endpoint" throughout —
+ * `/api/v1/customers` was the original choice, until Customer's own Stage 5 (microservices-prep
+ * plan) removed CustomerController from this codebase entirely. Inventory's create/delete
+ * endpoints also happen to match the exact any-role-creates/admin-only-deletes shape the
+ * original Customer-based test needed, which is why deleteInventory_... below still exercises
+ * the same authorization behavior it always did, just through a different resource.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -54,6 +67,18 @@ class SecurityIntegrationTest extends AbstractIntegrationTest {
 
     @Autowired
     private JsonMapper objectMapper;
+
+    // InventoryServiceImpl.createInventory validates the product exists via
+    // ProductClient (Stage 4 of the microservices-prep plan) — a real HTTP
+    // call in production, which this @SpringBootTest context has no real
+    // product-service to answer. Mocked here purely so
+    // deleteInventory_returns403_forNonAdminRole_andReturns204_forAdmin can
+    // exercise a real create+delete round trip without depending on one —
+    // this class's actual concern is authorization, not product validation
+    // (that's ProductClientImplTest's job). Same pattern
+    // OrderCreatedOutboxIntegrationTest already established for the same reason.
+    @MockitoBean
+    private ProductClient productClient;
 
     // The username/password AdminUserSeeder bootstraps on a fresh database —
     // see application.properties: app.security.default-admin-username/-password.
@@ -83,14 +108,14 @@ class SecurityIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void protectedEndpoint_returns401_withNoToken() throws Exception {
-        mockMvc.perform(get("/api/v1/customers"))
+        mockMvc.perform(get("/api/v1/inventory"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.status").value(401));
     }
 
     @Test
     void protectedEndpoint_returns401_withGarbageToken() throws Exception {
-        mockMvc.perform(get("/api/v1/customers").header("Authorization", "Bearer not-a-real-token"))
+        mockMvc.perform(get("/api/v1/inventory").header("Authorization", "Bearer not-a-real-token"))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -120,7 +145,7 @@ class SecurityIntegrationTest extends AbstractIntegrationTest {
     void protectedEndpoint_returns200_withValidToken() throws Exception {
         String token = loginAndGetToken(adminUsername, adminPassword);
 
-        mockMvc.perform(get("/api/v1/customers").header("Authorization", "Bearer " + token))
+        mockMvc.perform(get("/api/v1/inventory").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk());
     }
 
@@ -133,7 +158,7 @@ class SecurityIntegrationTest extends AbstractIntegrationTest {
 
         // Same token, same signature, still unexpired — but now blacklisted in Redis,
         // so it must be rejected exactly like an invalid one.
-        mockMvc.perform(get("/api/v1/customers").header("Authorization", "Bearer " + token))
+        mockMvc.perform(get("/api/v1/inventory").header("Authorization", "Bearer " + token))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -171,7 +196,7 @@ class SecurityIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void deleteCustomer_returns403_forNonAdminRole_andReturns204_forAdmin() throws Exception {
+    void deleteInventory_returns403_forNonAdminRole_andReturns204_forAdmin() throws Exception {
         String adminToken = loginAndGetToken(adminUsername, adminPassword);
 
         // Provision a STAFF account to test the restriction from a non-admin's perspective.
@@ -183,26 +208,34 @@ class SecurityIntegrationTest extends AbstractIntegrationTest {
                 .andExpect(status().isCreated());
         String staffToken = loginAndGetToken("deleter.staff", "S3curePass!");
 
+        // See the mocked productClient field's Javadoc above — createInventory
+        // validates the product exists via a real HTTP call in production;
+        // this stub stands in for a real product-service response so the
+        // create below succeeds on its own terms, independent of anything
+        // this test is actually trying to verify (authorization, not
+        // product validation).
+        when(productClient.getProduct(any()))
+                .thenReturn(new ProductClientResponse(1L, "Wireless Mouse", new BigDecimal("25.99")));
+
         // Any authenticated role can create — only delete is admin-restricted.
-        CustomerRequest customerRequest = new CustomerRequest(
-                "Ada", "Lovelace", "ada.security.test@example.com", null, null, null, null, null, null, CustomerStatus.ACTIVE);
-        MvcResult createResult = mockMvc.perform(post("/api/v1/customers")
+        InventoryRequest inventoryRequest = new InventoryRequest(1L, "WH-SECURITY-TEST-01", 10, 0, 5);
+        MvcResult createResult = mockMvc.perform(post("/api/v1/inventory")
                         .contentType(MediaType.APPLICATION_JSON)
                         .header("Authorization", "Bearer " + staffToken)
-                        .content(objectMapper.writeValueAsString(customerRequest)))
+                        .content(objectMapper.writeValueAsString(inventoryRequest)))
                 .andExpect(status().isCreated())
                 .andReturn();
 
         String createBody = createResult.getResponse().getContentAsString();
         int idStart = createBody.indexOf("\"id\":") + "\"id\":".length();
         int idEnd = createBody.indexOf(",", idStart);
-        String customerId = createBody.substring(idStart, idEnd);
+        String inventoryId = createBody.substring(idStart, idEnd);
 
-        mockMvc.perform(delete("/api/v1/customers/{id}", customerId)
+        mockMvc.perform(delete("/api/v1/inventory/{id}", inventoryId)
                         .header("Authorization", "Bearer " + staffToken))
                 .andExpect(status().isForbidden());
 
-        mockMvc.perform(delete("/api/v1/customers/{id}", customerId)
+        mockMvc.perform(delete("/api/v1/inventory/{id}", inventoryId)
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isNoContent());
     }

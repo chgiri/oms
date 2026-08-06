@@ -1,7 +1,6 @@
 package com.giri.oms.messaging.outbox;
 
 import com.giri.oms.common.AbstractIntegrationTest;
-import com.giri.oms.customer.repository.CustomerRepository;
 import com.giri.oms.customerclient.dto.CustomerClientResponse;
 import com.giri.oms.customerclient.service.CustomerClient;
 import com.giri.oms.messaging.config.KafkaAppProperties;
@@ -42,14 +41,6 @@ class OrderCreatedOutboxIntegrationTest extends AbstractIntegrationTest {
 
     @Autowired
     private OrderService orderService;
-
-    // Stage 4 of the microservices-prep plan: the test itself no longer
-    // creates Customer rows through this (see customerClient mock below) —
-    // kept only for cleanUp()'s defensive deleteAll(), per the existing note
-    // there about this shared Postgres container leaking state across test
-    // classes.
-    @Autowired
-    private CustomerRepository customerRepository;
 
     @Autowired
     private OrderRepository orderRepository;
@@ -92,10 +83,9 @@ class OrderCreatedOutboxIntegrationTest extends AbstractIntegrationTest {
     // createOrder() is real and persists in the shared Postgres container
     // (see AbstractIntegrationTest) beyond this test class's own run. Without
     // this, the Order/OrderItem rows created here leak into whichever test
-    // class Maven happens to run next (Customer's own equivalent leak risk
-    // is why CustomerRepository is still autowired below, purely for this
-    // defensive cleanup — Product has no such repository left to clean as
-    // of Stage 5, since product-service owns that data now).
+    // class Maven happens to run next. Neither Customer nor Product has a
+    // repository left here to clean as of both reaching Stage 5 —
+    // customer-service/product-service own that data now.
     @AfterEach
     void tearDown() {
         cleanUp();
@@ -104,7 +94,6 @@ class OrderCreatedOutboxIntegrationTest extends AbstractIntegrationTest {
     private void cleanUp() {
         outboxEventRepository.deleteAll();
         orderRepository.deleteAll();
-        customerRepository.deleteAll();
     }
 
     @Test

@@ -3,9 +3,7 @@ package com.giri.oms.common.exception;
 import com.giri.oms.auth.exception.EmailAlreadyExistsException;
 import com.giri.oms.auth.exception.UsernameAlreadyExistsException;
 import com.giri.oms.common.lock.LockAcquisitionException;
-import com.giri.oms.customer.exception.CustomerEmailAlreadyExistsException;
-import com.giri.oms.customer.exception.CustomerNotFoundException;
-import com.giri.oms.customer.exception.CustomerWritesFrozenException;
+import com.giri.oms.customerclient.exception.CustomerNotFoundException;
 import com.giri.oms.customerclient.exception.CustomerServiceUnavailableException;
 import com.giri.oms.inventory.exception.InventoryAlreadyExistsException;
 import com.giri.oms.inventory.exception.InventoryNotFoundException;
@@ -66,20 +64,16 @@ public class GlobalExceptionHandler {
         return build(codeOf(ex), ex.getMessage(), request);
     }
 
-    // Stage 3 of the microservices-prep plan (data cutover) — see
-    // CustomerWritesFrozenException's Javadoc. (This used to have an
-    // identical handleProductWritesFrozen sibling above — removed as of
-    // Stage 5, once the product package itself was deleted and
-    // ProductWritesFrozenException with it; see ErrorCode.PRODUCT_WRITES_FROZEN's
-    // own RETIRED note for the full story.)
-    @ExceptionHandler(CustomerWritesFrozenException.class)
-    public ResponseEntity<ErrorResponse> handleCustomerWritesFrozen(CustomerWritesFrozenException ex, HttpServletRequest request) {
-        log.warn("Customer write rejected — writes frozen for data cutover — path: {}", request.getRequestURI());
-        return build(codeOf(ex), ex.getMessage(), request);
-    }
-
     // Same reasoning as handleProductServiceUnavailable above — see
-    // CustomerServiceUnavailableException's Javadoc.
+    // CustomerServiceUnavailableException's Javadoc. (This used to have
+    // handleCustomerWritesFrozen and handleCustomerAlreadyExists siblings
+    // right below — both removed as of Stage 5, once the customer package
+    // itself was deleted and CustomerWritesFrozenException/
+    // CustomerEmailAlreadyExistsException with it; see
+    // ErrorCode.CUSTOMER_WRITES_FROZEN's/CUSTOMER_EMAIL_ALREADY_EXISTS' own
+    // RETIRED notes for the full story. CustomerNotFoundException below
+    // survived the same way ProductNotFoundException did — see that class's
+    // Javadoc.)
     @ExceptionHandler(CustomerServiceUnavailableException.class)
     public ResponseEntity<ErrorResponse> handleCustomerServiceUnavailable(CustomerServiceUnavailableException ex, HttpServletRequest request) {
         log.error("customer-service unavailable — path: {}, message: {}", request.getRequestURI(), ex.getMessage());
@@ -89,12 +83,6 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(CustomerNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleCustomerNotFound(CustomerNotFoundException ex, HttpServletRequest request) {
         log.warn("Customer not found — path: {}, message: {}", request.getRequestURI(), ex.getMessage());
-        return build(codeOf(ex), ex.getMessage(), request);
-    }
-
-    @ExceptionHandler(CustomerEmailAlreadyExistsException.class)
-    public ResponseEntity<ErrorResponse> handleCustomerAlreadyExists(CustomerEmailAlreadyExistsException ex, HttpServletRequest request) {
-        log.warn("Customer already exists — path: {}, message: {}", request.getRequestURI(), ex.getMessage());
         return build(codeOf(ex), ex.getMessage(), request);
     }
 

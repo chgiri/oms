@@ -1,9 +1,6 @@
 package com.giri.oms.order.repository;
 
 import com.giri.oms.common.AbstractIntegrationTest;
-import com.giri.oms.customer.entity.Customer;
-import com.giri.oms.customer.entity.CustomerStatus;
-import com.giri.oms.customer.repository.CustomerRepository;
 import com.giri.oms.order.entity.Order;
 import com.giri.oms.order.entity.OrderItem;
 import com.giri.oms.order.entity.OrderStatus;
@@ -36,11 +33,15 @@ class OrderRepositoryTest extends AbstractIntegrationTest {
     @Autowired
     private OrderRepository orderRepository;
 
-    @Autowired
-    private CustomerRepository customerRepository;
-
-    private Customer ada;
-    private Customer alan;
+    // Stage 5 of the microservices-prep plan: no real Customer row needed
+    // anymore either — same reasoning as MOUSE_ID/etc. below for Product.
+    // orders.customer_id has had its FK dropped since Phase 2
+    // (V19__drop_cross_module_fk_constraints.sql), and customer now lives
+    // entirely in customer-service's own database, unreachable from this
+    // @DataJpaTest slice anyway. Plain ids/names are enough for every query
+    // these tests exercise.
+    private static final Long ADA_ID = 1L;
+    private static final Long ALAN_ID = 2L;
 
     // Stage 5 of the microservices-prep plan: no real Product row needed
     // anymore — order_items.product_id has had its FK dropped since Phase 2
@@ -55,29 +56,16 @@ class OrderRepositoryTest extends AbstractIntegrationTest {
     @BeforeEach
     void setUp() {
         orderRepository.deleteAll();
-        customerRepository.deleteAll();
 
-        ada = customerRepository.save(customer("Ada", "Lovelace", "ada@example.com"));
-        alan = customerRepository.save(customer("Alan", "Turing", "alan@example.com"));
-
-        orderRepository.save(order(ada, OrderStatus.PENDING, "77.97", 3));
-        orderRepository.save(order(ada, OrderStatus.DELIVERED, "25.99", 1));
-        orderRepository.save(order(alan, OrderStatus.CANCELLED, "51.98", 2));
+        orderRepository.save(order(ADA_ID, "Ada Lovelace", OrderStatus.PENDING, "77.97", 3));
+        orderRepository.save(order(ADA_ID, "Ada Lovelace", OrderStatus.DELIVERED, "25.99", 1));
+        orderRepository.save(order(ALAN_ID, "Alan Turing", OrderStatus.CANCELLED, "51.98", 2));
     }
 
-    private Customer customer(String firstName, String lastName, String email) {
-        Customer customer = new Customer();
-        customer.setFirstName(firstName);
-        customer.setLastName(lastName);
-        customer.setEmail(email);
-        customer.setStatus(CustomerStatus.ACTIVE);
-        return customer;
-    }
-
-    private Order order(Customer customer, OrderStatus status, String total, int quantity) {
+    private Order order(Long customerId, String customerName, OrderStatus status, String total, int quantity) {
         Order order = new Order();
-        order.setCustomerId(customer.getId());
-        order.setCustomerName(customer.getFirstName() + " " + customer.getLastName());
+        order.setCustomerId(customerId);
+        order.setCustomerName(customerName);
         order.setStatus(status);
         order.setTotalAmount(new BigDecimal(total));
 
@@ -94,7 +82,7 @@ class OrderRepositoryTest extends AbstractIntegrationTest {
 
     @Test
     void findByCustomerId_returnsAllOrdersForThatCustomer() {
-        List<Order> results = orderRepository.findByCustomerId(ada.getId());
+        List<Order> results = orderRepository.findByCustomerId(ADA_ID);
 
         assertThat(results).hasSize(2);
     }
@@ -104,12 +92,12 @@ class OrderRepositoryTest extends AbstractIntegrationTest {
         List<Order> results = orderRepository.findByStatus(OrderStatus.CANCELLED);
 
         assertThat(results).hasSize(1);
-        assertThat(results.get(0).getCustomerId()).isEqualTo(alan.getId());
+        assertThat(results.get(0).getCustomerId()).isEqualTo(ALAN_ID);
     }
 
     @Test
     void cascadeSave_persistsOrderItemsWithTheOrder() {
-        List<Order> results = orderRepository.findByCustomerId(ada.getId());
+        List<Order> results = orderRepository.findByCustomerId(ADA_ID);
 
         Order pendingOrder = results.stream()
                 .filter(o -> o.getStatus() == OrderStatus.PENDING)
@@ -123,7 +111,7 @@ class OrderRepositoryTest extends AbstractIntegrationTest {
     @Test
     void searchOrders_filtersOnAllProvidedCriteria() {
         Page<Order> results = orderRepository.searchOrders(
-                ada.getId(), OrderStatus.PENDING, null, null, PageRequest.of(0, 10));
+                ADA_ID, OrderStatus.PENDING, null, null, PageRequest.of(0, 10));
 
         assertThat(results.getContent()).hasSize(1);
         assertThat(results.getContent().get(0).getStatus()).isEqualTo(OrderStatus.PENDING);

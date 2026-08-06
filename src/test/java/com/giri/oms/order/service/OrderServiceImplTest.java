@@ -2,7 +2,7 @@ package com.giri.oms.order.service;
 
 import com.giri.oms.common.dto.PagedResponse;
 import com.giri.oms.common.exception.InvalidSortFieldException;
-import com.giri.oms.customer.exception.CustomerNotFoundException;
+import com.giri.oms.customerclient.exception.CustomerNotFoundException;
 import com.giri.oms.customerclient.dto.CustomerClientResponse;
 import com.giri.oms.customerclient.exception.CustomerServiceUnavailableException;
 import com.giri.oms.customerclient.service.CustomerClient;

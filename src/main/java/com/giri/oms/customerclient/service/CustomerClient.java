@@ -6,7 +6,7 @@ import com.giri.oms.customerclient.dto.CustomerClientResponse;
  * The monolith's client to customer-service. Deliberately shaped like
  * {@code CustomerService.getCustomerById} (same single method, same
  * throws-on-not-found contract via
- * {@link com.giri.oms.customer.exception.CustomerNotFoundException}) so that
+ * {@link com.giri.oms.customerclient.exception.CustomerNotFoundException}) so that
  * swapping OrderServiceImpl's call site from the in-process CustomerService
  * to this (Stage 4) is close to a one-line change, not a rewrite of the
  * caller's error handling. Mirrors {@code productclient.service.ProductClient}
@@ -15,7 +15,7 @@ import com.giri.oms.customerclient.dto.CustomerClientResponse;
 public interface CustomerClient {
 
     /**
-     * @throws com.giri.oms.customer.exception.CustomerNotFoundException customer-service
+     * @throws com.giri.oms.customerclient.exception.CustomerNotFoundException customer-service
      *         returned 404 — the customer genuinely doesn't exist. Never retried,
      *         never counted against the circuit breaker (see CustomerClientImpl).
      * @throws com.giri.oms.customerclient.exception.CustomerServiceUnavailableException

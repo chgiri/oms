@@ -8,7 +8,7 @@ import org.springframework.modulith.docs.Documenter;
  * Enforces module boundaries while oms-main is still a single deployable.
  *
  * ApplicationModules.of(OmsApplication.class) treats every direct sub-package
- * of com.giri.oms (auth, customer, inventory, order, payment, product,
+ * of com.giri.oms (auth, customerclient, inventory, order, payment,
  * productclient, security, common, messaging) as its own application module. By
  * default, only types sitting directly in a module's root package are that
  * module's public API — everything in a sub-package (entity, repository,
@@ -16,8 +16,8 @@ import org.springframework.modulith.docs.Documenter;
  * off-limits to every other module.
  *
  * Since none of our modules actually put anything in their root package
- * (customer, order, etc. are all empty — real types live in customer.dto,
- * customer.service, and so on), each module instead opens exactly the
+ * (order, payment, etc. are all empty — real types live in order.dto,
+ * order.service, and so on), each module instead opens exactly the
  * sub-packages that ARE meant to be its public surface via a package-info.java
  * annotated with @NamedInterface: `dto`, `service` (the interface, never
  * `service.impl`), and `exception` (thrown across the boundary and consumed
@@ -59,6 +59,23 @@ import org.springframework.modulith.docs.Documenter;
  * not-found contract still throws it, so it was relocated to
  * productclient.exception.ProductNotFoundException rather than removed (see
  * that class's own Javadoc).
+ *
+ * Order→Customer went through the identical Stage 4/Stage 5 progression as
+ * Order→Product above, on its own separate timeline: OrderServiceImpl
+ * stopped depending on the customer module's service interface once
+ * customerclient.service.CustomerClient existed (Stage 4), and customer is
+ * gone now as of its own Stage 5 — same reasoning as product's removal
+ * above, and the same wrinkle: customer.exception.CustomerNotFoundException
+ * couldn't be deleted outright either, since CustomerClient's own not-found
+ * contract still throws it — relocated to
+ * customerclient.exception.CustomerNotFoundException rather than removed
+ * (see that class's own Javadoc). One difference from Product's cutover:
+ * customer.exception.CustomerEmailAlreadyExistsException had no equivalent
+ * in Product at all — that was CustomerServiceImpl's own in-process
+ * uniqueness validation, with nothing in CustomerClient's read-only
+ * getCustomer(id) that could ever throw it, so it retired outright rather
+ * than relocating anywhere (see ErrorCode.CUSTOMER_EMAIL_ALREADY_EXISTS'
+ * own RETIRED note).
  *
  * Shipment used to be a fourth module here, with the exact same
  * Shipment→Order coupling described above (a plain orderId Long column,

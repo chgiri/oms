@@ -1,9 +1,6 @@
 package com.giri.oms.order.repository;
 
 import com.giri.oms.common.AbstractIntegrationTest;
-import com.giri.oms.customer.entity.Customer;
-import com.giri.oms.customer.entity.CustomerStatus;
-import com.giri.oms.customer.repository.CustomerRepository;
 import com.giri.oms.order.entity.Order;
 import com.giri.oms.order.entity.OrderStatus;
 import jakarta.persistence.EntityManager;
@@ -45,29 +42,26 @@ class OrderOptimisticLockingTest extends AbstractIntegrationTest {
     @Autowired
     private OrderRepository orderRepository;
 
-    @Autowired
-    private CustomerRepository customerRepository;
-
     @PersistenceContext
     private EntityManager entityManager;
 
     private Long orderId;
 
+    // Stage 5 of the microservices-prep plan: no real Customer row needed
+    // anymore — orders.customer_id has had its FK dropped since Phase 2
+    // (V19__drop_cross_module_fk_constraints.sql), and customer now lives
+    // entirely in customer-service's own database, unreachable from this
+    // @DataJpaTest slice anyway. This test is about optimistic locking on
+    // Order itself, not customer data — a plain id/name is enough.
+    private static final Long ADA_ID = 1L;
+
     @BeforeEach
     void setUp() {
         orderRepository.deleteAll();
-        customerRepository.deleteAll();
-
-        Customer customer = new Customer();
-        customer.setFirstName("Ada");
-        customer.setLastName("Lovelace");
-        customer.setEmail("ada.optimistic-lock-test@example.com");
-        customer.setStatus(CustomerStatus.ACTIVE);
-        customerRepository.saveAndFlush(customer);
 
         Order order = new Order();
-        order.setCustomerId(customer.getId());
-        order.setCustomerName(customer.getFirstName() + " " + customer.getLastName());
+        order.setCustomerId(ADA_ID);
+        order.setCustomerName("Ada Lovelace");
         order.setStatus(OrderStatus.PENDING);
         order.setTotalAmount(new BigDecimal("99.99"));
         orderRepository.saveAndFlush(order);

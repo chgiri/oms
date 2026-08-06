@@ -106,17 +106,43 @@ public enum ErrorCode {
             "Product writes are temporarily frozen for a data migration — please try again shortly"),
 
     // ---- Customer (CU) ----
+    // Stage 5 of the microservices-prep plan deleted the customer package
+    // itself. Same split as Product's block above — NOT all four codes
+    // below retired with it. CUSTOMER_NOT_FOUND and CUSTOMER_SERVICE_UNAVAILABLE
+    // are still live: they're part of customerclient.service.CustomerClient's
+    // contract now (see CustomerClientImpl and
+    // customerclient.exception.CustomerNotFoundException, which the original
+    // customer.exception.CustomerNotFoundException was relocated to rather
+    // than deleted). CUSTOMER_WRITES_FROZEN retired the same way
+    // PRODUCT_WRITES_FROZEN did — see its own note below. One code Product's
+    // block doesn't have an equivalent of: CUSTOMER_EMAIL_ALREADY_EXISTS also
+    // retires here — that uniqueness check was CustomerServiceImpl's own
+    // in-process validation (customerRepository.existsByEmailIgnoreCase),
+    // not something CustomerClient's read-only getCustomer(id) ever needed
+    // or could throw. customer-service now owns that validation entirely on
+    // its own write path.
     CUSTOMER_NOT_FOUND("E", "CU", "100", HttpStatus.NOT_FOUND,
             "Customer not found with id: %d"),
+    // RETIRED as of Stage 5 — CustomerEmailAlreadyExistsException (and the
+    // whole customer package with it) is gone; nothing in this codebase
+    // throws this anymore. Kept per this class's own append-only policy.
+    // customer-service's own equivalent validation/error code is the
+    // current, sole owner of this concern now.
     CUSTOMER_EMAIL_ALREADY_EXISTS("E", "CU", "101", HttpStatus.CONFLICT,
             "A customer already exists with email: %s"),
     // Same reasoning as PRODUCT_SERVICE_UNAVAILABLE above — deliberately NOT
     // reused for a 404 (that's still CUSTOMER_NOT_FOUND).
     CUSTOMER_SERVICE_UNAVAILABLE("E", "CU", "500", HttpStatus.SERVICE_UNAVAILABLE,
             "Customer service is currently unavailable (customer id: %d) — please try again shortly"),
-    // Stage 3 of the microservices-prep plan (data cutover) — see
-    // CustomerWritesFrozenException. Time-boxed to the maintenance window,
-    // never left on outside of an active cutover.
+    // RETIRED as of Stage 5 — CustomerWritesFrozenException (and the whole
+    // customer package with it) is gone; nothing in this codebase throws
+    // this anymore. Kept per this class's own append-only policy, same
+    // reasoning as PRODUCT_WRITES_FROZEN above — a client that logged
+    // ECU501 historically should still find it documented here.
+    // customer-service's own write path never had an equivalent freeze
+    // mechanism to begin with (that concern was specific to oms-main's
+    // in-process write path during the cutover window, not something
+    // customer-service needs going forward).
     CUSTOMER_WRITES_FROZEN("E", "CU", "501", HttpStatus.SERVICE_UNAVAILABLE,
             "Customer writes are temporarily frozen for a data migration — please try again shortly"),
 

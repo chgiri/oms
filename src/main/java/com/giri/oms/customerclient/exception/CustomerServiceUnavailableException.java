@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
  * could not be reached or did not answer in time" — same reasoning as
  * {@code productclient.exception.ProductServiceUnavailableException}.
  * Deliberately distinct from
- * {@link com.giri.oms.customer.exception.CustomerNotFoundException}, which
+ * {@link com.giri.oms.customerclient.exception.CustomerNotFoundException}, which
  * CustomerClientImpl throws instead for a 404 — a legitimate business
  * rejection, not a service-health problem, and the two must stay
  * distinguishable to the caller and to the circuit breaker (a 404 must never
