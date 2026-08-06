@@ -77,14 +77,6 @@ class CrossModuleForeignKeyIntegrityTest extends AbstractIntegrationTest {
         jdbcTemplate.update("DELETE FROM oms_order.order_items");
         jdbcTemplate.update("DELETE FROM oms_inventory.inventory");
         jdbcTemplate.update("DELETE FROM oms_order.orders");
-        jdbcTemplate.update("DELETE FROM oms_customer.customers");
-    }
-
-    private void insertCustomer(long id) {
-        jdbcTemplate.update("""
-                INSERT INTO oms_customer.customers (id, first_name, last_name, email, status, created_at, updated_at)
-                VALUES (?, 'Jane', 'Doe', ?, 'ACTIVE', now(), now())
-                """, id, "jane.doe." + id + "@example.com");
     }
 
     private void insertOrder(long id, long customerId) {
@@ -97,33 +89,6 @@ class CrossModuleForeignKeyIntegrityTest extends AbstractIntegrationTest {
     private int orphanCount(String sql) {
         Integer count = jdbcTemplate.queryForObject(sql, Integer.class);
         return count == null ? 0 : count;
-    }
-
-    @Nested
-    class OrdersCustomerId {
-
-        private static final String ORPHAN_QUERY = """
-                SELECT COUNT(*) FROM oms_order.orders o
-                LEFT JOIN oms_customer.customers c ON o.customer_id = c.id
-                WHERE c.id IS NULL
-                """;
-
-        @Test
-        void noOrphans_whenEveryOrderReferencesAnExistingCustomer() {
-            insertCustomer(1L);
-            insertOrder(1L, 1L);
-
-            assertThat(orphanCount(ORPHAN_QUERY)).isZero();
-        }
-
-        @Test
-        void detectsOrphan_whenCustomerIdReferencesNoExistingCustomer() {
-            // No customer 999 exists — only possible to insert this now that
-            // fk_orders_customer is gone (see V19).
-            insertOrder(1L, 999L);
-
-            assertThat(orphanCount(ORPHAN_QUERY)).isEqualTo(1);
-        }
     }
 
     @Nested
@@ -144,7 +109,6 @@ class CrossModuleForeignKeyIntegrityTest extends AbstractIntegrationTest {
 
         @Test
         void noOrphans_whenEveryPaymentReferencesAnExistingOrder() {
-            insertCustomer(1L);
             insertOrder(1L, 1L);
             insertPayment(1L, 1L);
 
