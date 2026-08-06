@@ -2,7 +2,7 @@
   "id": null,
   "uid": "oms-overview",
   "title": "OMS Overview",
-  "description": "Starter dashboard for the Order Management System: web/worker split via the `role` tag, HTTP traffic, Kafka consumer lag, transactional outbox, JVM, and DB pool. Generated to match the metrics already exposed at /actuator/prometheus \u2014 see application.properties and OutboxMetrics.java.",
+  "description": "Starter dashboard for the Order Management System: web/worker split via the `role` tag, HTTP traffic, Kafka consumer lag, transactional outbox, JVM, and DB pool. Generated to match the metrics already exposed at /actuator/prometheus — see application.properties and OutboxMetrics.java.",
   "tags": [
     "oms"
   ],
@@ -324,7 +324,7 @@
     },
     {
       "id": 8,
-      "title": "HTTP \u2014 web role",
+      "title": "HTTP — web role",
       "type": "row",
       "gridPos": {
         "h": 1,
@@ -502,7 +502,7 @@
     },
     {
       "id": 12,
-      "title": "Kafka & Outbox \u2014 worker role",
+      "title": "Kafka & Outbox — worker role",
       "type": "row",
       "gridPos": {
         "h": 1,
@@ -721,7 +721,7 @@
     },
     {
       "id": 17,
-      "title": "JVM & DB pool \u2014 by role",
+      "title": "JVM & DB pool — by role",
       "type": "row",
       "gridPos": {
         "h": 1,
@@ -956,6 +956,136 @@
       }
     },
     {
+      "id": 25,
+      "type": "row",
+      "title": "Shipment Service",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 56
+      },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 26,
+      "title": "HTTP latency p50 / p95 / p99 — shipment-service",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 57
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.50, sum(rate(http_server_requests_seconds_bucket{application=\"shipment-service\",role=\"web\"}[5m])) by (le))",
+          "legendFormat": "p50",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{application=\"shipment-service\",role=\"web\"}[5m])) by (le))",
+          "legendFormat": "p95",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.99, sum(rate(http_server_requests_seconds_bucket{application=\"shipment-service\",role=\"web\"}[5m])) by (le))",
+          "legendFormat": "p99",
+          "refId": "C"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "stacking": {
+              "mode": "none"
+            },
+            "pointSize": 4
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 27,
+      "title": "Outbox: pending depth — shipment-service",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 57
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "outbox_events_pending{application=\"shipment-service\"}",
+          "legendFormat": "pending",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "stacking": {
+              "mode": "none"
+            },
+            "pointSize": 4
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "description": "This service's own outbox_events table (no schema qualifier — dedicated database, unlike oms-main's oms_messaging.outbox_events). Same OutboxMetrics gauge shape, just a different application tag."
+    },
+    {
       "id": 22,
       "title": "Logs",
       "type": "row",
@@ -963,7 +1093,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 56
+        "y": 65
       },
       "collapsed": false,
       "panels": []
@@ -976,7 +1106,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 57
+        "y": 66
       },
       "datasource": {
         "type": "loki",
@@ -1016,7 +1146,7 @@
           "mode": "multi"
         }
       },
-      "description": "Only populated for the oms-app*/oms-app-worker* containers \u2014 see the match/regex stage in monitoring/promtail/promtail-config.yaml that extracts the \"level\" label from the app's log line format."
+      "description": "Only populated for the oms-app*/oms-app-worker* containers — see the match/regex stage in monitoring/promtail/promtail-config.yaml that extracts the \"level\" label from the app's log line format."
     },
     {
       "id": 24,
@@ -1026,7 +1156,7 @@
         "h": 8,
         "w": 16,
         "x": 8,
-        "y": 57
+        "y": 66
       },
       "datasource": {
         "type": "loki",
@@ -1057,7 +1187,7 @@
         "dedupStrategy": "none",
         "sortOrder": "Descending"
       },
-      "description": "LogQL \u2014 try {container=~\"oms-app.*\"} |= \"ERROR\", or filter to one request with |= \"<correlation-id>\" (correlation_id is parsed but deliberately not a label; see promtail-config.yaml)."
+      "description": "LogQL — try {container=~\"oms-app.*\"} |= \"ERROR\", or filter to one request with |= \"<correlation-id>\" (correlation_id is parsed but deliberately not a label; see promtail-config.yaml)."
     }
   ],
   "templating": {

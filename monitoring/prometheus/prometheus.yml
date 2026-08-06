@@ -46,6 +46,18 @@ scrape_configs:
         labels:
           compose_service: product-service
 
+  # Stage 7 of the microservices-prep plan (Phase 4, Shipment extraction).
+  # Single container in docker-compose.yml, no web/worker split there (see
+  # that file's shipment-service block), so a static target is correct here
+  # the same way oms-web's/product-service's are, and for the same reason
+  # (fixed container_name, single instance).
+  - job_name: shipment-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["shipment-service:8081"]
+        labels:
+          compose_service: shipment-service
+
   # For running the app straight from IntelliJ instead of the `app`/
   # `app-worker` containers — point your run config at postgres/kafka/redis
   # via their published host ports (localhost:5432, localhost:29092,

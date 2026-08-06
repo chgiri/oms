@@ -236,18 +236,18 @@ docker compose up --build
 
 This starts Postgres, Kafka, Redis, a dev-mode Vault (seeded automatically),
 the app (`web` + `worker` roles), Prometheus, Grafana, Loki/Promtail, Tempo,
-`oms-bff`, `oms-gateway`, `product-service`, and `customer-service` — the
-whole stack in one shot, given sibling checkouts of `oms-bff`, `oms-gateway`,
-`product-service`, and `customer-service` (see
-[Sibling services](#sibling-services-separate-repos) above for the expected
-directory layout). It does **not** start `shipment-service` — that
-extraction hasn't reached a docker-compose wiring step yet (Stage 7; see
-[Microservices extraction status](#microservices-extraction-status) above).
-**Unlike Product/Customer, this isn't optional if you need shipment
-functionality**: Stage 5 already removed the `shipment` module from
-oms-main entirely, so without a separately-run `shipment-service` instance
-there's no shipment functionality anywhere in your local stack at all — no
-fallback in oms-main to fall back on.
+`oms-bff`, `oms-gateway`, `product-service`, `customer-service`, and
+`shipment-service` — the whole stack in one shot, given sibling checkouts of
+`oms-bff`, `oms-gateway`, `product-service`, `customer-service`, and
+`shipment-service` (see [Sibling services](#sibling-services-separate-repos)
+above for the expected directory layout). Docker Compose's half of Stage 7
+is done for all three extracted services now — see
+[Microservices extraction status](#microservices-extraction-status) above.
+**Unlike Product/Customer, running `shipment-service` isn't optional if you
+need shipment functionality**: Stage 5 already removed the `shipment`
+module from oms-main entirely, so without it there's no shipment
+functionality anywhere in your local stack at all — no fallback in oms-main
+to fall back on.
 
 - API: http://localhost:8080
 - Swagger UI: http://localhost:8080/docs
