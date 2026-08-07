@@ -338,8 +338,7 @@ Loki/Tempo setup. Grafana auto-provisions three dashboards, not just one —
 the original OMS Overview plus a companion **product-service Overview** and
 **customer-service Overview** (`monitoring/grafana/dashboards/*.json`), each
 scoped to its own `application` label so their panels never mix on the
-shared instance. No equivalent for shipment-service yet — unconfirmed
-whether that's been built.
+shared instance.
 
 ## Project structure
 
