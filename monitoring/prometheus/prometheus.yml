@@ -72,3 +72,29 @@ scrape_configs:
       - targets: ["host.docker.internal:8081"]
         labels:
           compose_service: host-intellij
+
+  # Stage 7 of the microservices-prep plan (Phase 4, Customer extraction).
+  # Same reasoning as product-service's target above — 8081 is
+  # customer-service's own container metrics port, not the host-mapped
+  # 8092 from docker-compose.yml.
+  - job_name: customer-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["customer-service:8081"]
+        labels:
+          compose_service: customer-service
+
+  # For running the app straight from IntelliJ instead of the `app`/
+  # `app-worker` containers — point your run config at postgres/kafka/redis
+  # via their published host ports (localhost:5432, localhost:29092,
+  # localhost:6379; see .env), and this job picks it up on 8081 the same
+  # way oms-web does for the containerized version. Harmless to leave
+  # enabled even when you're not using it: if nothing's listening on
+  # host.docker.internal:8081, this target just shows as "down" in
+  # Prometheus (Status → Targets) instead of erroring.
+  - job_name: oms-host-intellij
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["host.docker.internal:8081"]
+        labels:
+          compose_service: host-intellij
