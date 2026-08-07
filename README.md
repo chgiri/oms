@@ -243,6 +243,9 @@ the app (`web` + `worker` roles), Prometheus, Grafana, Loki/Promtail, Tempo,
 above for the expected directory layout). Docker Compose's half of Stage 7
 is done for all three extracted services now — see
 [Microservices extraction status](#microservices-extraction-status) above.
+The other half — each service's own `k8s/` manifests and CI pipeline, in
+its own repo, not this one — is also done for `product-service` and
+`customer-service` (see their respective `k8s/README.md`)
 **Unlike Product/Customer, running `shipment-service` isn't optional if you
 need shipment functionality**: Stage 5 already removed the `shipment`
 module from oms-main entirely, so without it there's no shipment
@@ -331,7 +334,12 @@ a real product-service/customer-service instance running.
 ## Monitoring
 
 See [`monitoring/README.md`](monitoring/README.md) for the Prometheus/Grafana/
-Loki/Tempo setup and the pre-built OMS Overview dashboard.
+Loki/Tempo setup. Grafana auto-provisions three dashboards, not just one —
+the original OMS Overview plus a companion **product-service Overview** and
+**customer-service Overview** (`monitoring/grafana/dashboards/*.json`), each
+scoped to its own `application` label so their panels never mix on the
+shared instance. No equivalent for shipment-service yet — unconfirmed
+whether that's been built.
 
 ## Project structure
 
